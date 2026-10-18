@@ -2,7 +2,7 @@
 pragma solidity =0.8.37;
 
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
-import {IERC721Receiver} from "../src/interfaces/external/IERC721Receiver.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
 
 import {MockERC20Payment} from "./mocks/MockLOVE20Group.sol";
@@ -37,8 +37,8 @@ contract ManagerTest is GroupChatFixture {
         assertEq(info.beforePostPlugin, address(beforePlugin));
         assertEq(info.afterPostPlugin, address(0));
 
-        assertTrue(manager.canPost(groupId, senderId, senderOwner));
-        assertEq(manager.voteWeightOf(groupId, senderOwner), 1);
+        assertTrue(manager.canPost(groupId, senderId));
+        assertEq(manager.voteWeightOf(groupId, senderId), 1);
     }
 
     function testT101_managerOwnerCannotStopPostingThroughGroupChat() public {
@@ -48,26 +48,28 @@ contract ManagerTest is GroupChatFixture {
 
         vm.prank(chatOwner);
         vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
     }
 
     function testT102_managerDoesNotExposeReconfigureEntrypoints() public {
         MockManager manager = new MockManager(address(chat), address(0), address(0), address(0), address(managerCenter));
 
         _expectUnknownSelector(
-            address(manager), abi.encodeWithSignature("setPostingAllowed(uint256,bool)", groupId, false)
+            address(manager), abi.encodeWithSignature("setPostingAllowed(uint256,uint256,bool)", groupId, groupId, false)
         );
         _expectUnknownSelector(
-            address(manager), abi.encodeWithSignature("setScopeSource(uint256,address)", groupId, other)
+            address(manager), abi.encodeWithSignature("setScopeSource(uint256,uint256,address)", groupId, groupId, other)
         );
         _expectUnknownSelector(
-            address(manager), abi.encodeWithSignature("setBanSource(uint256,address)", groupId, other)
+            address(manager), abi.encodeWithSignature("setBanSource(uint256,uint256,address)", groupId, groupId, other)
         );
         _expectUnknownSelector(
-            address(manager), abi.encodeWithSignature("setBeforePostPlugin(uint256,address)", groupId, other)
+            address(manager),
+            abi.encodeWithSignature("setBeforePostPlugin(uint256,uint256,address)", groupId, groupId, other)
         );
         _expectUnknownSelector(
-            address(manager), abi.encodeWithSignature("setAfterPostPlugin(uint256,address)", groupId, other)
+            address(manager),
+            abi.encodeWithSignature("setAfterPostPlugin(uint256,uint256,address)", groupId, groupId, other)
         );
         _expectUnknownSelector(address(manager), abi.encodeWithSignature("setDelegateId(uint256,uint256)", groupId, 0));
     }

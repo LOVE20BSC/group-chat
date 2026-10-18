@@ -2,6 +2,7 @@
 pragma solidity =0.8.37;
 
 import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
+import {IBaseTokenActionScopeManager} from "../src/interfaces/managers/IBaseTokenActionScopeManager.sol";
 
 import {TokenActionGovManager} from "../src/managers/TokenActionGovManager.sol";
 import {TokenActionMainManager} from "../src/managers/TokenActionMainManager.sol";
@@ -34,23 +35,21 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokenGroupIds[0], groupId);
         _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_main_LOVE20_");
 
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setBalance(senderOwner, 1);
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(_canPostAllowed(groupId, senderId));
         protocol.setBalance(senderOwner, 2);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(_canPostAllowed(groupId, senderId));
         protocol.setBalance(senderOwner, 0);
-        protocol.setGovVotes(token, senderOwner, 9);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        assertEq(manager.voteWeightOf(groupId, senderOwner), 9);
+        protocol.setGovVotes(token, senderId, 9);
+        assertTrue(_canPostAllowed(groupId, senderId));
+        assertEq(manager.voteWeightOf(groupId, senderId), 9);
         assertEq(manager.totalVoteWeight(groupId), 9);
-        protocol.setGovVotes(token, senderOwner, 0);
-        protocol.setJoinedAmountByAccount(token, senderOwner, 1);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setJoinedAmountByAccount(token, senderOwner, 0);
-        protocol.setVotedAction(token, 20, 101, address(protocol));
-        protocol.setExtensionJoined(token, 101, senderOwner, true);
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
+        protocol.setGovVotes(token, senderId, 0);
+        protocol.setActionJoined(token, 1, senderId, true);
+        assertTrue(_canPostAllowed(groupId, senderId));
+        protocol.clearActionJoined(token, senderId);
+        assertTrue(!_canPostAllowed(groupId, senderId));
 
         vm.expectRevert(IBaseManager.AlreadyManaged.selector);
         manager.activate(token);
@@ -75,10 +74,10 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokenGroupIds[0], groupId);
         _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_gov_LOVE20_");
 
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setGovVotes(token, senderOwner, 7);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        assertEq(manager.voteWeightOf(groupId, senderOwner), 7);
+        assertTrue(!_canPostAllowed(groupId, senderId));
+        protocol.setGovVotes(token, senderId, 7);
+        assertTrue(_canPostAllowed(groupId, senderId));
+        assertEq(manager.voteWeightOf(groupId, senderId), 7);
         assertEq(manager.totalVoteWeight(groupId), 7);
     }
 
@@ -91,7 +90,7 @@ contract TypedManagersTest is GroupChatFixture {
         vm.expectRevert(IBaseManager.RecentRoundsZero.selector);
         new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 0);
 
-        vm.expectRevert(IBaseManager.ActionIdNotExist.selector);
+        vm.expectRevert(IBaseTokenActionScopeManager.ActionIdNotExist.selector);
         manager.activate(token, 42);
 
         protocol.setActionsCount(token, 44);
@@ -112,12 +111,12 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionGroupIds[0], groupId);
         _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_gov_LOVE20_42_");
 
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setActionVotes(token, 5, senderOwner, 42, 1);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setActionVotes(token, 7, senderOwner, 42, 5);
-        protocol.setGovVotes(token, senderOwner, 5);
-        assertEq(manager.voteWeightOf(groupId, senderOwner), 5);
+        assertTrue(!_canPostAllowed(groupId, senderId));
+        protocol.setActionVotes(token, 5, senderId, 42, 1);
+        assertTrue(_canPostAllowed(groupId, senderId));
+        protocol.setActionVotes(token, 7, senderId, 42, 5);
+        protocol.setGovVotes(token, senderId, 5);
+        assertEq(manager.voteWeightOf(groupId, senderId), 5);
         assertEq(manager.totalVoteWeight(groupId), 5);
 
         uint256 secondGroupId = manager.activate(token, 43);
@@ -169,18 +168,15 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionGroupIds[0], groupId);
         _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_main_LOVE20_88_");
 
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setActionVotes(token, 9, senderOwner, 88, 1);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setActionVotes(token, 9, senderOwner, 88, 0);
-        protocol.setJoinedAmount(token, 88, senderOwner, 1);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setJoinedAmount(token, 88, senderOwner, 0);
-        protocol.setExtensionJoined(token, 88, senderOwner, true);
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
-        protocol.setActionVotes(token, 10, senderOwner, 88, 11);
-        protocol.setGovVotes(token, senderOwner, 11);
-        assertEq(manager.voteWeightOf(groupId, senderOwner), 11);
+        assertTrue(!_canPostAllowed(groupId, senderId));
+        protocol.setActionVotes(token, 9, senderId, 88, 1);
+        assertTrue(_canPostAllowed(groupId, senderId));
+        protocol.setActionVotes(token, 9, senderId, 88, 0);
+        protocol.setActionJoined(token, 88, senderId, true);
+        assertTrue(_canPostAllowed(groupId, senderId));
+        protocol.setActionVotes(token, 10, senderId, 88, 11);
+        protocol.setGovVotes(token, senderId, 11);
+        assertEq(manager.voteWeightOf(groupId, senderId), 11);
         assertEq(manager.totalVoteWeight(groupId), 11);
 
         uint256 secondGroupId = manager.activate(token, 89);
@@ -210,7 +206,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionGroupIds[0], secondGroupId);
     }
 
-    function testT113B_tokenActionManagersAcceptZeroActionId() public {
+    function testT113B_tokenActionManagersRejectZeroActionId() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         address token = address(protocol);
         protocol.setActionsCount(token, 1);
@@ -218,37 +214,8 @@ contract TypedManagersTest is GroupChatFixture {
 
         TokenActionGovManager govManager =
             new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
-        uint256 govGroupId = govManager.activate(token, 0);
-
-        (address govToken, uint256 govActionId) = govManager.actionOfGroup(govGroupId);
-        assertEq(govToken, token);
-        assertEq(govActionId, 0);
-        assertEq(govManager.groupIdOfAction(token, 0), govGroupId);
-
-        uint256[] memory queryActionIds = new uint256[](1);
-        queryActionIds[0] = 0;
-        uint256[] memory groupIds = govManager.groupIdsOfActions(token, queryActionIds);
-        assertEq(groupIds.length, 1);
-        assertEq(groupIds[0], govGroupId);
-
-        (uint256[] memory actionIds, uint256[] memory actionGroupIds) = govManager.actionsByToken(token, 0, 10, false);
-        assertEq(actionIds.length, 1);
-        assertEq(actionIds[0], 0);
-        assertEq(actionGroupIds.length, 1);
-        assertEq(actionGroupIds[0], govGroupId);
-
-        protocol.setActionVotes(token, 3, senderOwner, 0, 1);
-        assertTrue(_canPostAllowed(govGroupId, senderId, senderOwner));
-
-        TokenActionMainManager mainManager =
-            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
-        uint256 mainGroupId = mainManager.activate(token, 0);
-
-        (address mainToken, uint256 mainActionId) = mainManager.actionOfGroup(mainGroupId);
-        assertEq(mainToken, token);
-        assertEq(mainActionId, 0);
-        assertEq(mainManager.groupIdOfAction(token, 0), mainGroupId);
-        assertTrue(_canPostAllowed(mainGroupId, senderId, senderOwner));
+        vm.expectRevert(IBaseTokenActionScopeManager.ActionIdNotExist.selector);
+        govManager.activate(token, 0);
     }
 
     function testT116_tokenMainManagersPageTokens() public {

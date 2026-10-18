@@ -5,16 +5,15 @@ import {GroupChat} from "../src/GroupChat.sol";
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {MockGroupDelegate} from "./mocks/MockGroupDelegate.sol";
 import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
+import {MockPhase} from "./mocks/MockPhase.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
 
 contract MockGroupChatAdminConfig {
-    address public immutable GROUP_DEFAULTS_ADDRESS;
     address public immutable GROUP_DELEGATE_ADDRESS;
     address public immutable GROUP_ADDRESS;
 
-    constructor(address groupDefaults_, address groupDelegate_, address groupAddress_) {
-        GROUP_DEFAULTS_ADDRESS = groupDefaults_;
+    constructor(address groupDelegate_, address groupAddress_) {
         GROUP_DELEGATE_ADDRESS = groupDelegate_;
         GROUP_ADDRESS = groupAddress_;
     }
@@ -24,10 +23,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
     function testT001_constructorStoresConfigAndRoundNotStarted() public {
         assertEq(chat.GROUP_ADMIN_ADDRESS(), address(baseGroupAdmin));
         assertEq(chat.GROUP_ADDRESS(), address(groupNft));
-        assertEq(chat.GROUP_DEFAULTS_ADDRESS(), address(groupDefaults));
         assertEq(chat.GROUP_DELEGATE_ADDRESS(), address(groupDelegate));
-        assertEq(chat.originBlocks(), originBlocks);
-        assertEq(chat.phaseBlocks(), phaseBlocks);
         assertEq(chat.MAX_CONTENT_LENGTH(), maxContentLength);
         assertEq(chat.MAX_MENTIONED_SENDER_IDS(), maxMentionedSenderIds);
 
@@ -37,52 +33,41 @@ contract GroupChatLifecycleTest is GroupChatFixture {
 
     function testT002_constructorRejectsAdminWithoutCode() public {
         vm.expectRevert(IGroupChatErrors.GroupAdminHasNoCode.selector);
-        new GroupChat(other, originBlocks, phaseBlocks, maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT002B_constructorRejectsDefaultsWithoutCode() public {
-        MockGroupChatAdminConfig badAdmin =
-            new MockGroupChatAdminConfig(other, address(groupDelegate), address(groupNft));
-
-        vm.expectRevert(IGroupChatErrors.GroupDefaultsHasNoCode.selector);
-        new GroupChat(address(badAdmin), originBlocks, phaseBlocks, maxContentLength, maxMentionedSenderIds);
+        new GroupChat(other, address(phase), maxContentLength, maxMentionedSenderIds);
     }
 
     function testT002C_constructorRejectsDelegateWithoutCode() public {
-        MockGroupChatAdminConfig badAdmin =
-            new MockGroupChatAdminConfig(address(groupDefaults), other, address(groupNft));
+        MockGroupChatAdminConfig badAdmin = new MockGroupChatAdminConfig(other, address(groupNft));
 
         vm.expectRevert(IGroupChatErrors.GroupDelegateHasNoCode.selector);
-        new GroupChat(address(badAdmin), originBlocks, phaseBlocks, maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT002D_constructorRejectsDefaultsForDifferentGroup() public {
-        MockLOVE20Group otherGroupNft = new MockLOVE20Group();
-        MockGroupChatAdminConfig badAdmin =
-            new MockGroupChatAdminConfig(address(groupDefaults), address(groupDelegate), address(otherGroupNft));
-
-        vm.expectRevert(IGroupChatErrors.GroupDefaultsGroupMismatch.selector);
-        new GroupChat(address(badAdmin), originBlocks, phaseBlocks, maxContentLength, maxMentionedSenderIds);
+        new GroupChat(address(badAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
     }
 
     function testT002E_constructorRejectsDelegateForDifferentGroup() public {
         MockLOVE20Group otherGroupNft = new MockLOVE20Group();
         MockGroupDelegate otherGroupDelegate = new MockGroupDelegate(address(otherGroupNft));
         MockGroupChatAdminConfig badAdmin =
-            new MockGroupChatAdminConfig(address(groupDefaults), address(otherGroupDelegate), address(groupNft));
+            new MockGroupChatAdminConfig(address(otherGroupDelegate), address(groupNft));
 
         vm.expectRevert(IGroupChatErrors.GroupDelegateGroupMismatch.selector);
-        new GroupChat(address(badAdmin), originBlocks, phaseBlocks, maxContentLength, maxMentionedSenderIds);
+        new GroupChat(address(badAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
     }
 
     function testT003_constructorRejectsZeroPhaseBlocks() public {
+        MockPhase zeroPhase = new MockPhase(originBlocks, 0);
+
         vm.expectRevert(IGroupChatErrors.PhaseBlocksZero.selector);
-        new GroupChat(address(baseGroupAdmin), originBlocks, 0, maxContentLength, maxMentionedSenderIds);
+        new GroupChat(address(baseGroupAdmin), address(zeroPhase), maxContentLength, maxMentionedSenderIds);
     }
 
     function testT003B_constructorRejectsZeroMaxContentLength() public {
         vm.expectRevert(IGroupChatErrors.MaxContentLengthZero.selector);
-        new GroupChat(address(baseGroupAdmin), originBlocks, phaseBlocks, 0, maxMentionedSenderIds);
+        new GroupChat(address(baseGroupAdmin), address(phase), 0, maxMentionedSenderIds);
+    }
+
+    function testT003C_constructorRejectsZeroMaxMentionedSenderIds() public {
+        vm.expectRevert(IGroupChatErrors.MaxMentionedSenderIdsZero.selector);
+        new GroupChat(address(baseGroupAdmin), address(phase), maxContentLength, 0);
     }
 
     function testT010_activateChat_requiresCurrentOwner() public {
@@ -156,16 +141,16 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         _post(groupId, senderId, "old-message");
 
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
 
         assertTrue(!chat.postingAllowed(groupId));
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(!_canPostAllowed(groupId, senderId));
         vm.prank(senderOwner);
         vm.expectRevert(IGroupChatErrors.PostingNotAllowed.selector);
         _post(groupId, senderId, "stopped");
 
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, true);
+        chat.setPostingAllowed(groupId, groupId, true);
         assertTrue(chat.postingAllowed(groupId));
 
         IGroupChat.ChatInfo memory secondInfo = chat.chatInfo(groupId);
@@ -190,11 +175,11 @@ contract GroupChatLifecycleTest is GroupChatFixture {
 
         vm.prank(other);
         vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, true);
+        chat.setPostingAllowed(groupId, groupId, true);
         Vm.Log[] memory noopLogs = vm.getRecordedLogs();
         assertEq(noopLogs.length, 0);
 
@@ -203,7 +188,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
 
         vm.recordLogs();
         vm.prank(delegateIdOwner);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, delegateId, false);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
@@ -216,10 +201,10 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         uint256 missingGroupId = 999_999;
 
         vm.expectRevert(IGroupChatErrors.GroupNotExist.selector);
-        chat.setPostingAllowed(missingGroupId, false);
+        chat.setPostingAllowed(missingGroupId, missingGroupId, false);
 
         vm.expectRevert(IGroupChatErrors.GroupNotExist.selector);
-        chat.setScopeSource(missingGroupId, address(0));
+        chat.setScopeSource(missingGroupId, missingGroupId, address(0));
     }
 
     function testT016_groupDiscoveryIndexesTrackActivatedChats() public {
@@ -242,7 +227,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertEq(allChatsReverse[1], groupId);
 
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
 
         assertEq(chat.groupIdsCount(), 2);
 

@@ -5,14 +5,14 @@ import {GroupAdmin} from "../../src/GroupAdmin.sol";
 import {GroupChat} from "../../src/GroupChat.sol";
 import {IGroupChatErrors} from "../../src/interfaces/IGroupChat.sol";
 
-import {MockGroupDefaults} from "../mocks/MockGroupDefaults.sol";
 import {MockGroupDelegate} from "../mocks/MockGroupDelegate.sol";
 import {MockLOVE20Group} from "../mocks/MockLOVE20Group.sol";
+import {MockPhase} from "../mocks/MockPhase.sol";
 import {TestBase, Vm} from "./TestBase.sol";
 
 abstract contract GroupChatFixture is TestBase {
     MockLOVE20Group internal groupNft;
-    MockGroupDefaults internal groupDefaults;
+    MockPhase internal phase;
     MockGroupDelegate internal groupDelegate;
     GroupAdmin internal baseGroupAdmin;
     GroupChat internal chat;
@@ -30,21 +30,20 @@ abstract contract GroupChatFixture is TestBase {
     uint256 internal phaseBlocks = 100;
     uint256 internal maxContentLength = 4096;
     uint256 internal maxMentionedSenderIds = 32;
-    bytes32 internal constant SET_SCOPE_SOURCE_SIG = keccak256("SetScopeSource(uint256,address,address,address)");
-    bytes32 internal constant SET_BAN_SOURCE_SIG = keccak256("SetBanSource(uint256,address,address,address)");
+    bytes32 internal constant SET_SCOPE_SOURCE_SIG =
+        keccak256("SetScopeSource(uint256,address,uint256,address,address)");
+    bytes32 internal constant SET_BAN_SOURCE_SIG = keccak256("SetBanSource(uint256,address,uint256,address,address)");
     bytes32 internal constant SET_BEFORE_POST_PLUGIN_SIG =
-        keccak256("SetBeforePostPlugin(uint256,address,address,address)");
+        keccak256("SetBeforePostPlugin(uint256,address,uint256,address,address)");
     bytes32 internal constant SET_AFTER_POST_PLUGIN_SIG =
-        keccak256("SetAfterPostPlugin(uint256,address,address,address)");
-    bytes32 internal constant ACTIVATE_SIG = keccak256("Activate(uint256,address)");
-    bytes32 internal constant SET_POSTING_ALLOWED_SIG = keccak256("SetPostingAllowed(uint256,address,bool)");
+        keccak256("SetAfterPostPlugin(uint256,address,uint256,address,address)");
+    bytes32 internal constant ACTIVATE_SIG = keccak256("Activate(uint256,uint256,address)");
+    bytes32 internal constant SET_POSTING_ALLOWED_SIG = keccak256("SetPostingAllowed(uint256,uint256,address,bool)");
     bytes32 internal constant POST_MESSAGE_SIG = keccak256("PostMessage(uint256,uint256,address,uint256,uint256)");
     bytes32 internal constant MENTION_SENDER_ID_SIG = keccak256("MentionSenderId(uint256,uint256,uint256)");
     bytes32 internal constant MENTION_ALL_SIG = keccak256("MentionAll(uint256,uint256)");
     bytes32 internal constant FAIL_AFTER_POST_PLUGIN_SIG =
         keccak256("FailAfterPostPlugin(uint256,uint256,address,uint256,bytes)");
-    bytes32 internal constant SET_DEFAULT_GROUP_ID_SIG = keccak256("SetDefaultGroupId(address,uint256)");
-    bytes32 internal constant CLEAR_DEFAULT_GROUP_ID_SIG = keccak256("ClearDefaultGroupId(address,uint256)");
 
     function setUp() public virtual {
         groupNft = new MockLOVE20Group();
@@ -54,12 +53,10 @@ abstract contract GroupChatFixture is TestBase {
         delegateId = groupNft.mint(delegateIdOwner);
 
         originBlocks = block.number + 50;
-        groupDefaults = new MockGroupDefaults(address(groupNft));
+        phase = new MockPhase(originBlocks, phaseBlocks);
         groupDelegate = new MockGroupDelegate(address(groupNft));
-        baseGroupAdmin = new GroupAdmin(address(groupDefaults), address(groupDelegate), 20);
-        chat = new GroupChat(
-            address(baseGroupAdmin), originBlocks, phaseBlocks, maxContentLength, maxMentionedSenderIds
-        );
+        baseGroupAdmin = new GroupAdmin(address(groupDelegate), 20);
+        chat = new GroupChat(address(baseGroupAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
     }
 
     function _emptyMentionedSenderIds() internal pure returns (uint256[] memory mentionedSenderIds) {
@@ -86,24 +83,12 @@ abstract contract GroupChatFixture is TestBase {
         chat.post(groupId_, senderId_, content, _emptyMentionedSenderIds(), false, quotedMessageId);
     }
 
-    function _postAsDefaultSender(uint256 groupId_, string memory content) internal {
-        chat.postAsDefaultSender(groupId_, content, _emptyMentionedSenderIds(), false, 0);
+    function _canPostAllowed(uint256 groupId_, uint256 senderId_) internal view returns (bool allowed) {
+        (allowed,) = chat.canPost(groupId_, senderId_);
     }
 
-    function _canPostAllowed(uint256 groupId_, uint256 senderId_, address senderAddress_)
-        internal
-        view
-        returns (bool allowed)
-    {
-        (allowed,) = chat.canPost(groupId_, senderId_, senderAddress_);
-    }
-
-    function _canPost(uint256 groupId_, uint256 senderId_, address senderAddress_)
-        internal
-        view
-        returns (bool allowed, bytes4 reasonCode)
-    {
-        return chat.canPost(groupId_, senderId_, senderAddress_);
+    function _canPost(uint256 groupId_, uint256 senderId_) internal view returns (bool allowed, bytes4 reasonCode) {
+        return chat.canPost(groupId_, senderId_);
     }
 
     function _activateEmpty() internal {

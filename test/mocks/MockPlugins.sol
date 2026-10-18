@@ -97,7 +97,7 @@ contract MockPostScopeSource {
         allowed = allowed_;
     }
 
-    function canPost(uint256, uint256, address) external view returns (bool) {
+    function canPost(uint256, uint256) external view returns (bool) {
         return allowed;
     }
 }
@@ -105,7 +105,7 @@ contract MockPostScopeSource {
 contract MockPostScopeFailSource {
     error ScopeSourceBoom();
 
-    function canPost(uint256, uint256, address) external pure returns (bool) {
+    function canPost(uint256, uint256) external pure returns (bool) {
         revert ScopeSourceBoom();
     }
 }
@@ -117,7 +117,7 @@ contract MockPostBanSource {
         banned = banned_;
     }
 
-    function isBanned(uint256, uint256, address) external view returns (bool) {
+    function isBanned(uint256, uint256) external view returns (bool) {
         return banned;
     }
 }
@@ -125,7 +125,7 @@ contract MockPostBanSource {
 contract MockPostBanFailSource {
     error BanSourceBoom();
 
-    function isBanned(uint256, uint256, address) external pure returns (bool) {
+    function isBanned(uint256, uint256) external pure returns (bool) {
         revert BanSourceBoom();
     }
 }

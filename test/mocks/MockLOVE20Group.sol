@@ -48,6 +48,14 @@ contract MockLOVE20Group {
         return mintCost;
     }
 
+    function MAX_NAME_LENGTH() external view returns (uint256) {
+        return MAX_GROUP_NAME_LENGTH;
+    }
+
+    function isNameUsed(string calldata groupName) external view returns (bool) {
+        return _nameToTokenId[_canonicalizeGroupName(groupName)] != 0;
+    }
+
     function isGroupNameUsed(string calldata groupName) external view returns (bool) {
         return _nameToTokenId[_canonicalizeGroupName(groupName)] != 0;
     }

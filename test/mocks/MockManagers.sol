@@ -12,8 +12,12 @@ contract MockManager is BaseManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_
-    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, extensionCenter_) {}
+        address actionTarget_
+    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
+
+    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
+        return _onERC721ReceivedFromMint(from);
+    }
 
     function activateMockManagedGroup() external returns (uint256 groupId) {
         groupId = _mintManagedGroup("mock_manager");
@@ -28,11 +32,11 @@ contract MockManager is BaseManager {
         voteWeight = voteWeight_;
     }
 
-    function canPost(uint256, uint256, address) external view returns (bool) {
+    function canPost(uint256, uint256) external view returns (bool) {
         return postAllowed;
     }
 
-    function voteWeightOf(uint256, address) external view returns (uint256) {
+    function voteWeightOf(uint256, uint256) external view returns (uint256) {
         return voteWeight;
     }
 

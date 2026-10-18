@@ -27,7 +27,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         chat.activateChat(groupId, address(0), address(0), address(managedPlugin), address(0));
 
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
@@ -35,7 +35,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _post(groupId, senderId, "stopped");
 
         vm.prank(chatOwner);
-        chat.setBeforePostPlugin(groupId, address(0));
+        chat.setBeforePostPlugin(groupId, groupId, address(0));
         assertEq(chat.beforePostPlugin(groupId), address(0));
 
         vm.prank(chatOwner);
@@ -71,11 +71,11 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(info.banSource, address(0));
         assertEq(info.beforePostPlugin, address(0));
         assertEq(info.afterPostPlugin, address(0));
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(_canPostAllowed(groupId, senderId));
 
         scope.setAllowed(false);
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId, senderOwner);
+        assertTrue(!_canPostAllowed(groupId, senderId));
+        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.ScopeRejected.selector);
 
@@ -97,10 +97,10 @@ contract GroupChatPluginsTest is GroupChatFixture {
         chat.activateChat(groupId, address(0), address(banSource), address(0), address(0));
 
         assertEq(chat.banSource(groupId), address(banSource));
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(_canPostAllowed(groupId, senderId));
 
         banSource.setBanned(true);
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.BanRejected.selector);
 
@@ -116,29 +116,25 @@ contract GroupChatPluginsTest is GroupChatFixture {
     }
 
     function testT070C_canPostReturnsCoreAndSourceFailureReasons() public {
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.ChatNotActivated.selector);
 
-        (allowed, reasonCode) = _canPost(999999, senderId, senderOwner);
+        (allowed, reasonCode) = _canPost(999999, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.GroupNotExist.selector);
 
         _activateEmpty();
 
-        (allowed, reasonCode) = _canPost(groupId, 999999, senderOwner);
+        (allowed, reasonCode) = _canPost(groupId, 999999);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.GroupNotExist.selector);
 
-        (allowed, reasonCode) = _canPost(groupId, senderId, other);
-        assertTrue(!allowed);
-        assertEq(reasonCode, IGroupChatErrors.SenderAddressNotSenderIdOwner.selector);
-
         MockPostScopeFailSource failingScope = new MockPostScopeFailSource();
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(failingScope));
+        chat.setScopeSource(groupId, groupId, address(failingScope));
 
-        (allowed, reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (allowed, reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.ScopeSourceFailed.selector);
 
@@ -148,13 +144,13 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _post(groupId, senderId, "scope-boom");
 
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(0));
+        chat.setScopeSource(groupId, groupId, address(0));
 
         MockPostBanFailSource failingBan = new MockPostBanFailSource();
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(failingBan));
+        chat.setBanSource(groupId, groupId, address(failingBan));
 
-        (allowed, reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (allowed, reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.BanSourceFailed.selector);
 
@@ -171,16 +167,16 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.prank(other);
         vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
-        chat.setScopeSource(groupId, address(scope1));
+        chat.setScopeSource(groupId, groupId, address(scope1));
 
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.recordLogs();
         vm.prank(delegateIdOwner);
-        chat.setScopeSource(groupId, address(scope1));
+        chat.setScopeSource(groupId, delegateId, address(scope1));
         Vm.Log[] memory scopeLogs1 = vm.getRecordedLogs();
-        address prevScope1 = abi.decode(scopeLogs1[0].data, (address));
+        (, address prevScope1) = abi.decode(scopeLogs1[0].data, (address, address));
         assertEq(scopeLogs1.length, 1);
         assertEq(scopeLogs1[0].topics[0], SET_SCOPE_SOURCE_SIG);
         assertEq(prevScope1, address(0));
@@ -188,31 +184,31 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(scope1));
+        chat.setScopeSource(groupId, groupId, address(scope1));
         Vm.Log[] memory sameScopeLogs = vm.getRecordedLogs();
         assertEq(sameScopeLogs.length, 0);
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(scope2));
+        chat.setScopeSource(groupId, groupId, address(scope2));
         Vm.Log[] memory scopeLogs2 = vm.getRecordedLogs();
-        address prevScope2 = abi.decode(scopeLogs2[0].data, (address));
+        (, address prevScope2) = abi.decode(scopeLogs2[0].data, (address, address));
         assertEq(prevScope2, address(scope1));
 
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(0));
+        chat.setScopeSource(groupId, groupId, address(0));
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(0));
+        chat.setScopeSource(groupId, groupId, address(0));
         Vm.Log[] memory zeroScopeLogs = vm.getRecordedLogs();
         assertEq(zeroScopeLogs.length, 0);
 
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
 
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(scope1));
+        chat.setScopeSource(groupId, groupId, address(scope1));
         assertEq(chat.scopeSource(groupId), address(scope1));
     }
 
@@ -224,16 +220,16 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.prank(other);
         vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
-        chat.setBanSource(groupId, address(ban1));
+        chat.setBanSource(groupId, groupId, address(ban1));
 
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.recordLogs();
         vm.prank(delegateIdOwner);
-        chat.setBanSource(groupId, address(ban1));
+        chat.setBanSource(groupId, delegateId, address(ban1));
         Vm.Log[] memory banLogs1 = vm.getRecordedLogs();
-        address prevBan1 = abi.decode(banLogs1[0].data, (address));
+        (, address prevBan1) = abi.decode(banLogs1[0].data, (address, address));
         assertEq(banLogs1.length, 1);
         assertEq(banLogs1[0].topics[0], SET_BAN_SOURCE_SIG);
         assertEq(prevBan1, address(0));
@@ -241,31 +237,31 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(ban1));
+        chat.setBanSource(groupId, groupId, address(ban1));
         Vm.Log[] memory sameBanLogs = vm.getRecordedLogs();
         assertEq(sameBanLogs.length, 0);
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(ban2));
+        chat.setBanSource(groupId, groupId, address(ban2));
         Vm.Log[] memory banLogs2 = vm.getRecordedLogs();
-        address prevBan2 = abi.decode(banLogs2[0].data, (address));
+        (, address prevBan2) = abi.decode(banLogs2[0].data, (address, address));
         assertEq(prevBan2, address(ban1));
 
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(0));
+        chat.setBanSource(groupId, groupId, address(0));
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(0));
+        chat.setBanSource(groupId, groupId, address(0));
         Vm.Log[] memory zeroBanLogs = vm.getRecordedLogs();
         assertEq(zeroBanLogs.length, 0);
 
         vm.prank(chatOwner);
-        chat.setPostingAllowed(groupId, false);
+        chat.setPostingAllowed(groupId, groupId, false);
 
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(ban1));
+        chat.setBanSource(groupId, groupId, address(ban1));
         assertEq(chat.banSource(groupId), address(ban1));
     }
 
@@ -282,26 +278,28 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(activateLogs[0].topics[0], SET_SCOPE_SOURCE_SIG);
         assertEq(activateLogs[1].topics[0], SET_BAN_SOURCE_SIG);
         assertEq(activateLogs[2].topics[0], ACTIVATE_SIG);
-        assertEq(_decodeAddress(activateLogs[0].data), address(0));
-        assertEq(_decodeAddress(activateLogs[1].data), address(0));
+        (, address activatePrevScope) = abi.decode(activateLogs[0].data, (address, address));
+        (, address activatePrevBan) = abi.decode(activateLogs[1].data, (address, address));
+        assertEq(activatePrevScope, address(0));
+        assertEq(activatePrevBan, address(0));
         assertEq(activateLogs[2].data.length, 0);
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setScopeSource(groupId, address(0));
+        chat.setScopeSource(groupId, groupId, address(0));
         Vm.Log[] memory scopeLogs = vm.getRecordedLogs();
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.setBanSource(groupId, address(0));
+        chat.setBanSource(groupId, groupId, address(0));
         Vm.Log[] memory banLogs = vm.getRecordedLogs();
 
         assertEq(scopeLogs.length, 1);
         assertEq(scopeLogs[0].topics[0], SET_SCOPE_SOURCE_SIG);
         assertEq(banLogs.length, 1);
         assertEq(banLogs[0].topics[0], SET_BAN_SOURCE_SIG);
-        address prevScope = abi.decode(scopeLogs[0].data, (address));
-        address prevBan = abi.decode(banLogs[0].data, (address));
+        (, address prevScope) = abi.decode(scopeLogs[0].data, (address, address));
+        (, address prevBan) = abi.decode(banLogs[0].data, (address, address));
         assertEq(prevScope, address(scope));
         assertEq(prevBan, address(banSource));
     }
@@ -316,15 +314,11 @@ contract GroupChatPluginsTest is GroupChatFixture {
         scope.setAllowed(false);
         banSource.setBanned(true);
 
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.ScopeRejected.selector);
 
-        (allowed, reasonCode) = _canPost(groupId, senderId, chatOwner);
-        assertTrue(!allowed);
-        assertEq(reasonCode, IGroupChatErrors.SenderAddressNotSenderIdOwner.selector);
-
-        assertTrue(_canPostAllowed(groupId, groupId, chatOwner));
+        assertTrue(_canPostAllowed(groupId, groupId));
 
         vm.roll(originBlocks);
         vm.prank(chatOwner);
@@ -333,14 +327,14 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         scope.setAllowed(true);
 
-        (allowed, reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (allowed, reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.BanRejected.selector);
 
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
-        assertTrue(_canPostAllowed(groupId, delegateId, delegateIdOwner));
+        assertTrue(_canPostAllowed(groupId, delegateId));
 
         vm.prank(delegateIdOwner);
         _post(groupId, delegateId, "delegate-bypasses-sources");
@@ -378,9 +372,9 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(logs[0].topics[0], POST_MESSAGE_SIG);
         assertEq(logs[1].topics[0], FAIL_AFTER_POST_PLUGIN_SIG);
         (uint256 round, uint256 messageId) = _decodePostMessage(logs[0].data);
-        assertEq(round, 0);
+        assertEq(round, 1);
         assertEq(messageId, 1);
-        assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 0);
+        assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 1);
     }
 
     function testT073_pluginAddressWithoutCodeReverts() public {
@@ -393,19 +387,19 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.prank(chatOwner);
         vm.expectRevert(IGroupChatErrors.SourceAddressHasNoCode.selector);
-        chat.setScopeSource(groupId, other);
+        chat.setScopeSource(groupId, groupId, other);
 
         vm.prank(chatOwner);
         vm.expectRevert(IGroupChatErrors.SourceAddressHasNoCode.selector);
-        chat.setBanSource(groupId, other);
+        chat.setBanSource(groupId, groupId, other);
 
         vm.prank(chatOwner);
         vm.expectRevert(IGroupChatErrors.PluginAddressHasNoCode.selector);
-        chat.setBeforePostPlugin(groupId, other);
+        chat.setBeforePostPlugin(groupId, groupId, other);
 
         vm.prank(chatOwner);
         vm.expectRevert(IGroupChatErrors.PluginAddressHasNoCode.selector);
-        chat.setAfterPostPlugin(groupId, other);
+        chat.setAfterPostPlugin(groupId, groupId, other);
     }
 
     function testT075_afterPostReenterIsBannedByNonReentrant() public {

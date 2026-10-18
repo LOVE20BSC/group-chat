@@ -20,7 +20,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
     function setUp() public override {
         super.setUp();
         adminId = groupNft.mint(adminOwner);
-        groupAdmin = new GroupAdmin(address(groupDefaults), address(groupDelegate), 20);
+        groupAdmin = new GroupAdmin(address(groupDelegate), 20);
         member = new GroupMember(address(groupAdmin));
         scope = new GroupMemberScope(address(member));
     }
@@ -41,13 +41,13 @@ contract GroupMemberScopeTest is GroupChatFixture {
         _configureAdmin();
 
         vm.prank(adminOwner);
-        member.addMemberIds(groupId, _uints(senderId, otherGroupId));
+        member.addMemberIds(groupId, adminId, _uints(senderId, otherGroupId));
         assertTrue(member.isMemberId(groupId, senderId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
         assertEq(member.memberIdsCount(groupId), 2);
 
         vm.prank(adminOwner);
-        member.addMemberIds(groupId, _uints(senderId));
+        member.addMemberIds(groupId, adminId, _uints(senderId));
 
         uint256[] memory page = member.memberIds(groupId, 1, 1);
         assertEq(page.length, 1);
@@ -58,25 +58,25 @@ contract GroupMemberScopeTest is GroupChatFixture {
         assertTrue(!listed[1]);
 
         vm.prank(adminOwner);
-        member.removeMemberIds(groupId, _uints(senderId));
+        member.removeMemberIds(groupId, adminId, _uints(senderId));
         assertTrue(!member.isMemberId(groupId, senderId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
     }
 
-    function testT133B2_ownerAndDelegateCanManageMemberIdsByDefault() public {
+    function testT133B2_ownerAndDelegateCanManageMemberIds() public {
         vm.prank(chatOwner);
-        member.addMemberIds(groupId, _uints(senderId));
+        member.addMemberIds(groupId, groupId, _uints(senderId));
         assertTrue(member.isMemberId(groupId, senderId));
 
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.prank(delegateIdOwner);
-        member.addMemberIds(groupId, _uints(otherGroupId));
+        member.addMemberIds(groupId, delegateId, _uints(otherGroupId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
 
         vm.prank(delegateIdOwner);
-        member.removeMemberIds(groupId, _uints(senderId));
+        member.removeMemberIds(groupId, delegateId, _uints(senderId));
         assertTrue(!member.isMemberId(groupId, senderId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
     }
@@ -86,61 +86,61 @@ contract GroupMemberScopeTest is GroupChatFixture {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(scope), address(0), address(0), address(0));
 
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId, senderOwner);
+        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reasonCode, IGroupChatErrors.ScopeRejected.selector);
 
         vm.prank(adminOwner);
-        member.addMemberIds(groupId, _uints(senderId));
+        member.addMemberIds(groupId, adminId, _uints(senderId));
 
-        assertTrue(_canPostAllowed(groupId, senderId, senderOwner));
+        assertTrue(_canPostAllowed(groupId, senderId));
 
         groupNft.transferFrom(senderOwner, other, senderId);
 
-        assertTrue(!_canPostAllowed(groupId, senderId, senderOwner));
-        assertTrue(_canPostAllowed(groupId, senderId, other));
+        vm.roll(originBlocks);
+        vm.prank(senderOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        _post(groupId, senderId, "not-owner");
+
+        vm.prank(other);
+        _post(groupId, senderId, "new-owner");
+        assertEq(chat.messagesCount(groupId), 1);
     }
 
     function testT133D_permissionsTargetsAndGroupIsolation() public {
-        vm.prank(chatOwner);
-        groupAdmin.addAdmins(groupId, _uints(adminId));
-
         vm.prank(adminOwner);
         vm.expectRevert(IGroupMember.UnauthorizedGroupMemberManager.selector);
-        member.addMemberIds(groupId, _uints(senderId));
+        member.addMemberIds(groupId, adminId, _uints(senderId));
 
-        vm.prank(adminOwner);
-        groupDefaults.setDefaultGroupId(adminId);
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
 
         vm.prank(adminOwner);
         vm.expectRevert(IGroupMember.TargetMemberIdZero.selector);
-        member.addMemberIds(groupId, _uints(0));
+        member.addMemberIds(groupId, adminId, _uints(0));
 
         vm.prank(adminOwner);
         vm.expectRevert(IGroupMember.GroupNotExist.selector);
-        member.addMemberIds(groupId, _uints(999999));
+        member.addMemberIds(groupId, adminId, _uints(999999));
 
         vm.prank(adminOwner);
-        member.addMemberIds(groupId, _uints(senderId));
+        member.addMemberIds(groupId, adminId, _uints(senderId));
 
         assertTrue(member.isMemberId(groupId, senderId));
         assertTrue(!member.isMemberId(otherGroupId, senderId));
 
         vm.prank(adminOwner);
         vm.expectRevert(IGroupMember.UnauthorizedGroupMemberManager.selector);
-        member.addMemberIds(otherGroupId, _uints(senderId));
+        member.addMemberIds(otherGroupId, adminId, _uints(senderId));
 
         vm.prank(chatOwner);
         vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
-        groupAdmin.addAdmins(otherGroupId, _uints(adminId));
+        groupAdmin.addAdmins(otherGroupId, groupId, _uints(adminId));
     }
 
     function _configureAdmin() internal {
         vm.prank(chatOwner);
-        groupAdmin.addAdmins(groupId, _uints(adminId));
-
-        vm.prank(adminOwner);
-        groupDefaults.setDefaultGroupId(adminId);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
     }
 
     function _uints(uint256 value) internal pure returns (uint256[] memory values) {

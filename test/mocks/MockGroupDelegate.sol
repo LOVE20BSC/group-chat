@@ -53,6 +53,10 @@ contract MockGroupDelegate {
         return _ownerOrDelegateIdOf(groupId, account);
     }
 
+    function delegateIdOf(uint256 groupId) external view returns (uint256) {
+        return _delegateIdOf(_states[groupId], _ownerOfOrRevert(groupId));
+    }
+
     function _ownerOrDelegateIdOf(uint256 groupId, address account) internal view returns (uint256) {
         address owner = _ownerOfOrRevert(groupId);
         if (account == owner) {
