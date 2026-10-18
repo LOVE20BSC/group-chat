@@ -84,6 +84,9 @@ contract GroupChat is IGroupChat {
         if (maxContentLength_ == 0) {
             revert MaxContentLengthZero();
         }
+        if (maxMentionedSenderIds_ == 0) {
+            revert MaxMentionedSenderIdsZero();
+        }
 
         address groupDelegate = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
         address groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
@@ -794,7 +797,7 @@ contract GroupChat is IGroupChat {
         if (mentionedSenderIds.length > MAX_MENTIONED_SENDER_IDS) {
             revert TooManyMentionedSenderIds(mentionedSenderIds.length, MAX_MENTIONED_SENDER_IDS);
         }
-        // LOVE20Group mints token IDs as 1..totalSupply and does not expose an NFT burn path.
+        // MemberNFT mints token IDs as 1..totalSupply and does not expose an NFT burn path.
         uint256 mintedCount = IMemberNFT(GROUP_ADDRESS).totalSupply();
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
             uint256 mentionedSenderId = mentionedSenderIds[i];

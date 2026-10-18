@@ -13,6 +13,7 @@ interface IGroupChatErrors {
     error Reentrant();
     error PhaseBlocksZero();
     error MaxContentLengthZero();
+    error MaxMentionedSenderIdsZero();
     error SourceAddressHasNoCode();
     error PluginAddressHasNoCode();
     error ContentEmpty();

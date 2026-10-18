@@ -9,6 +9,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 import {IVote} from "core/src/interfaces/IVote.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseManager is IBaseManager {
     address public immutable GROUP_CHAT_ADDRESS;
@@ -148,12 +149,7 @@ abstract contract BaseManager is IBaseManager {
         view
         returns (string memory)
     {
-        string memory actionIdLabel = _uintToString(actionId);
-        string memory tokenSymbol = _tokenSymbolLabel(token);
-        if (bytes(tokenSymbol).length == 0) {
-            return string(abi.encodePacked(managerPrefix, actionIdLabel));
-        }
-        return string(abi.encodePacked(managerPrefix, tokenSymbol, "_", actionIdLabel));
+        return string(abi.encodePacked(managerPrefix, _tokenSymbolLabel(token), "_", Strings.toString(actionId)));
     }
 
     function _nextGroupName(string memory groupNameStem) internal returns (string memory) {
@@ -195,7 +191,11 @@ abstract contract BaseManager is IBaseManager {
         if (love20.code.length == 0) {
             return false;
         }
-        return bytes4(bytes(IERC20Metadata(love20).symbol())) == TEST_PREFIX;
+        try IERC20Metadata(love20).symbol() returns (string memory symbol) {
+            return bytes4(bytes(symbol)) == TEST_PREFIX;
+        } catch {
+            return false;
+        }
     }
 
     function _sanitizeAsciiTokenSymbol(string memory rawSymbol) internal pure returns (bytes memory) {
@@ -229,27 +229,6 @@ abstract contract BaseManager is IBaseManager {
             truncated[i] = input[i];
         }
         return string(truncated);
-    }
-
-    function _uintToString(uint256 value) internal pure returns (string memory) {
-        if (value == 0) {
-            return "0";
-        }
-
-        uint256 temp = value;
-        uint256 digits = 0;
-        while (temp != 0) {
-            digits++;
-            temp /= 10;
-        }
-
-        bytes memory buffer = new bytes(digits);
-        while (value != 0) {
-            digits--;
-            buffer[digits] = bytes1(uint8(48 + value % 10));
-            value /= 10;
-        }
-        return string(buffer);
     }
 
     function _fitGroupNameStem(string memory groupNameStem, bool requiresTestPrefix)
