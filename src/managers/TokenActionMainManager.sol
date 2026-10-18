@@ -28,7 +28,7 @@ contract TokenActionMainManager is BaseTokenActionScopeManager {
     }
 
     function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
-        ManagedAction storage action = actionOfGroup[groupId];
+        ManagedAction storage action = _actionOfGroup[groupId];
         address token = action.token;
         return token != address(0)
             && (

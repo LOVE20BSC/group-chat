@@ -19,9 +19,18 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         uint256 actionId;
     }
 
-    mapping(uint256 => ManagedAction) public actionOfGroup;
-    mapping(address => mapping(uint256 => uint256)) public groupIdOfAction;
+    mapping(uint256 => ManagedAction) internal _actionOfGroup;
+    mapping(address => mapping(uint256 => uint256)) internal _groupIdOfAction;
     mapping(address => uint256[]) internal _actionIdsByToken;
+
+    function actionOfGroup(uint256 groupId) external view returns (address token, uint256 actionId) {
+        ManagedAction storage action = _actionOfGroup[groupId];
+        return (action.token, action.actionId);
+    }
+
+    function groupIdOfAction(address token, uint256 actionId) external view returns (uint256) {
+        return _groupIdOfAction[token][actionId];
+    }
 
     constructor(
         address groupChat_,
@@ -52,7 +61,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         for (uint256 i = 0; i < count; i++) {
             uint256 actionId = source[_pageIndex(source.length, offset, i, reverse)];
             actionIds[i] = actionId;
-            groupIds[i] = groupIdOfAction[token][actionId];
+            groupIds[i] = _groupIdOfAction[token][actionId];
         }
     }
 
@@ -63,7 +72,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
     {
         groupIds = new uint256[](actionIds.length);
         for (uint256 i = 0; i < actionIds.length; i++) {
-            groupIds[i] = groupIdOfAction[token][actionIds[i]];
+            groupIds[i] = _groupIdOfAction[token][actionIds[i]];
         }
     }
 
@@ -75,14 +84,14 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         tokens = new address[](groupIds.length);
         actionIds = new uint256[](groupIds.length);
         for (uint256 i = 0; i < groupIds.length; i++) {
-            ManagedAction storage action = actionOfGroup[groupIds[i]];
+            ManagedAction storage action = _actionOfGroup[groupIds[i]];
             tokens[i] = action.token;
             actionIds[i] = action.actionId;
         }
     }
 
     function voteWeightOf(uint256 groupId, uint256 voterId) external view returns (uint256) {
-        ManagedAction storage action = actionOfGroup[groupId];
+        ManagedAction storage action = _actionOfGroup[groupId];
         address token = action.token;
         if (token == address(0)) {
             return 0;
@@ -91,7 +100,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
     }
 
     function totalVoteWeight(uint256 groupId) external view returns (uint256) {
-        ManagedAction storage action = actionOfGroup[groupId];
+        ManagedAction storage action = _actionOfGroup[groupId];
         address token = action.token;
         if (token == address(0)) {
             return 0;
@@ -105,13 +114,13 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
     {
         _requireLOVE20Token(token);
         _requireExistingAction(token, actionId);
-        _requireNotManaged(groupIdOfAction[token][actionId] != 0);
+        _requireNotManaged(_groupIdOfAction[token][actionId] != 0);
 
         groupId = _mintManagedGroup(_tokenActionGroupNameStem(managerPrefix, token, actionId));
         // forge-lint: disable-next-item(missing-events-access-control)
-        actionOfGroup[groupId] = ManagedAction({token: token, actionId: actionId});
+        _actionOfGroup[groupId] = ManagedAction({token: token, actionId: actionId});
         // forge-lint: disable-next-item(missing-events-access-control)
-        groupIdOfAction[token][actionId] = groupId;
+        _groupIdOfAction[token][actionId] = groupId;
         _actionIdsByToken[token].push(actionId);
         _activateManagedGroup(groupId);
         emit Activate(token, actionId, groupId, msg.sender);

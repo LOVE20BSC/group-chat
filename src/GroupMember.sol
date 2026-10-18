@@ -30,29 +30,29 @@ contract GroupMember is IGroupMember {
         _groupDelegateAddress = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
     }
 
-    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external {
+    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_) external {
         _requireOperator(groupId, operatorId);
-        _setMemberIds(groupId, operatorId, memberIdList, true);
+        _setMemberIds(groupId, operatorId, memberIds_, true);
     }
 
-    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external {
+    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_) external {
         _requireOperator(groupId, operatorId);
-        _setMemberIds(groupId, operatorId, memberIdList, false);
+        _setMemberIds(groupId, operatorId, memberIds_, false);
     }
 
     function isMemberId(uint256 groupId, uint256 memberId) external view returns (bool) {
         return _states[groupId].memberIds.contains(memberId);
     }
 
-    function isMemberIdBatch(uint256 groupId, uint256[] calldata memberIdList)
+    function isMemberIdBatch(uint256 groupId, uint256[] calldata memberIds_)
         external
         view
         returns (bool[] memory listed)
     {
         MemberState storage state = _states[groupId];
-        listed = new bool[](memberIdList.length);
-        for (uint256 i = 0; i < memberIdList.length; i++) {
-            listed[i] = state.memberIds.contains(memberIdList[i]);
+        listed = new bool[](memberIds_.length);
+        for (uint256 i = 0; i < memberIds_.length; i++) {
+            listed[i] = state.memberIds.contains(memberIds_[i]);
         }
     }
 
@@ -65,12 +65,12 @@ contract GroupMember is IGroupMember {
         return page;
     }
 
-    function _setMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList, bool listed)
+    function _setMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_, bool listed)
         internal
     {
         MemberState storage state = _states[groupId];
-        for (uint256 i = 0; i < memberIdList.length; i++) {
-            uint256 memberId = memberIdList[i];
+        for (uint256 i = 0; i < memberIds_.length; i++) {
+            uint256 memberId = memberIds_[i];
             _requireMemberIdTarget(memberId);
             if (_setMemberId(state.memberIds, memberId, listed)) {
                 emit SetMemberId(groupId, msg.sender, memberId, operatorId, listed);

@@ -23,7 +23,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
     constructor(address groupAddress_) {
         if (groupAddress_ == address(0)) {
-            revert GroupNotExist();
+            revert InvalidAddress();
         }
 
         GROUP_ADDRESS = groupAddress_;

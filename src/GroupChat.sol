@@ -72,7 +72,10 @@ contract GroupChat is IGroupChat {
         if (groupAdmin_ == address(0) || phaseAddress_ == address(0)) {
             revert InvalidAddress();
         }
-        if (groupAdmin_.code.length == 0 || phaseAddress_.code.length == 0) {
+        if (groupAdmin_.code.length == 0) {
+            revert GroupAdminHasNoCode();
+        }
+        if (phaseAddress_.code.length == 0) {
             revert InvalidAddress();
         }
         if (IPhase(phaseAddress_).ORIGIN_PHASE_BLOCKS() == 0) {
@@ -85,7 +88,7 @@ contract GroupChat is IGroupChat {
         address groupDelegate = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
         address groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
         if (groupDelegate.code.length == 0) {
-            revert InvalidAddress();
+            revert GroupDelegateHasNoCode();
         }
         if (IGroupChatDelegate(groupDelegate).GROUP_ADDRESS() != groupAddress) {
             revert GroupDelegateGroupMismatch();
@@ -235,7 +238,7 @@ contract GroupChat is IGroupChat {
         _requirePostSources(config, groupId, senderId);
         if (config.beforePostPlugin != address(0)) {
             IBeforePostPlugin(config.beforePostPlugin).beforePost(
-                groupId, senderId, content, mentionedSenderIds, mentionAll, quotedMessageId
+                groupId, senderId, msg.sender, content, mentionedSenderIds, mentionAll, quotedMessageId
             );
         }
 
@@ -261,6 +264,7 @@ contract GroupChat is IGroupChat {
             try IAfterPostPlugin(config.afterPostPlugin).afterPost(
                 groupId,
                 senderId,
+                msg.sender,
                 content,
                 mentionedSenderIds,
                 mentionAll,

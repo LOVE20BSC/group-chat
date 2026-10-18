@@ -38,18 +38,18 @@ contract GroupAdmin is IGroupAdmin {
         MAX_ADMIN_IDS = maxAdminIds_;
     }
 
-    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIdList) external {
+    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_) external {
         _requireOwnerOrDelegate(groupId, operatorId);
-        _validateAdminIds(adminIdList);
+        _validateAdminIds(adminIds_);
 
         AdminState storage state = _states[groupId];
-        if (state.adminIds.count() + _newAdminIdsCount(state, adminIdList) > MAX_ADMIN_IDS) {
+        if (state.adminIds.count() + _newAdminIdsCount(state, adminIds_) > MAX_ADMIN_IDS) {
             revert AdminIdsLimitExceeded();
         }
 
         address groupOwnerSnapshot = _ownerOfOrRevert(groupId);
-        for (uint256 i = 0; i < adminIdList.length; i++) {
-            uint256 adminId = adminIdList[i];
+        for (uint256 i = 0; i < adminIds_.length; i++) {
+            uint256 adminId = adminIds_[i];
             address adminOwnerSnapshot = _ownerOfOrRevert(adminId);
             bool snapshotChanged = false;
             if (state.groupOwnerSnapshots[adminId] != groupOwnerSnapshot) {
@@ -69,13 +69,13 @@ contract GroupAdmin is IGroupAdmin {
         }
     }
 
-    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIdList) external {
+    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_) external {
         _requireOwnerOrDelegate(groupId, operatorId);
-        _validateAdminIds(adminIdList);
+        _validateAdminIds(adminIds_);
 
         AdminState storage state = _states[groupId];
-        for (uint256 i = 0; i < adminIdList.length; i++) {
-            uint256 adminId = adminIdList[i];
+        for (uint256 i = 0; i < adminIds_.length; i++) {
+            uint256 adminId = adminIds_[i];
             if (!state.adminIds.remove(adminId)) {
                 continue;
             }
@@ -100,24 +100,24 @@ contract GroupAdmin is IGroupAdmin {
         }
     }
 
-    function _validateAdminIds(uint256[] calldata adminIdList) internal view {
-        for (uint256 i = 0; i < adminIdList.length; i++) {
-            _ownerOfOrRevert(adminIdList[i]);
+    function _validateAdminIds(uint256[] calldata adminIds_) internal view {
+        for (uint256 i = 0; i < adminIds_.length; i++) {
+            _ownerOfOrRevert(adminIds_[i]);
             for (uint256 j = 0; j < i; j++) {
-                if (adminIdList[i] == adminIdList[j]) {
+                if (adminIds_[i] == adminIds_[j]) {
                     revert DuplicateAdminId();
                 }
             }
         }
     }
 
-    function _newAdminIdsCount(AdminState storage state, uint256[] calldata adminIdList)
+    function _newAdminIdsCount(AdminState storage state, uint256[] calldata adminIds_)
         internal
         view
         returns (uint256 count)
     {
-        for (uint256 i = 0; i < adminIdList.length; i++) {
-            if (!state.adminIds.contains(adminIdList[i])) {
+        for (uint256 i = 0; i < adminIds_.length; i++) {
+            if (!state.adminIds.contains(adminIds_[i])) {
                 count++;
             }
         }

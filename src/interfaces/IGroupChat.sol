@@ -21,6 +21,8 @@ interface IGroupChatErrors {
     error DuplicateMentionedSenderId();
     error InvalidQuotedMessageId();
     error InvalidMessageId();
+    error GroupAdminHasNoCode();
+    error GroupDelegateHasNoCode();
     error GroupDelegateGroupMismatch();
     error MentionAllUnauthorized();
     error ScopeRejected();
