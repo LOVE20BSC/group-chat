@@ -350,14 +350,6 @@ contract GroupChat is IGroupChat {
         return round;
     }
 
-    function originBlocks() external view returns (uint256) {
-        return IPhase(PHASE_ADDRESS).ORIGIN_BLOCKS();
-    }
-
-    function phaseBlocks() external view returns (uint256) {
-        return IPhase(PHASE_ADDRESS).ORIGIN_PHASE_BLOCKS();
-    }
-
     function messagesCount(uint256 groupId) external view returns (uint256) {
         _requireExistingGroup(groupId);
         return _messagesByChat[groupId].length;

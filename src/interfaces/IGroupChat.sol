@@ -135,10 +135,6 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
 
     function GROUP_DELEGATE_ADDRESS() external view returns (address);
 
-    function originBlocks() external view returns (uint256);
-
-    function phaseBlocks() external view returns (uint256);
-
     function MAX_CONTENT_LENGTH() external view returns (uint256);
 
     function MAX_MENTIONED_SENDER_IDS() external view returns (uint256);
