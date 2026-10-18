@@ -1,0 +1,5 @@
+# core 已部署地址，来源：core/script/network/anvil31337_dev/addresses.core.params
+# （core 一键部署 anvil31337_dev 后复制；MemberNFT 与 Phase 由 GroupChat 直接绑定）
+
+GROUP_ADDRESS=0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+PHASE_ADDRESS=0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9

@@ -9,9 +9,6 @@ optimizer_runs = 200
 bytecode_hash = "none"
 cbor_metadata = false
 deny = "warnings"
-fs_permissions = [
-    { access = "read-write", path = "./script/network/" }
-]
 
 [fuzz]
 runs = 256

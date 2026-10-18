@@ -1,0 +1,6 @@
+# action 已部署地址，来源：action/script/network/anvil31337_dev/addresses.action.params
+# （action 一键部署 anvil31337_dev 后复制；ActionTarget 供 Manager 派生依赖，
+# GroupActionExecutor 供 GroupJoinScopeSource 查询群归属）
+
+ACTION_TARGET_ADDRESS=0x3Aa5ebB10DC797CAC828524e59A333d0A371443c
+GROUP_ACTION_EXECUTOR_ADDRESS=0x322813Fd9A801c5507c9de605d63CEA4f2CE6c44

@@ -1,54 +1,72 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-echo -e "\n[Step 1/4] Initializing environment..."
-source 00_init.sh $1
-if [ $? -ne 0 ]; then
-    echo -e "\033[31mError:\033[0m Failed to initialize environment"
-    return 1
+# 入口：纯编排。自身不 source 任何环境文件——三个步骤各自加载自己的输入，
+# 统一 <step>.sh <network> 一种调用形态，步骤之间互不调用、互不依赖预载环境。
+# 用法：script/deploy/one_click_deploy.sh <network>
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+cd "$PROJECT_ROOT"
+
+network="${1:?usage: script/deploy/one_click_deploy.sh <network>}"
+
+NETWORK_DIR="$PROJECT_ROOT/script/network/$network"
+if [ ! -d "$NETWORK_DIR" ]; then
+    echo "Error: Network directory not found: $NETWORK_DIR"
+    exit 1
 fi
 
-echo -e "\n========================================="
-echo -e "  One-Click Deploy GroupChat"
-echo -e "  Network: $network"
-echo -e "========================================="
-
-echo -e "\n[Step 2/4] Deploying GroupChat..."
-source 01_deploy_group_chat.sh
-if [ $? -ne 0 ]; then
-    echo -e "\033[31mError:\033[0m Deployment failed"
-    return 1
+# keystore 密码整次运行只解析一次：先重置（不继承调用方环境里的旧值，避免上次运行的
+# 残留密码静默复用），再读 .account 的密码行；都没有则交互输入一次并导出，部署步骤沿用。
+export KEYSTORE_PASSWORD=""
+if [ ! -f "$NETWORK_DIR/.account" ]; then
+    echo "Error: Missing required configuration: $NETWORK_DIR/.account"
+    exit 1
 fi
-
-if [[ "$network" == thinkium70001* ]]; then
-    echo -e "\n[Step 3/4] Verifying contract on explorer..."
-    source 02_verify.sh
-    if [ $? -ne 0 ]; then
-        echo -e "\033[33mWarning:\033[0m Contract verification failed (deployment is still successful)"
-    else
-        echo -e "\033[32m✓\033[0m Contract verified successfully"
+configured_password=$(grep -E '^KEYSTORE_PASSWORD=' "$NETWORK_DIR/.account" | tail -1 | cut -d= -f2- || true)
+if [ -n "$configured_password" ]; then
+    export KEYSTORE_PASSWORD="$configured_password"
+fi
+if [ -z "${KEYSTORE_PASSWORD:-}" ]; then
+    if ! command -v osascript >/dev/null 2>&1; then
+        echo "Error: KEYSTORE_PASSWORD is empty and osascript is unavailable; set it in $NETWORK_DIR/.account for non-interactive use." >&2
+        exit 1
     fi
-else
-    echo -e "\n[Step 3/4] Skipping contract verification (not a thinkium network)"
+    KEYSTORE_PASSWORD="$(osascript <<APPLESCRIPT
+text returned of (display dialog "Enter keystore password for deployment:" default answer "" with hidden answer buttons {"Cancel", "OK"} default button "OK")
+APPLESCRIPT
+)"
+    export KEYSTORE_PASSWORD
 fi
 
-echo -e "\n[Step 4/4] Running deployment checks..."
-source 99_check.sh
-if [ $? -ne 0 ]; then
-    echo -e "\033[31mError:\033[0m Deployment checks failed"
-    return 1
+# 部署与校验是分开的步骤，校验失败不应覆盖上次已保存的地址：先备份，校验通过后丢弃，失败则回滚。
+ADDRESS_FILE="$NETWORK_DIR/addresses.group-chat.params"
+BACKUP_FILE="$(mktemp)"
+had_address_file=0
+if [ -f "$ADDRESS_FILE" ]; then
+    cp "$ADDRESS_FILE" "$BACKUP_FILE"
+    had_address_file=1
 fi
 
-echo -e "\n========================================="
-echo -e "\033[32m✓ Deployment completed successfully!\033[0m"
-echo -e "========================================="
-echo -e "GroupChat Address: $groupChatAddress"
-echo -e "TokenMainManager Address: $tokenMainManagerAddress"
-echo -e "TokenGovManager Address: $tokenGovManagerAddress"
-echo -e "TokenActionGovManager Address: $tokenActionGovManagerAddress"
-echo -e "TokenActionMainManager Address: $tokenActionMainManagerAddress"
-echo -e "LOVE20 Group Address: $GROUP_ADDRESS"
-echo -e "GroupDefaults Address: $GROUP_DEFAULTS_ADDRESS"
-echo -e "ExtensionCenter Address: $EXTENSION_CENTER_ADDRESS"
-echo -e "Max Admin Ids: $GROUP_CHAT_MAX_ADMIN_IDS"
-echo -e "Network: $network"
-echo -e "=========================================\n"
+# 步骤一：合约部署与初始化（自载入部署输入）。失败时地址文件尚未写入，无需回滚。
+bash "$SCRIPT_DIR/11_deploy.sh" "$network"
+
+# 步骤二：校验部署与初始化是否正确（自载入校验文件，失败回滚已保存地址）。
+if ! bash "$SCRIPT_DIR/21_check.sh" "$network"; then
+    if [ "$had_address_file" = 1 ]; then
+        cp "$BACKUP_FILE" "$ADDRESS_FILE"
+    else
+        rm -f "$ADDRESS_FILE"
+    fi
+    rm -f "$BACKUP_FILE"
+    echo "Error: post-deployment check failed; the previously saved addresses were restored."
+    exit 1
+fi
+rm -f "$BACKUP_FILE"
+
+# 步骤三：合约开源验证（自载入地址文件）。链不支持开源验证时自行跳过。
+bash "$SCRIPT_DIR/31_verify.sh" "$network"
+
+echo "✓ Deployment completed: $network"
