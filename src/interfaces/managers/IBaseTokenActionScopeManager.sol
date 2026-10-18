@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 import {IBaseManager} from "./IBaseManager.sol";
 
@@ -30,4 +30,6 @@ interface IBaseTokenActionScopeManager is IBaseManager {
         external
         view
         returns (uint256[] memory actionIds, uint256[] memory groupIds);
+
+    error ActionIdNotExist();
 }

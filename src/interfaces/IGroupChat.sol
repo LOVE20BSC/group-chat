@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 interface IGroupChatErrors {
     error GroupNotExist();
@@ -8,7 +8,7 @@ interface IGroupChatErrors {
     error PostingNotAllowed();
     error NotChatOwner();
     error NotChatOwnerOrDelegateIdOwner();
-    error SenderAddressNotSenderIdOwner();
+    error SenderNotMemberOwner(uint256 senderId);
     error RoundNotStarted();
     error Reentrant();
     error PhaseBlocksZero();
@@ -21,38 +21,52 @@ interface IGroupChatErrors {
     error DuplicateMentionedSenderId();
     error InvalidQuotedMessageId();
     error InvalidMessageId();
-    error DefaultGroupIdNotSet();
-    error GroupAdminHasNoCode();
-    error GroupDefaultsHasNoCode();
-    error GroupDefaultsGroupMismatch();
-    error GroupDelegateHasNoCode();
     error GroupDelegateGroupMismatch();
     error MentionAllUnauthorized();
     error ScopeRejected();
     error BanRejected();
     error ScopeSourceFailed();
     error BanSourceFailed();
+    error InvalidAddress();
 }
 
 interface IGroupChatEvents {
-    event Activate(uint256 indexed groupId, address indexed owner);
+    event Activate(uint256 indexed groupId, uint256 indexed ownerId, address indexed owner);
 
-    event SetPostingAllowed(uint256 indexed groupId, address indexed operator, bool postingAllowed);
+    event SetPostingAllowed(
+        uint256 indexed groupId, uint256 indexed operatorId, address indexed operator, bool postingAllowed
+    );
 
     event SetScopeSource(
-        uint256 indexed groupId, address indexed sourceAddress, address indexed operator, address prevSourceAddress
+        uint256 indexed groupId,
+        address indexed sourceAddress,
+        uint256 indexed operatorId,
+        address operator,
+        address prevSourceAddress
     );
 
     event SetBanSource(
-        uint256 indexed groupId, address indexed sourceAddress, address indexed operator, address prevSourceAddress
+        uint256 indexed groupId,
+        address indexed sourceAddress,
+        uint256 indexed operatorId,
+        address operator,
+        address prevSourceAddress
     );
 
     event SetBeforePostPlugin(
-        uint256 indexed groupId, address indexed pluginAddress, address indexed operator, address prevPluginAddress
+        uint256 indexed groupId,
+        address indexed pluginAddress,
+        uint256 indexed operatorId,
+        address operator,
+        address prevPluginAddress
     );
 
     event SetAfterPostPlugin(
-        uint256 indexed groupId, address indexed pluginAddress, address indexed operator, address prevPluginAddress
+        uint256 indexed groupId,
+        address indexed pluginAddress,
+        uint256 indexed operatorId,
+        address operator,
+        address prevPluginAddress
     );
 
     event PostMessage(
@@ -116,8 +130,6 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
 
     function GROUP_ADMIN_ADDRESS() external view returns (address);
 
-    function GROUP_DEFAULTS_ADDRESS() external view returns (address);
-
     function GROUP_DELEGATE_ADDRESS() external view returns (address);
 
     function originBlocks() external view returns (uint256);
@@ -136,27 +148,19 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
         address afterPostPlugin_
     ) external;
 
-    function setPostingAllowed(uint256 groupId, bool postingAllowed_) external;
+    function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed_) external;
 
-    function setScopeSource(uint256 groupId, address sourceAddress) external;
+    function setScopeSource(uint256 groupId, uint256 operatorId, address sourceAddress) external;
 
-    function setBanSource(uint256 groupId, address sourceAddress) external;
+    function setBanSource(uint256 groupId, uint256 operatorId, address sourceAddress) external;
 
-    function setBeforePostPlugin(uint256 groupId, address pluginAddress) external;
+    function setBeforePostPlugin(uint256 groupId, uint256 operatorId, address pluginAddress) external;
 
-    function setAfterPostPlugin(uint256 groupId, address pluginAddress) external;
+    function setAfterPostPlugin(uint256 groupId, uint256 operatorId, address pluginAddress) external;
 
     function post(
         uint256 groupId,
         uint256 senderId,
-        string calldata content,
-        uint256[] calldata mentionedSenderIds,
-        bool mentionAll,
-        uint256 quotedMessageId
-    ) external;
-
-    function postAsDefaultSender(
-        uint256 groupId,
         string calldata content,
         uint256[] calldata mentionedSenderIds,
         bool mentionAll,
@@ -177,7 +181,7 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
 
     function afterPostPlugin(uint256 groupId) external view returns (address);
 
-    function canPost(uint256 groupId, uint256 senderId, address senderAddress)
+    function canPost(uint256 groupId, uint256 senderId)
         external
         view
         returns (bool allowed, bytes4 reasonCode);
@@ -223,7 +227,10 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
         uint256 offset,
         uint256 limit,
         bool reverse
-    ) external view returns (uint256[] memory);
+    )
+        external
+        view
+        returns (uint256[] memory);
 
     function messagesByMentionAllCount(uint256 groupId) external view returns (uint256);
 
@@ -259,5 +266,8 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
 
     function roundInfo(uint256 groupId, uint256 round) external view returns (RoundSpan memory);
 
-    function roundInfos(uint256 groupId, uint256[] calldata rounds) external view returns (RoundSpan[] memory);
+    function roundInfos(uint256 groupId, uint256[] calldata rounds)
+        external
+        view
+        returns (RoundSpan[] memory);
 }

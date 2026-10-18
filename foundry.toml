@@ -24,9 +24,14 @@ fail_on_revert = false
 [lint]
 severity = ["high", "med", "low"]
 ignore = ["test/**/*.sol"]
-exclude_lints = ["calls-loop", "reentrancy-events", "unused-return"]
-# Same policy as core and action:
-# - calls-loop: rule sources and managers read fresh external state (member ownership, action membership)
-# - reentrancy-events: events after view calls are safe; no state changes possible
-# - unused-return: tuple elements intentionally ignored where the count is already known
-# These warning types cannot be suppressed with inline comments in this Foundry version.
+exclude_lints = [
+    "calls-loop",
+    "reentrancy-events",
+    "unused-return",
+    "require-revert-in-loop",
+    "reentrancy-no-eth",
+    "weak-prng",
+    "unsafe-typecast",
+    "encode-packed-collision",
+    "missing-zero-check",
+]

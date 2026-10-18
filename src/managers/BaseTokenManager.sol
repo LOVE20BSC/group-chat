@@ -1,38 +1,36 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IExtensionCenter} from "../interfaces/external/IExtensionCenter.sol";
-import {ILOVE20Launch} from "../interfaces/external/ILOVE20Launch.sol";
-import {ILOVE20Stake} from "../interfaces/external/ILOVE20Stake.sol";
 import {BaseManager} from "./BaseManager.sol";
+import {ILaunch} from "core/src/interfaces/ILaunch.sol";
+import {IStake} from "core/src/interfaces/IStake.sol";
+import {IVote} from "core/src/interfaces/IVote.sol";
 
 abstract contract BaseTokenManager is BaseManager {
-    address internal immutable LAUNCH_ADDRESS;
     address internal immutable STAKE_ADDRESS;
+    address internal immutable LAUNCH_ADDRESS;
 
     constructor(
         address groupChat_,
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_
-    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, extensionCenter_) {
-        address launch = IExtensionCenter(extensionCenter_).launchAddress();
-        address stake = IExtensionCenter(extensionCenter_).stakeAddress();
-        _requireCode(launch);
-        _requireCode(stake);
-
-        LAUNCH_ADDRESS = launch;
-        STAKE_ADDRESS = stake;
+        address actionTarget_,
+        uint256 recentRounds_
+    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_, recentRounds_) {
+        STAKE_ADDRESS = IVote(VOTE_ADDRESS).stakeAddress();
+        LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).launchAddress();
+        _requireCode(STAKE_ADDRESS);
+        _requireCode(LAUNCH_ADDRESS);
     }
 
-    function _tokenGovVoteWeight(address token, address account) internal view returns (uint256) {
-        return ILOVE20Stake(STAKE_ADDRESS).validGovVotes(token, account);
+    function _tokenGovVoteWeight(address token, uint256 memberId) internal view returns (uint256) {
+        return IStake(STAKE_ADDRESS).validGovVotes(token, memberId);
     }
 
     function _requireLOVE20Token(address token) internal view {
         _requireCode(token);
-        if (!ILOVE20Launch(LAUNCH_ADDRESS).isLOVE20Token(token)) {
+        if (!ILaunch(LAUNCH_ADDRESS).isLOVE20Token(token)) {
             revert TokenNotLOVE20();
         }
     }

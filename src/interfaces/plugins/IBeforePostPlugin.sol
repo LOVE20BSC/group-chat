@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 interface IBeforePostPlugin {
     function beforePost(
         uint256 groupId,
         uint256 senderId,
-        address senderAddress,
         string calldata content,
         uint256[] calldata mentionedSenderIds,
         bool mentionAll,

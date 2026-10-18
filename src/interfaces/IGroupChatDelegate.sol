@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-interface IGroupDelegateErrors {
-    error InvalidAddress();
+interface IGroupChatDelegateErrors {
     error GroupNotExist();
     error SenderNotGroupOwner();
     error SenderNotDelegateOwner();
@@ -10,7 +9,7 @@ interface IGroupDelegateErrors {
     error DelegateIdCannotBeGroupId();
 }
 
-interface IGroupDelegateEvents {
+interface IGroupChatDelegateEvents {
     event SetDelegateId(
         uint256 indexed groupId, address indexed owner, uint256 indexed delegateId, uint256 prevDelegateId
     );
@@ -24,7 +23,7 @@ interface IGroupDelegateEvents {
     );
 }
 
-interface IGroupDelegate is IGroupDelegateErrors, IGroupDelegateEvents {
+interface IGroupChatDelegate is IGroupChatDelegateErrors, IGroupChatDelegateEvents {
     function GROUP_ADDRESS() external view returns (address);
 
     function setDelegateId(uint256 groupId, uint256 delegateId) external;
@@ -58,6 +57,4 @@ interface IGroupDelegate is IGroupDelegateErrors, IGroupDelegateEvents {
     function delegatedGroupIdsCount(uint256 delegateId) external view returns (uint256);
 
     function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256);
-
-    function isOwnerOrDelegate(uint256 groupId, address account) external view returns (bool);
 }

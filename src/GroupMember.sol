@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
+import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {IGroupMember} from "./interfaces/IGroupMember.sol";
-import {ILOVE20Group} from "./interfaces/external/ILOVE20Group.sol";
-import {EnumerableSets} from "./libraries/EnumerableSets.sol";
+import {MemberOwner} from "./MemberOwner.sol";
+import {Uint256Set} from "libs/Uint256Set.sol";
 
 contract GroupMember is IGroupMember {
-    using EnumerableSets for EnumerableSets.UintSet;
+    using Uint256Set for Uint256Set.Storage;
 
     address public immutable GROUP_ADMIN_ADDRESS;
     address public immutable GROUP_ADDRESS;
 
+    address internal immutable _groupDelegateAddress;
+
     struct MemberState {
-        EnumerableSets.UintSet memberIds;
+        Uint256Set.Storage memberIds;
     }
 
     mapping(uint256 => MemberState) internal _states;
@@ -24,15 +27,16 @@ contract GroupMember is IGroupMember {
         }
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         GROUP_ADDRESS = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
+        _groupDelegateAddress = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
     }
 
-    function addMemberIds(uint256 groupId, uint256[] calldata memberIdList) external {
-        uint256 operatorId = _requireAdmin(groupId);
+    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external {
+        _requireOperator(groupId, operatorId);
         _setMemberIds(groupId, operatorId, memberIdList, true);
     }
 
-    function removeMemberIds(uint256 groupId, uint256[] calldata memberIdList) external {
-        uint256 operatorId = _requireAdmin(groupId);
+    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external {
+        _requireOperator(groupId, operatorId);
         _setMemberIds(groupId, operatorId, memberIdList, false);
     }
 
@@ -53,11 +57,12 @@ contract GroupMember is IGroupMember {
     }
 
     function memberIdsCount(uint256 groupId) external view returns (uint256) {
-        return _states[groupId].memberIds.values.length;
+        return _states[groupId].memberIds.count();
     }
 
     function memberIds(uint256 groupId, uint256 offset, uint256 limit) external view returns (uint256[] memory) {
-        return _states[groupId].memberIds.page(offset, limit);
+        (uint256[] memory page,) = _states[groupId].memberIds.values(offset, limit, false);
+        return page;
     }
 
     function _setMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList, bool listed)
@@ -73,18 +78,21 @@ contract GroupMember is IGroupMember {
         }
     }
 
-    function _setMemberId(EnumerableSets.UintSet storage set, uint256 memberId, bool listed) internal returns (bool) {
+    function _setMemberId(Uint256Set.Storage storage set, uint256 memberId, bool listed) internal returns (bool) {
         return listed ? set.add(memberId) : set.remove(memberId);
     }
 
-    function _requireAdmin(uint256 groupId) internal view returns (uint256 operatorId) {
-        operatorId = IGroupAdmin(GROUP_ADMIN_ADDRESS).adminIdOf(groupId, msg.sender);
-        if (operatorId == 0) {
-            operatorId = IGroupAdmin(GROUP_ADMIN_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
+    function _requireOperator(uint256 groupId, uint256 operatorId) internal view {
+        if (IGroupChatDelegate(_groupDelegateAddress).ownerOrDelegateIdOf(groupId, msg.sender) == operatorId) {
+            return;
         }
-        if (operatorId == 0) {
-            revert UnauthorizedGroupMemberManager();
+        // Load-bearing: a nonexistent operatorId collapses into the unauthorized revert instead of
+        // reverting separately, so the caller cannot use the error to probe whether a member id exists.
+        if (IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
+            && MemberOwner.ofOrZero(GROUP_ADDRESS, operatorId) == msg.sender) {
+            return;
         }
+        revert UnauthorizedGroupMemberManager();
     }
 
     function _requireMemberIdTarget(uint256 memberId) internal view {
@@ -94,10 +102,9 @@ contract GroupMember is IGroupMember {
         _ownerOfOrRevert(memberId);
     }
 
-    function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {
-        try ILOVE20Group(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
-            return resolved;
-        } catch {
+    function _ownerOfOrRevert(uint256 memberId) internal view returns (address owner) {
+        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
+        if (owner == address(0)) {
             revert GroupNotExist();
         }
     }

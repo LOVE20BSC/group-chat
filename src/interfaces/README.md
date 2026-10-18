@@ -1,7 +1,6 @@
 # Interfaces
 
 - 根目录：主协议与共享群级配置稳定 ABI。
-- `external/`：上游合约或通用标准的最小适配接口，只保留本仓库实际调用的函数和类型。
-- `managers/`：typed Manager 的外部稳定 ABI；按 base / token / action 公共面拆分。
+- `managers/`：typed Manager 的外部稳定 ABI。`IBaseManager` 承载共享错误、槽位 getter 与 `IPostScopeSource` / `IBanVoteWeightSource` / `IERC721Receiver` 的公共面；`IBaseTokenScopeManager` / `IBaseTokenActionScopeManager` 分别扩展代币侧与行动侧，`ActionIdNotExist` 内联在行动侧。
 - `plugins/`：发帖前后插件接口。
 - `sources/`：内置 ScopeSource / BanSource 的外部稳定 ABI。

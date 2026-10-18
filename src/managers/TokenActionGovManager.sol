@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 import {BaseTokenActionScopeManager} from "./BaseTokenActionScopeManager.sol";
 
@@ -9,7 +9,7 @@ contract TokenActionGovManager is BaseTokenActionScopeManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_,
+        address actionTarget_,
         uint256 recentRounds_
     )
         BaseTokenActionScopeManager(
@@ -17,7 +17,7 @@ contract TokenActionGovManager is BaseTokenActionScopeManager {
             banSource_,
             beforePostPlugin_,
             afterPostPlugin_,
-            extensionCenter_,
+            actionTarget_,
             recentRounds_
         )
     {}
@@ -26,9 +26,9 @@ contract TokenActionGovManager is BaseTokenActionScopeManager {
         return _activateManagedAction(token, actionId, "mgr_action_gov_");
     }
 
-    function canPost(uint256 groupId, uint256, address senderAddress) external view returns (bool) {
+    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
         ManagedAction storage action = actionOfGroup[groupId];
         address token = action.token;
-        return token != address(0) && _hasRecentActionVote(token, action.actionId, senderAddress);
+        return token != address(0) && _hasRecentActionVote(token, action.actionId, senderId);
     }
 }

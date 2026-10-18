@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IGroupDelegate} from "../../src/interfaces/external/IGroupDelegate.sol";
-import {ILOVE20Group} from "../../src/interfaces/external/ILOVE20Group.sol";
+import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 
-contract MockGroupDelegate is IGroupDelegate {
+contract MockGroupDelegate {
     error GroupNotExist();
     error SenderNotGroupOwner();
     error DelegateIdCannotBeGroupId();
@@ -75,7 +74,7 @@ contract MockGroupDelegate is IGroupDelegate {
     }
 
     function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {
-        try ILOVE20Group(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
+        try IMemberNFT(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
             return resolved;
         } catch {
             revert GroupNotExist();

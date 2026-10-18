@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 contract MockLOVE20Protocols {
     string public symbol = "LOVE20";

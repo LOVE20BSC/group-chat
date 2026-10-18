@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
-
-import {ILOVE20Group} from "../../interfaces/external/ILOVE20Group.sol";
+pragma solidity =0.8.37;
 
 import {IBanVoteWeightSource} from "../../interfaces/sources/ban/IBanVoteWeightSource.sol";
 import {IGovVotedBanSource} from "../../interfaces/sources/ban/IGovVotedBanSource.sol";
-import {EnumerableSets} from "../../libraries/EnumerableSets.sol";
+import {MemberOwner} from "../../MemberOwner.sol";
+import {Uint256Set} from "libs/Uint256Set.sol";
 
 contract GovVotedBanSource is IGovVotedBanSource {
-    using EnumerableSets for EnumerableSets.AddressSet;
-    using EnumerableSets for EnumerableSets.UintSet;
+    using Uint256Set for Uint256Set.Storage;
 
     address public immutable GROUP_ADDRESS;
     uint256 public constant PRECISION = 1e18;
@@ -24,32 +22,17 @@ contract GovVotedBanSource is IGovVotedBanSource {
     struct TargetState {
         uint256 supportWeight;
         uint256 opposeWeight;
-        address[] voters;
-        mapping(address => uint256) voterIndexPlusOne;
-        mapping(address => VoteState) votes;
+        uint256[] voters;
+        mapping(uint256 => uint256) voterIndexPlusOne;
+        mapping(uint256 => VoteState) votes;
     }
 
     struct ChatState {
         uint256 stateVersion;
-        address[] addressTargets;
-        mapping(address => uint256) addressTargetIndexPlusOne;
-        mapping(address => TargetState) addressTargetStates;
         uint256[] senderIdTargets;
         mapping(uint256 => uint256) senderIdTargetIndexPlusOne;
         mapping(uint256 => TargetState) senderIdTargetStates;
-        EnumerableSets.AddressSet addressBanList;
-        EnumerableSets.UintSet senderIdBanList;
-    }
-
-    enum TargetKind {
-        SenderAddress,
-        SenderId
-    }
-
-    struct TargetKey {
-        TargetKind kind;
-        address targetAddress;
-        uint256 targetSenderId;
+        Uint256Set.Storage senderIdBanList;
     }
 
     mapping(uint256 => ChatState) internal _states;
@@ -69,60 +52,21 @@ contract GovVotedBanSource is IGovVotedBanSource {
         BAN_THRESHOLD_RATIO = banThresholdRatio_;
     }
 
-    function voteBySenderAddress(uint256 groupId, address senderAddress, bool supportBan) external {
-        _setAddressVote(groupId, senderAddress, msg.sender, supportBan);
+    function voteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) external {
+        _requireVoterOwner(voterId);
+        _setSenderIdVote(groupId, targetSenderId, voterId, supportBan);
     }
 
-    function clearVoteBySenderAddress(uint256 groupId, address senderAddress) external {
-        _clearAddressVote(groupId, senderAddress, msg.sender);
+    function clearVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external {
+        _requireVoterOwner(voterId);
+        _clearSenderIdVote(groupId, targetSenderId, voterId);
     }
 
-    function refreshVoteBySenderAddress(uint256 groupId, address senderAddress, address voter) external {
-        _refreshAddressVote(groupId, senderAddress, voter);
+    function refreshVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external {
+        _refreshSenderIdVote(groupId, targetSenderId, voterId);
     }
 
-    function voteBySenderId(uint256 groupId, uint256 senderId, bool supportBan) external {
-        _setSenderIdVote(groupId, senderId, msg.sender, supportBan);
-    }
-
-    function clearVoteBySenderId(uint256 groupId, uint256 senderId) external {
-        _clearSenderIdVote(groupId, senderId, msg.sender);
-    }
-
-    function refreshVoteBySenderId(uint256 groupId, uint256 senderId, address voter) external {
-        _refreshSenderIdVote(groupId, senderId, voter);
-    }
-
-    function voteBySender(uint256 groupId, uint256 senderId, address senderAddress, bool supportBan) external {
-        _setSenderVote(groupId, senderId, senderAddress, msg.sender, supportBan);
-    }
-
-    function clearVoteBySender(uint256 groupId, uint256 senderId, address senderAddress) external {
-        _clearSenderVote(groupId, senderId, senderAddress, msg.sender);
-    }
-
-    function refreshVoteBySender(uint256 groupId, uint256 senderId, address senderAddress, address voter) external {
-        _refreshSenderVote(groupId, senderId, senderAddress, voter);
-    }
-
-    function voteWeightsBySenderAddressesByVoter(uint256 groupId, address[] calldata senderAddresses, address voter)
-        external
-        view
-        returns (uint256[] memory supportWeights, uint256[] memory opposeWeights)
-    {
-        supportWeights = new uint256[](senderAddresses.length);
-        opposeWeights = new uint256[](senderAddresses.length);
-        if (!_sourceHasCode(groupId)) {
-            return (supportWeights, opposeWeights);
-        }
-        ChatState storage state = _states[groupId];
-        for (uint256 i = 0; i < senderAddresses.length; i++) {
-            VoteState storage vote = state.addressTargetStates[senderAddresses[i]].votes[voter];
-            (supportWeights[i], opposeWeights[i]) = _voteWeights(vote);
-        }
-    }
-
-    function voteWeightsBySenderIdsByVoter(uint256 groupId, uint256[] calldata senderIds, address voter)
+    function voteWeightsBySenderIdsByVoter(uint256 groupId, uint256[] calldata senderIds, uint256 voterId)
         external
         view
         returns (uint256[] memory supportWeights, uint256[] memory opposeWeights)
@@ -134,22 +78,9 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
         ChatState storage state = _states[groupId];
         for (uint256 i = 0; i < senderIds.length; i++) {
-            VoteState storage vote = state.senderIdTargetStates[senderIds[i]].votes[voter];
+            VoteState storage vote = state.senderIdTargetStates[senderIds[i]].votes[voterId];
             (supportWeights[i], opposeWeights[i]) = _voteWeights(vote);
         }
-    }
-
-    function voteStatusBySenderAddress(uint256 groupId, address senderAddress)
-        external
-        view
-        returns (bool banned, uint256 supportWeight, uint256 opposeWeight)
-    {
-        if (!_sourceHasCode(groupId)) {
-            return (false, 0, 0);
-        }
-        ChatState storage state = _states[groupId];
-        TargetState storage target = state.addressTargetStates[senderAddress];
-        return (state.addressBanList.contains(senderAddress), target.supportWeight, target.opposeWeight);
     }
 
     function voteStatusBySenderId(uint256 groupId, uint256 senderId)
@@ -158,49 +89,12 @@ contract GovVotedBanSource is IGovVotedBanSource {
         returns (bool banned, uint256 supportWeight, uint256 opposeWeight)
     {
         if (!_sourceHasCode(groupId)) {
+            // forge-lint: disable-next-item(boolean-cst)
             return (false, 0, 0);
         }
         ChatState storage state = _states[groupId];
         TargetState storage target = state.senderIdTargetStates[senderId];
         return (state.senderIdBanList.contains(senderId), target.supportWeight, target.opposeWeight);
-    }
-
-    function votedSenderAddressesCount(uint256 groupId) external view returns (uint256) {
-        if (!_sourceHasCode(groupId)) {
-            return 0;
-        }
-        return _states[groupId].addressTargets.length;
-    }
-
-    function votedSenderAddresses(uint256 groupId, uint256 offset, uint256 limit)
-        external
-        view
-        returns (
-            address[] memory senderAddresses,
-            uint256[] memory supportWeights,
-            uint256[] memory opposeWeights,
-            uint256[] memory voterCounts
-        )
-    {
-        if (!_sourceHasCode(groupId)) {
-            return (new address[](0), new uint256[](0), new uint256[](0), new uint256[](0));
-        }
-
-        ChatState storage state = _states[groupId];
-        uint256 count = _pageCount(state.addressTargets.length, offset, limit);
-        senderAddresses = new address[](count);
-        supportWeights = new uint256[](count);
-        opposeWeights = new uint256[](count);
-        voterCounts = new uint256[](count);
-
-        for (uint256 i = 0; i < count; i++) {
-            address senderAddress = state.addressTargets[offset + i];
-            TargetState storage target = state.addressTargetStates[senderAddress];
-            senderAddresses[i] = senderAddress;
-            supportWeights[i] = target.supportWeight;
-            opposeWeights[i] = target.opposeWeight;
-            voterCounts[i] = target.voters.length;
-        }
     }
 
     function votedSenderIdsCount(uint256 groupId) external view returns (uint256) {
@@ -241,24 +135,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
     }
 
-    function votersBySenderAddressCount(uint256 groupId, address senderAddress) external view returns (uint256) {
-        if (!_sourceHasCode(groupId)) {
-            return 0;
-        }
-        return _states[groupId].addressTargetStates[senderAddress].voters.length;
-    }
-
-    function votersBySenderAddress(uint256 groupId, address senderAddress, uint256 offset, uint256 limit)
-        external
-        view
-        returns (address[] memory voters, uint256[] memory supportWeights, uint256[] memory opposeWeights)
-    {
-        if (!_sourceHasCode(groupId)) {
-            return (new address[](0), new uint256[](0), new uint256[](0));
-        }
-        return _votersPage(_states[groupId].addressTargetStates[senderAddress], offset, limit);
-    }
-
     function votersBySenderIdCount(uint256 groupId, uint256 senderId) external view returns (uint256) {
         if (!_sourceHasCode(groupId)) {
             return 0;
@@ -269,37 +145,16 @@ contract GovVotedBanSource is IGovVotedBanSource {
     function votersBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit)
         external
         view
-        returns (address[] memory voters, uint256[] memory supportWeights, uint256[] memory opposeWeights)
+        returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights)
     {
         if (!_sourceHasCode(groupId)) {
-            return (new address[](0), new uint256[](0), new uint256[](0));
+            return (new uint256[](0), new uint256[](0), new uint256[](0));
         }
         return _votersPage(_states[groupId].senderIdTargetStates[senderId], offset, limit);
     }
 
-    function isBanned(uint256 groupId, uint256 senderId, address senderAddress) external view returns (bool) {
-        ChatState storage state = _states[groupId];
-        return state.addressBanList.contains(senderAddress) || state.senderIdBanList.contains(senderId);
-    }
-
-    function isAddressBanned(uint256 groupId, address senderAddress) external view returns (bool) {
-        return _states[groupId].addressBanList.contains(senderAddress);
-    }
-
-    function isSenderIdBanned(uint256 groupId, uint256 senderId) external view returns (bool) {
+    function isBanned(uint256 groupId, uint256 senderId) external view returns (bool) {
         return _states[groupId].senderIdBanList.contains(senderId);
-    }
-
-    function isAddressBannedBatch(uint256 groupId, address[] calldata senderAddresses)
-        external
-        view
-        returns (bool[] memory banned)
-    {
-        ChatState storage state = _states[groupId];
-        banned = new bool[](senderAddresses.length);
-        for (uint256 i = 0; i < senderAddresses.length; i++) {
-            banned[i] = state.addressBanList.contains(senderAddresses[i]);
-        }
     }
 
     function isSenderIdBannedBatch(uint256 groupId, uint256[] calldata senderIds)
@@ -307,28 +162,10 @@ contract GovVotedBanSource is IGovVotedBanSource {
         view
         returns (bool[] memory banned)
     {
-        ChatState storage state = _states[groupId];
+        Uint256Set.Storage storage banList = _states[groupId].senderIdBanList;
         banned = new bool[](senderIds.length);
         for (uint256 i = 0; i < senderIds.length; i++) {
-            banned[i] = state.senderIdBanList.contains(senderIds[i]);
-        }
-    }
-
-    function voteStatusBySenderAddresses(uint256 groupId, address[] calldata senderAddresses)
-        external
-        view
-        returns (bool[] memory banned, uint256[] memory supportWeights, uint256[] memory opposeWeights)
-    {
-        ChatState storage state = _states[groupId];
-        banned = new bool[](senderAddresses.length);
-        supportWeights = new uint256[](senderAddresses.length);
-        opposeWeights = new uint256[](senderAddresses.length);
-        for (uint256 i = 0; i < senderAddresses.length; i++) {
-            address senderAddress = senderAddresses[i];
-            TargetState storage target = state.addressTargetStates[senderAddress];
-            banned[i] = state.addressBanList.contains(senderAddress);
-            supportWeights[i] = target.supportWeight;
-            opposeWeights[i] = target.opposeWeight;
+            banned[i] = banList.contains(senderIds[i]);
         }
     }
 
@@ -354,18 +191,14 @@ contract GovVotedBanSource is IGovVotedBanSource {
         return _states[groupId].stateVersion;
     }
 
-    function _setAddressVote(uint256 groupId, address targetAddress, address voter, bool supportBan) internal {
-        uint256 newVersion =
-            _setVoteIfChanged(groupId, TargetKey(TargetKind.SenderAddress, targetAddress, 0), voter, supportBan, 0);
-        if (newVersion == 0) {
-            revert VoteUnchanged();
+    function _requireVoterOwner(uint256 voterId) internal view {
+        if (MemberOwner.ofOrZero(GROUP_ADDRESS, voterId) != msg.sender) {
+            revert SenderNotMemberOwner(voterId);
         }
-        _emitChangeStateVersion(groupId, newVersion);
     }
 
-    function _setSenderIdVote(uint256 groupId, uint256 targetSenderId, address voter, bool supportBan) internal {
-        uint256 newVersion =
-            _setVoteIfChanged(groupId, TargetKey(TargetKind.SenderId, address(0), targetSenderId), voter, supportBan, 0);
+    function _setSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) internal {
+        uint256 newVersion = _setVoteIfChanged(groupId, targetSenderId, voterId, supportBan, 0);
         if (newVersion == 0) {
             revert VoteUnchanged();
         }
@@ -374,30 +207,30 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
     function _setVoteIfChanged(
         uint256 groupId,
-        TargetKey memory key,
-        address voter,
+        uint256 targetSenderId,
+        uint256 voterId,
         bool supportBan,
         uint256 newVersion
     ) internal returns (uint256) {
-        _requireTarget(key);
+        _requireTarget(targetSenderId);
         address source = _sourceOrRevert(groupId);
-        uint256 weight = _voteWeightOrRevert(source, groupId, voter);
+        uint256 weight = _voteWeightOrRevert(source, groupId, voterId);
         if (weight == 0) {
             revert VoteWeightZero();
         }
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
         ChatState storage state = _states[groupId];
-        TargetState storage target = _targetState(state, key);
-        VoteState storage vote = target.votes[voter];
+        TargetState storage target = _targetState(state, targetSenderId);
+        VoteState storage vote = target.votes[voterId];
         bool voteExists = vote.settledWeight != 0;
         if (voteExists && vote.supportBan == supportBan && vote.settledWeight == weight) {
-            return _syncBanList(state, groupId, key, totalWeight, newVersion);
+            return _syncBanList(state, groupId, targetSenderId, totalWeight, newVersion);
         }
 
         if (!voteExists) {
-            _addTarget(state, key);
-            _addVoter(target, voter);
+            _addSenderIdTarget(state, targetSenderId);
+            _addVoter(target, voterId);
         } else {
             _removeWeight(target, vote.supportBan, vote.settledWeight);
         }
@@ -406,157 +239,89 @@ contract GovVotedBanSource is IGovVotedBanSource {
         vote.supportBan = supportBan;
         vote.settledWeight = weight;
         newVersion = _ensureStateVersion(state, newVersion);
-        _emitSetVote(state, groupId, key, voter, supportBan, weight, newVersion);
-        newVersion = _syncBanList(state, groupId, key, totalWeight, newVersion);
+        _emitSetVote(state, groupId, targetSenderId, voterId, supportBan, weight, newVersion);
+        newVersion = _syncBanList(state, groupId, targetSenderId, totalWeight, newVersion);
         return newVersion;
     }
 
-    function _clearAddressVote(uint256 groupId, address targetAddress, address voter) internal {
-        uint256 newVersion = _clearVoteIfFound(groupId, TargetKey(TargetKind.SenderAddress, targetAddress, 0), voter, 0);
+    function _clearSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId) internal {
+        uint256 newVersion = _clearVoteIfFound(groupId, targetSenderId, voterId, 0);
         if (newVersion == 0) {
             revert VoteNotFound();
         }
         _emitChangeStateVersion(groupId, newVersion);
     }
 
-    function _clearSenderIdVote(uint256 groupId, uint256 targetSenderId, address voter) internal {
-        uint256 newVersion =
-            _clearVoteIfFound(groupId, TargetKey(TargetKind.SenderId, address(0), targetSenderId), voter, 0);
-        if (newVersion == 0) {
-            revert VoteNotFound();
-        }
-        _emitChangeStateVersion(groupId, newVersion);
-    }
-
-    function _clearVoteIfFound(uint256 groupId, TargetKey memory key, address voter, uint256 newVersion)
+    function _clearVoteIfFound(uint256 groupId, uint256 targetSenderId, uint256 voterId, uint256 newVersion)
         internal
         returns (uint256)
     {
-        _requireTarget(key);
+        _requireTarget(targetSenderId);
         address source = _sourceOrRevert(groupId);
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
         ChatState storage state = _states[groupId];
-        TargetState storage target = _targetState(state, key);
-        VoteState storage vote = target.votes[voter];
+        TargetState storage target = _targetState(state, targetSenderId);
+        VoteState storage vote = target.votes[voterId];
         if (vote.settledWeight == 0) {
             return newVersion;
         }
 
-        _removeVote(state, target, key, voter);
+        _removeVote(state, target, targetSenderId, voterId);
         newVersion = _ensureStateVersion(state, newVersion);
-        _emitSetVote(state, groupId, key, voter, false, 0, newVersion);
-        newVersion = _syncBanList(state, groupId, key, totalWeight, newVersion);
+        _emitSetVote(state, groupId, targetSenderId, voterId, false, 0, newVersion);
+        newVersion = _syncBanList(state, groupId, targetSenderId, totalWeight, newVersion);
         return newVersion;
     }
 
-    function _refreshAddressVote(uint256 groupId, address targetAddress, address voter) internal {
-        (bool found, uint256 newVersion) =
-            _refreshVoteIfFound(groupId, TargetKey(TargetKind.SenderAddress, targetAddress, 0), voter, 0);
+    function _refreshSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId) internal {
+        (bool found, uint256 newVersion) = _refreshVoteIfFound(groupId, targetSenderId, voterId, 0);
         if (!found) {
             revert VoteNotFound();
         }
         _emitChangeStateVersionIfChanged(groupId, newVersion);
     }
 
-    function _refreshSenderIdVote(uint256 groupId, uint256 targetSenderId, address voter) internal {
-        (bool found, uint256 newVersion) =
-            _refreshVoteIfFound(groupId, TargetKey(TargetKind.SenderId, address(0), targetSenderId), voter, 0);
-        if (!found) {
-            revert VoteNotFound();
-        }
-        _emitChangeStateVersionIfChanged(groupId, newVersion);
-    }
-
-    function _refreshVoteIfFound(uint256 groupId, TargetKey memory key, address voter, uint256 newVersion)
+    function _refreshVoteIfFound(uint256 groupId, uint256 targetSenderId, uint256 voterId, uint256 newVersion)
         internal
         returns (bool found, uint256)
     {
-        _requireTarget(key);
+        _requireTarget(targetSenderId);
         address source = _sourceOrRevert(groupId);
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
         ChatState storage state = _states[groupId];
-        TargetState storage target = _targetState(state, key);
-        VoteState storage vote = target.votes[voter];
+        TargetState storage target = _targetState(state, targetSenderId);
+        VoteState storage vote = target.votes[voterId];
         if (vote.settledWeight == 0) {
+            // forge-lint: disable-next-item(boolean-cst)
             return (false, newVersion);
         }
 
-        uint256 weight = _voteWeightOrRevert(source, groupId, voter);
+        uint256 weight = _voteWeightOrRevert(source, groupId, voterId);
         if (weight == vote.settledWeight) {
-            newVersion = _syncBanList(state, groupId, key, totalWeight, newVersion);
+            newVersion = _syncBanList(state, groupId, targetSenderId, totalWeight, newVersion);
+            // forge-lint: disable-next-item(boolean-cst)
             return (true, newVersion);
         }
 
         _removeWeight(target, vote.supportBan, vote.settledWeight);
         if (weight == 0) {
-            _removeVoteAfterWeightRemoved(state, target, key, voter);
+            _removeVoteAfterWeightRemoved(state, target, targetSenderId, voterId);
             newVersion = _ensureStateVersion(state, newVersion);
-            _emitSetVote(state, groupId, key, voter, false, 0, newVersion);
-            newVersion = _syncBanList(state, groupId, key, totalWeight, newVersion);
+            _emitSetVote(state, groupId, targetSenderId, voterId, false, 0, newVersion);
+            newVersion = _syncBanList(state, groupId, targetSenderId, totalWeight, newVersion);
+            // forge-lint: disable-next-item(boolean-cst)
             return (true, newVersion);
         }
 
         _addWeight(target, vote.supportBan, weight);
         vote.settledWeight = weight;
         newVersion = _ensureStateVersion(state, newVersion);
-        _emitSetVote(state, groupId, key, voter, vote.supportBan, weight, newVersion);
-        newVersion = _syncBanList(state, groupId, key, totalWeight, newVersion);
+        _emitSetVote(state, groupId, targetSenderId, voterId, vote.supportBan, weight, newVersion);
+        newVersion = _syncBanList(state, groupId, targetSenderId, totalWeight, newVersion);
+        // forge-lint: disable-next-item(boolean-cst)
         return (true, newVersion);
-    }
-
-    function _setSenderVote(
-        uint256 groupId,
-        uint256 targetSenderId,
-        address targetAddress,
-        address voter,
-        bool supportBan
-    ) internal {
-        _requireSenderTarget(targetSenderId, targetAddress);
-        uint256 newVersion =
-            _setVoteIfChanged(groupId, TargetKey(TargetKind.SenderAddress, targetAddress, 0), voter, supportBan, 0);
-        newVersion = _setVoteIfChanged(
-            groupId, TargetKey(TargetKind.SenderId, address(0), targetSenderId), voter, supportBan, newVersion
-        );
-        if (newVersion == 0) {
-            revert VoteUnchanged();
-        }
-        _emitChangeStateVersion(groupId, newVersion);
-    }
-
-    function _clearSenderVote(uint256 groupId, uint256 targetSenderId, address targetAddress, address voter) internal {
-        _requireSenderTarget(targetSenderId, targetAddress);
-        uint256 newVersion = _clearVoteIfFound(groupId, TargetKey(TargetKind.SenderAddress, targetAddress, 0), voter, 0);
-        newVersion =
-            _clearVoteIfFound(groupId, TargetKey(TargetKind.SenderId, address(0), targetSenderId), voter, newVersion);
-        if (newVersion == 0) {
-            revert VoteNotFound();
-        }
-        _emitChangeStateVersion(groupId, newVersion);
-    }
-
-    function _refreshSenderVote(uint256 groupId, uint256 targetSenderId, address targetAddress, address voter)
-        internal
-    {
-        _requireSenderTarget(targetSenderId, targetAddress);
-        (bool addressFound, uint256 newVersion) =
-            _refreshVoteIfFound(groupId, TargetKey(TargetKind.SenderAddress, targetAddress, 0), voter, 0);
-        (bool senderIdFound, uint256 newVersion2) =
-            _refreshVoteIfFound(groupId, TargetKey(TargetKind.SenderId, address(0), targetSenderId), voter, newVersion);
-        if (!addressFound && !senderIdFound) {
-            revert VoteNotFound();
-        }
-        _emitChangeStateVersionIfChanged(groupId, newVersion2);
-    }
-
-    function _requireSenderTarget(uint256 targetSenderId, address targetAddress) internal pure {
-        if (targetSenderId == 0) {
-            revert TargetSenderIdZero();
-        }
-        if (targetAddress == address(0)) {
-            revert TargetAddressZero();
-        }
     }
 
     function _ensureStateVersion(ChatState storage state, uint256 newVersion) internal returns (uint256) {
@@ -579,81 +344,60 @@ contract GovVotedBanSource is IGovVotedBanSource {
     function _emitSetVote(
         ChatState storage state,
         uint256 groupId,
-        TargetKey memory key,
-        address voter,
+        uint256 targetSenderId,
+        uint256 voterId,
         bool supportBan,
         uint256 settledWeight,
         uint256 newVersion
     ) internal {
-        TargetState storage target = _targetState(state, key);
-        if (key.kind == TargetKind.SenderAddress) {
-            emit SetAddressBanVote(
-                groupId,
-                key.targetAddress,
-                voter,
-                supportBan,
-                settledWeight,
-                target.supportWeight,
-                target.opposeWeight,
-                newVersion
-            );
-        } else {
-            emit SetSenderIdBanVote(
-                groupId,
-                key.targetSenderId,
-                voter,
-                supportBan,
-                settledWeight,
-                target.supportWeight,
-                target.opposeWeight,
-                newVersion
-            );
-        }
+        TargetState storage target = _targetState(state, targetSenderId);
+        emit SetSenderIdBanVote(
+            groupId,
+            targetSenderId,
+            voterId,
+            supportBan,
+            settledWeight,
+            target.supportWeight,
+            target.opposeWeight,
+            newVersion
+        );
     }
 
     function _syncBanList(
         ChatState storage state,
         uint256 groupId,
-        TargetKey memory key,
+        uint256 targetSenderId,
         uint256 totalWeight,
         uint256 newVersion
     ) internal returns (uint256) {
-        bool shouldList = _isTargetBanned(_targetState(state, key), totalWeight);
-        if (_isBanListed(state, key) == shouldList) {
+        bool shouldList = _isTargetBanned(_targetState(state, targetSenderId), totalWeight);
+        if (_isBanListed(state, targetSenderId) == shouldList) {
             return newVersion;
         }
 
         newVersion = _ensureStateVersion(state, newVersion);
-        _setBanListed(state, key, shouldList);
-        _emitSetBan(groupId, key, shouldList, newVersion);
+        _setBanListed(state, targetSenderId, shouldList);
+        _emitSetBan(groupId, targetSenderId, shouldList, newVersion);
         return newVersion;
     }
 
     function _sourceOrRevert(uint256 groupId) internal view returns (address source) {
-        try ILOVE20Group(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
-            source = resolved;
-        } catch {
-            revert BanVoteWeightSourceUnavailable();
-        }
+        source = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (source.code.length == 0) {
             revert BanVoteWeightSourceUnavailable();
         }
     }
 
     function _sourceHasCode(uint256 groupId) internal view returns (bool) {
-        try ILOVE20Group(GROUP_ADDRESS).ownerOf(groupId) returns (address source) {
-            return source.code.length != 0;
-        } catch {
-            return false;
-        }
+        return MemberOwner.ofOrZero(GROUP_ADDRESS, groupId).code.length != 0;
     }
 
-    function _voteWeightOrRevert(address source, uint256 groupId, address voter)
+    function _voteWeightOrRevert(address source, uint256 groupId, uint256 voterId)
         internal
         view
         returns (uint256 weight)
     {
-        try IBanVoteWeightSource(source).voteWeightOf(groupId, voter) returns (uint256 resolved) {
+        try IBanVoteWeightSource(source).voteWeightOf(groupId, voterId) returns (uint256 resolved) {
             return resolved;
         } catch {
             revert BanVoteWeightSourceUnavailable();
@@ -689,112 +433,51 @@ contract GovVotedBanSource is IGovVotedBanSource {
         return target.supportWeight * PRECISION >= totalWeight * BAN_THRESHOLD_RATIO;
     }
 
-    function _requireTarget(TargetKey memory key) internal pure {
-        if (key.kind == TargetKind.SenderAddress) {
-            if (key.targetAddress == address(0)) {
-                revert TargetAddressZero();
-            }
-        } else if (key.targetSenderId == 0) {
+    function _requireTarget(uint256 targetSenderId) internal pure {
+        if (targetSenderId == 0) {
             revert TargetSenderIdZero();
         }
     }
 
-    function _targetState(ChatState storage state, TargetKey memory key) internal view returns (TargetState storage) {
-        if (key.kind == TargetKind.SenderAddress) {
-            return state.addressTargetStates[key.targetAddress];
-        }
-        return state.senderIdTargetStates[key.targetSenderId];
+    function _targetState(ChatState storage state, uint256 targetSenderId) internal view returns (TargetState storage) {
+        return state.senderIdTargetStates[targetSenderId];
     }
 
-    function _addTarget(ChatState storage state, TargetKey memory key) internal {
-        if (key.kind == TargetKind.SenderAddress) {
-            _addAddressTarget(state, key.targetAddress);
-        } else {
-            _addSenderIdTarget(state, key.targetSenderId);
-        }
-    }
-
-    function _removeTarget(ChatState storage state, TargetKey memory key) internal {
-        if (key.kind == TargetKind.SenderAddress) {
-            _removeAddressTarget(state, key.targetAddress);
-        } else {
-            _removeSenderIdTarget(state, key.targetSenderId);
-        }
-    }
-
-    function _removeVote(ChatState storage state, TargetState storage target, TargetKey memory key, address voter)
+    function _removeVote(ChatState storage state, TargetState storage target, uint256 targetSenderId, uint256 voterId)
         internal
     {
-        VoteState storage vote = target.votes[voter];
+        VoteState storage vote = target.votes[voterId];
         _removeWeight(target, vote.supportBan, vote.settledWeight);
-        _removeVoteAfterWeightRemoved(state, target, key, voter);
+        _removeVoteAfterWeightRemoved(state, target, targetSenderId, voterId);
     }
 
     function _removeVoteAfterWeightRemoved(
         ChatState storage state,
         TargetState storage target,
-        TargetKey memory key,
-        address voter
+        uint256 targetSenderId,
+        uint256 voterId
     ) internal {
-        delete target.votes[voter];
-        _removeVoter(target, voter);
+        delete target.votes[voterId];
+        _removeVoter(target, voterId);
         if (target.voters.length == 0) {
-            _removeTarget(state, key);
+            _removeSenderIdTarget(state, targetSenderId);
         }
     }
 
-    function _isBanListed(ChatState storage state, TargetKey memory key) internal view returns (bool) {
-        if (key.kind == TargetKind.SenderAddress) {
-            return state.addressBanList.contains(key.targetAddress);
-        }
-        return state.senderIdBanList.contains(key.targetSenderId);
+    function _isBanListed(ChatState storage state, uint256 targetSenderId) internal view returns (bool) {
+        return state.senderIdBanList.contains(targetSenderId);
     }
 
-    function _setBanListed(ChatState storage state, TargetKey memory key, bool listed) internal {
-        if (key.kind == TargetKind.SenderAddress) {
-            if (listed) {
-                state.addressBanList.add(key.targetAddress);
-            } else {
-                state.addressBanList.remove(key.targetAddress);
-            }
-        } else if (listed) {
-            state.senderIdBanList.add(key.targetSenderId);
+    function _setBanListed(ChatState storage state, uint256 targetSenderId, bool listed) internal {
+        if (listed) {
+            state.senderIdBanList.add(targetSenderId);
         } else {
-            state.senderIdBanList.remove(key.targetSenderId);
+            state.senderIdBanList.remove(targetSenderId);
         }
     }
 
-    function _emitSetBan(uint256 groupId, TargetKey memory key, bool listed, uint256 newVersion) internal {
-        if (key.kind == TargetKind.SenderAddress) {
-            emit SetAddressBan(groupId, key.targetAddress, listed, newVersion);
-        } else {
-            emit SetSenderIdBan(groupId, key.targetSenderId, listed, newVersion);
-        }
-    }
-
-    function _addAddressTarget(ChatState storage state, address targetAddress) internal {
-        if (state.addressTargetIndexPlusOne[targetAddress] != 0) {
-            return;
-        }
-        state.addressTargets.push(targetAddress);
-        state.addressTargetIndexPlusOne[targetAddress] = state.addressTargets.length;
-    }
-
-    function _removeAddressTarget(ChatState storage state, address targetAddress) internal {
-        uint256 indexPlusOne = state.addressTargetIndexPlusOne[targetAddress];
-        if (indexPlusOne == 0) {
-            return;
-        }
-
-        uint256 index = indexPlusOne - 1;
-        uint256 lastIndex = state.addressTargets.length - 1;
-        if (index != lastIndex) {
-            address last = state.addressTargets[lastIndex];
-            state.addressTargets[index] = last;
-            state.addressTargetIndexPlusOne[last] = indexPlusOne;
-        }
-        state.addressTargets.pop();
-        delete state.addressTargetIndexPlusOne[targetAddress];
+    function _emitSetBan(uint256 groupId, uint256 targetSenderId, bool listed, uint256 newVersion) internal {
+        emit SetSenderIdBan(groupId, targetSenderId, listed, newVersion);
     }
 
     function _addSenderIdTarget(ChatState storage state, uint256 targetSenderId) internal {
@@ -822,16 +505,16 @@ contract GovVotedBanSource is IGovVotedBanSource {
         delete state.senderIdTargetIndexPlusOne[targetSenderId];
     }
 
-    function _addVoter(TargetState storage target, address voter) internal {
-        if (target.voterIndexPlusOne[voter] != 0) {
+    function _addVoter(TargetState storage target, uint256 voterId) internal {
+        if (target.voterIndexPlusOne[voterId] != 0) {
             return;
         }
-        target.voters.push(voter);
-        target.voterIndexPlusOne[voter] = target.voters.length;
+        target.voters.push(voterId);
+        target.voterIndexPlusOne[voterId] = target.voters.length;
     }
 
-    function _removeVoter(TargetState storage target, address voter) internal {
-        uint256 indexPlusOne = target.voterIndexPlusOne[voter];
+    function _removeVoter(TargetState storage target, uint256 voterId) internal {
+        uint256 indexPlusOne = target.voterIndexPlusOne[voterId];
         if (indexPlusOne == 0) {
             return;
         }
@@ -839,12 +522,12 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 index = indexPlusOne - 1;
         uint256 lastIndex = target.voters.length - 1;
         if (index != lastIndex) {
-            address last = target.voters[lastIndex];
+            uint256 last = target.voters[lastIndex];
             target.voters[index] = last;
             target.voterIndexPlusOne[last] = indexPlusOne;
         }
         target.voters.pop();
-        delete target.voterIndexPlusOne[voter];
+        delete target.voterIndexPlusOne[voterId];
     }
 
     function _addWeight(TargetState storage target, bool supportBan, uint256 weight) internal {
@@ -866,17 +549,17 @@ contract GovVotedBanSource is IGovVotedBanSource {
     function _votersPage(TargetState storage target, uint256 offset, uint256 limit)
         internal
         view
-        returns (address[] memory voters, uint256[] memory supportWeights, uint256[] memory opposeWeights)
+        returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights)
     {
         uint256 count = _pageCount(target.voters.length, offset, limit);
-        voters = new address[](count);
+        voterIds = new uint256[](count);
         supportWeights = new uint256[](count);
         opposeWeights = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            address voter = target.voters[offset + i];
-            VoteState storage vote = target.votes[voter];
-            voters[i] = voter;
+            uint256 voterId = target.voters[offset + i];
+            VoteState storage vote = target.votes[voterId];
+            voterIds[i] = voterId;
             (supportWeights[i], opposeWeights[i]) = _voteWeights(vote);
         }
     }

@@ -1,23 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IExtensionCenter} from "../interfaces/external/IExtensionCenter.sol";
-
-import {ILOVE20Stake} from "../interfaces/external/ILOVE20Stake.sol";
-import {ILOVE20Submit} from "../interfaces/external/ILOVE20Submit.sol";
-import {ILOVE20Vote} from "../interfaces/external/ILOVE20Vote.sol";
-import {IBaseTokenActionScopeManager} from "../interfaces/managers/IBaseTokenActionScopeManager.sol";
 import {BaseTokenManager} from "./BaseTokenManager.sol";
+import {IBaseTokenActionScopeManager} from "../interfaces/managers/IBaseTokenActionScopeManager.sol";
+import {ISubmit} from "core/src/interfaces/ISubmit.sol";
+import {IStake} from "core/src/interfaces/IStake.sol";
+import {IVote} from "core/src/interfaces/IVote.sol";
 
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
+    address public immutable GROUP_CHAT_ADDRESS;
+    address public immutable GROUP_ADDRESS;
+    address public immutable BAN_SOURCE_ADDRESS;
+    address public immutable BEFORE_POST_PLUGIN_ADDRESS;
+    address public immutable AFTER_POST_PLUGIN_ADDRESS;
+    uint256 public immutable RECENT_ROUNDS;
+
+    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
+        return _onERC721ReceivedFromMint(from);
+    }
+
     struct ManagedAction {
         address token;
         uint256 actionId;
     }
-
-    address internal immutable VOTE_ADDRESS;
-    address internal immutable SUBMIT_ADDRESS;
-    uint256 public immutable RECENT_ROUNDS;
 
     mapping(uint256 => ManagedAction) public actionOfGroup;
     mapping(address => mapping(uint256 => uint256)) public groupIdOfAction;
@@ -28,19 +33,15 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_,
+        address actionTarget_,
         uint256 recentRounds_
-    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, extensionCenter_) {
-        _requireRecentRounds(recentRounds_);
-
-        address vote = IExtensionCenter(extensionCenter_).voteAddress();
-        address submit = IExtensionCenter(extensionCenter_).submitAddress();
-        _requireCode(vote);
-        _requireCode(submit);
-
-        VOTE_ADDRESS = vote;
-        SUBMIT_ADDRESS = submit;
-        RECENT_ROUNDS = recentRounds_;
+    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_, recentRounds_) {
+        GROUP_CHAT_ADDRESS = _groupChatAddress;
+        GROUP_ADDRESS = _groupAddress;
+        BAN_SOURCE_ADDRESS = _banSourceAddress;
+        BEFORE_POST_PLUGIN_ADDRESS = _beforePostPluginAddress;
+        AFTER_POST_PLUGIN_ADDRESS = _afterPostPluginAddress;
+        RECENT_ROUNDS = _recentRounds;
     }
 
     function actionsByTokenCount(address token) external view returns (uint256) {
@@ -89,13 +90,13 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         }
     }
 
-    function voteWeightOf(uint256 groupId, address voter) external view returns (uint256) {
+    function voteWeightOf(uint256 groupId, uint256 voterId) external view returns (uint256) {
         ManagedAction storage action = actionOfGroup[groupId];
         address token = action.token;
         if (token == address(0)) {
             return 0;
         }
-        return _currentActionVoteWeight(token, action.actionId, voter);
+        return _currentActionVoteWeight(token, action.actionId, voterId);
     }
 
     function totalVoteWeight(uint256 groupId) external view returns (uint256) {
@@ -104,7 +105,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         if (token == address(0)) {
             return 0;
         }
-        return ILOVE20Stake(STAKE_ADDRESS).govVotesNum(token);
+        return IStake(STAKE_ADDRESS).globalGovVotes(token);
     }
 
     function _activateManagedAction(address token, uint256 actionId, string memory managerPrefix)
@@ -116,7 +117,9 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         _requireNotManaged(groupIdOfAction[token][actionId] != 0);
 
         groupId = _mintManagedGroup(_tokenActionGroupNameStem(managerPrefix, token, actionId));
+        // forge-lint: disable-next-item(missing-events-access-control)
         actionOfGroup[groupId] = ManagedAction({token: token, actionId: actionId});
+        // forge-lint: disable-next-item(missing-events-access-control)
         groupIdOfAction[token][actionId] = groupId;
         _actionIdsByToken[token].push(actionId);
         _activateManagedGroup(groupId);
@@ -124,18 +127,19 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
     }
 
     function _requireExistingAction(address token, uint256 actionId) internal view {
-        if (actionId >= ILOVE20Submit(SUBMIT_ADDRESS).actionsCount(token)) {
+        (, uint256 proposalCount) = ISubmit(SUBMIT_ADDRESS).proposalIds(token, 0, 0, false);
+        if (actionId == 0 || actionId > proposalCount) {
             revert ActionIdNotExist();
         }
     }
 
-    function _hasRecentActionVote(address token, uint256 actionId, address account) internal view returns (bool) {
-        uint256 round = ILOVE20Vote(VOTE_ADDRESS).currentRound();
+    function _hasRecentActionVote(address token, uint256 actionId, uint256 memberId) internal view returns (bool) {
+        uint256 round = IVote(VOTE_ADDRESS).currentRound();
         for (uint256 i = 0; i < RECENT_ROUNDS; i++) {
-            if (ILOVE20Vote(VOTE_ADDRESS).votesNumByAccountByActionId(token, round, account, actionId) != 0) {
+            if (IVote(VOTE_ADDRESS).votesNumByMemberIdByProposalId(token, round, memberId, actionId) != 0) {
                 return true;
             }
-            if (round == 0) {
+            if (round <= 1) {
                 break;
             }
             unchecked {
@@ -145,13 +149,13 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         return false;
     }
 
-    function _currentActionVoteWeight(address token, uint256 actionId, address account)
+    function _currentActionVoteWeight(address token, uint256 actionId, uint256 memberId)
         internal
         view
         returns (uint256)
     {
-        return ILOVE20Vote(VOTE_ADDRESS).votesNumByAccountByActionId(
-            token, ILOVE20Vote(VOTE_ADDRESS).currentRound(), account, actionId
+        return IVote(VOTE_ADDRESS).votesNumByMemberIdByProposalId(
+            token, IVote(VOTE_ADDRESS).currentRound(), memberId, actionId
         );
     }
 }

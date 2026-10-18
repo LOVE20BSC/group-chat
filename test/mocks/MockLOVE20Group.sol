@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IERC20Payment} from "../../src/interfaces/external/IERC20Payment.sol";
-import {IERC20Symbol} from "../../src/interfaces/external/IERC20Symbol.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract MockLOVE20Group {
     bytes4 internal constant TEST_PREFIX = bytes4("Test");
@@ -36,7 +35,7 @@ contract MockLOVE20Group {
 
         cost = mintCost;
         if (cost != 0) {
-            IERC20Payment(LOVE20_TOKEN_ADDRESS).transferFrom(msg.sender, address(this), cost);
+            IERC20Metadata(LOVE20_TOKEN_ADDRESS).transferFrom(msg.sender, address(this), cost);
         }
 
         tokenId = _nextTokenId++;
@@ -76,7 +75,7 @@ contract MockLOVE20Group {
         if (love20.code.length == 0) {
             return groupName;
         }
-        if (bytes4(bytes(IERC20Symbol(love20).symbol())) != TEST_PREFIX || _hasTestPrefix(groupName)) {
+        if (bytes4(bytes(IERC20Metadata(love20).symbol())) != TEST_PREFIX || _hasTestPrefix(groupName)) {
             return groupName;
         }
         return string(abi.encodePacked("Test", groupName));

@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {ILOVE20Stake} from "../interfaces/external/ILOVE20Stake.sol";
-import {IBaseTokenScopeManager} from "../interfaces/managers/IBaseTokenScopeManager.sol";
 import {BaseTokenManager} from "./BaseTokenManager.sol";
+import {IBaseTokenScopeManager} from "../interfaces/managers/IBaseTokenScopeManager.sol";
+import {IStake} from "core/src/interfaces/IStake.sol";
 
 abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeManager {
+    address public immutable GROUP_CHAT_ADDRESS;
+    address public immutable GROUP_ADDRESS;
+    address public immutable BAN_SOURCE_ADDRESS;
+    address public immutable BEFORE_POST_PLUGIN_ADDRESS;
+    address public immutable AFTER_POST_PLUGIN_ADDRESS;
+    uint256 public immutable RECENT_ROUNDS;
+
+    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
+        return _onERC721ReceivedFromMint(from);
+    }
+
     mapping(uint256 => address) public tokenOfGroup;
     mapping(address => uint256) public groupIdOfToken;
     address[] internal _tokens;
@@ -15,8 +26,16 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_
-    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, extensionCenter_) {}
+        address actionTarget_,
+        uint256 recentRounds_
+    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_, recentRounds_) {
+        GROUP_CHAT_ADDRESS = _groupChatAddress;
+        GROUP_ADDRESS = _groupAddress;
+        BAN_SOURCE_ADDRESS = _banSourceAddress;
+        BEFORE_POST_PLUGIN_ADDRESS = _beforePostPluginAddress;
+        AFTER_POST_PLUGIN_ADDRESS = _afterPostPluginAddress;
+        RECENT_ROUNDS = _recentRounds;
+    }
 
     function tokensCount() external view returns (uint256) {
         return _tokens.length;
@@ -38,12 +57,12 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         }
     }
 
-    function voteWeightOf(uint256 groupId, address voter) external view returns (uint256) {
+    function voteWeightOf(uint256 groupId, uint256 voterId) external view returns (uint256) {
         address token = tokenOfGroup[groupId];
         if (token == address(0)) {
             return 0;
         }
-        return _tokenGovVoteWeight(token, voter);
+        return _tokenGovVoteWeight(token, voterId);
     }
 
     function totalVoteWeight(uint256 groupId) external view returns (uint256) {
@@ -51,7 +70,7 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         if (token == address(0)) {
             return 0;
         }
-        return ILOVE20Stake(STAKE_ADDRESS).govVotesNum(token);
+        return IStake(STAKE_ADDRESS).globalGovVotes(token);
     }
 
     function _activateToken(address token, string memory managerPrefix) internal returns (uint256 groupId) {
@@ -59,7 +78,9 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         _requireNotManaged(groupIdOfToken[token] != 0);
 
         groupId = _mintManagedGroup(_tokenGroupNameStem(managerPrefix, token));
+        // forge-lint: disable-next-item(missing-events-access-control)
         tokenOfGroup[groupId] = token;
+        // forge-lint: disable-next-item(missing-events-access-control)
         groupIdOfToken[token] = groupId;
         _tokens.push(token);
         _activateManagedGroup(groupId);

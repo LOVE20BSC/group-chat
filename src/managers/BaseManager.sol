@@ -1,28 +1,34 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 import {IGroupChat} from "../interfaces/IGroupChat.sol";
-import {IERC20Payment} from "../interfaces/external/IERC20Payment.sol";
-
-import {IERC20Symbol} from "../interfaces/external/IERC20Symbol.sol";
-import {IERC721Receiver} from "../interfaces/external/IERC721Receiver.sol";
-import {ILOVE20Group} from "../interfaces/external/ILOVE20Group.sol";
 import {IBaseManager} from "../interfaces/managers/IBaseManager.sol";
+import {IActionTarget} from "action/src/interfaces/IActionTarget.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
+import {IVote} from "core/src/interfaces/IVote.sol";
 
 abstract contract BaseManager is IBaseManager {
-    address public immutable GROUP_CHAT_ADDRESS;
-    address public immutable GROUP_ADDRESS;
-    uint256 internal immutable MAX_GROUP_NAME_LENGTH;
-    address public immutable EXTENSION_CENTER_ADDRESS;
-    address public immutable BAN_SOURCE_ADDRESS;
-    address public immutable BEFORE_POST_PLUGIN_ADDRESS;
-    address public immutable AFTER_POST_PLUGIN_ADDRESS;
+    address public immutable _groupChatAddress;
+    address public immutable _groupAddress;
+    uint256 internal immutable MAX_NAME_LENGTH;
+    address public immutable _banSourceAddress;
+    address public immutable _beforePostPluginAddress;
+    address public immutable _afterPostPluginAddress;
+
+    uint256 public immutable _recentRounds;
 
     bytes4 internal constant TEST_PREFIX = bytes4("Test");
     bytes internal constant FALLBACK_TOKEN_SYMBOL = "TOKEN";
     bytes16 internal constant HEX_SYMBOLS = "0123456789abcdef";
     uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 12;
     uint256 internal constant GROUP_NAME_SEPARATOR_BYTES = 1;
+
+    address internal immutable ACTION_TARGET_ADDRESS;
+    address internal immutable SUBMIT_ADDRESS;
+    address internal immutable VOTE_ADDRESS;
 
     uint256 internal _mintNonce;
 
@@ -31,28 +37,37 @@ abstract contract BaseManager is IBaseManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_
+        address actionTarget_,
+        uint256 recentRounds_
     ) {
         _requireCode(groupChat_);
         _requireOptionalCode(banSource_);
         _requireOptionalCode(beforePostPlugin_);
         _requireOptionalCode(afterPostPlugin_);
-        _requireCode(extensionCenter_);
+        _requireCode(actionTarget_);
+        _requireRecentRounds(recentRounds_);
 
-        address love20Group = IGroupChat(groupChat_).GROUP_ADDRESS();
-        _requireCode(love20Group);
+        address memberNFT = IGroupChat(groupChat_).GROUP_ADDRESS();
+        _requireCode(memberNFT);
 
-        GROUP_CHAT_ADDRESS = groupChat_;
-        GROUP_ADDRESS = love20Group;
-        MAX_GROUP_NAME_LENGTH = ILOVE20Group(love20Group).MAX_GROUP_NAME_LENGTH();
-        EXTENSION_CENTER_ADDRESS = extensionCenter_;
-        BAN_SOURCE_ADDRESS = banSource_;
-        BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
-        AFTER_POST_PLUGIN_ADDRESS = afterPostPlugin_;
+        address submit = IActionTarget(actionTarget_).submitAddress();
+        address vote = IActionTarget(actionTarget_).voteAddress();
+        _requireCode(submit);
+        _requireCode(vote);
+        _groupChatAddress = groupChat_;
+        _groupAddress = memberNFT;
+        MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();
+        _banSourceAddress = banSource_;
+        _beforePostPluginAddress = beforePostPlugin_;
+        _afterPostPluginAddress = afterPostPlugin_;
+        _recentRounds = recentRounds_;
+        ACTION_TARGET_ADDRESS = actionTarget_;
+        SUBMIT_ADDRESS = submit;
+        VOTE_ADDRESS = vote;
     }
 
-    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
-        if (msg.sender != GROUP_ADDRESS || from != address(0)) {
+    function _onERC721ReceivedFromMint(address from) internal view returns (bytes4) {
+        if (msg.sender != _groupAddress || from != address(0)) {
             revert UnexpectedManagerERC721Received();
         }
         return IERC721Receiver.onERC721Received.selector;
@@ -60,29 +75,29 @@ abstract contract BaseManager is IBaseManager {
 
     function _mintManagedGroup(string memory groupNameStem) internal returns (uint256 groupId) {
         string memory groupName = _nextGroupName(groupNameStem);
-        ILOVE20Group group = ILOVE20Group(GROUP_ADDRESS);
+        IMemberNFT memberNFT = IMemberNFT(_groupAddress);
 
-        uint256 expectedMintCost = group.calculateMintCost(groupName);
+        uint256 expectedMintCost = memberNFT.calculateMintCost(groupName);
         if (expectedMintCost != 0) {
-            address love20 = group.LOVE20_TOKEN_ADDRESS();
-            if (!IERC20Payment(love20).transferFrom(msg.sender, address(this), expectedMintCost)) {
+            address love20 = memberNFT.LOVE20_TOKEN_ADDRESS();
+            if (!IERC20(love20).transferFrom(msg.sender, address(this), expectedMintCost)) {
                 revert ManagerPaymentFailed();
             }
-            if (!IERC20Payment(love20).approve(GROUP_ADDRESS, expectedMintCost)) {
+            if (!IERC20(love20).approve(_groupAddress, expectedMintCost)) {
                 revert ManagerApprovalFailed();
             }
         }
 
         uint256 actualMintCost;
-        (groupId, actualMintCost) = group.mint(groupName);
+        (groupId, actualMintCost) = memberNFT.mint(groupName);
         if (actualMintCost != expectedMintCost) {
             revert ManagerMintCostChanged();
         }
     }
 
     function _activateManagedGroup(uint256 groupId) internal {
-        IGroupChat(GROUP_CHAT_ADDRESS).activateChat(
-            groupId, address(this), BAN_SOURCE_ADDRESS, BEFORE_POST_PLUGIN_ADDRESS, AFTER_POST_PLUGIN_ADDRESS
+        IGroupChat(_groupChatAddress).activateChat(
+            groupId, address(this), _banSourceAddress, _beforePostPluginAddress, _afterPostPluginAddress
         );
     }
 
@@ -159,7 +174,7 @@ abstract contract BaseManager is IBaseManager {
             unchecked {
                 _mintNonce++;
             }
-            if (!ILOVE20Group(GROUP_ADDRESS).isGroupNameUsed(groupName)) {
+            if (!IMemberNFT(_groupAddress).isNameUsed(groupName)) {
                 return groupName;
             }
         }
@@ -169,7 +184,7 @@ abstract contract BaseManager is IBaseManager {
     function _tokenSymbolLabel(address token) internal view returns (string memory) {
         bytes memory sanitized = FALLBACK_TOKEN_SYMBOL;
         if (token.code.length != 0) {
-            try IERC20Symbol(token).symbol() returns (string memory resolvedSymbol) {
+            try IERC20Metadata(token).symbol() returns (string memory resolvedSymbol) {
                 bytes memory candidate = _sanitizeAsciiTokenSymbol(resolvedSymbol);
                 if (candidate.length != 0) {
                     sanitized = candidate;
@@ -181,17 +196,17 @@ abstract contract BaseManager is IBaseManager {
     }
 
     function _love20TokenRequiresTestPrefix() internal view returns (bool) {
-        address love20 = ILOVE20Group(GROUP_ADDRESS).LOVE20_TOKEN_ADDRESS();
+        address love20 = IMemberNFT(_groupAddress).LOVE20_TOKEN_ADDRESS();
         if (love20.code.length == 0) {
             return false;
         }
-        return bytes4(bytes(IERC20Symbol(love20).symbol())) == TEST_PREFIX;
+        return bytes4(bytes(IERC20Metadata(love20).symbol())) == TEST_PREFIX;
     }
 
     function _sanitizeAsciiTokenSymbol(string memory rawSymbol) internal pure returns (bytes memory) {
         bytes memory input = bytes(rawSymbol);
         bytes memory output = new bytes(input.length);
-        uint256 outputLength;
+        uint256 outputLength = 0;
 
         for (uint256 i = 0; i < input.length; i++) {
             bytes1 char = input[i];
@@ -227,7 +242,7 @@ abstract contract BaseManager is IBaseManager {
         }
 
         uint256 temp = value;
-        uint256 digits;
+        uint256 digits = 0;
         while (temp != 0) {
             digits++;
             temp /= 10;
@@ -251,7 +266,7 @@ abstract contract BaseManager is IBaseManager {
         if (requiresTestPrefix && !_hasTestPrefix(groupNameStem)) {
             reservedBytes += 4;
         }
-        uint256 maxStemBytes = MAX_GROUP_NAME_LENGTH > reservedBytes ? MAX_GROUP_NAME_LENGTH - reservedBytes : 0;
+        uint256 maxStemBytes = MAX_NAME_LENGTH > reservedBytes ? MAX_NAME_LENGTH - reservedBytes : 0;
         return _truncateAscii(groupNameStem, maxStemBytes);
     }
 

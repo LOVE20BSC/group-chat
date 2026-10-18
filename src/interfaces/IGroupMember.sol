@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
 interface IGroupMember {
     error GroupMemberAddressHasNoCode();
@@ -15,9 +15,9 @@ interface IGroupMember {
 
     function GROUP_ADDRESS() external view returns (address);
 
-    function addMemberIds(uint256 groupId, uint256[] calldata memberIds) external;
+    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds) external;
 
-    function removeMemberIds(uint256 groupId, uint256[] calldata memberIds) external;
+    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds) external;
 
     function isMemberId(uint256 groupId, uint256 memberId) external view returns (bool);
 

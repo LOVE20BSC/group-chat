@@ -1,45 +1,48 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IERC20Balance} from "../interfaces/external/IERC20Balance.sol";
-import {IExtensionCenter} from "../interfaces/external/IExtensionCenter.sol";
-import {ILOVE20Join} from "../interfaces/external/ILOVE20Join.sol";
+import {IActionTarget} from "action/src/interfaces/IActionTarget.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MemberOwner} from "../MemberOwner.sol";
 import {BaseTokenScopeManager} from "./BaseTokenScopeManager.sol";
 
 contract TokenMainManager is BaseTokenScopeManager {
-    address internal immutable JOIN_ADDRESS;
-
     constructor(
         address groupChat_,
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address extensionCenter_
-    ) BaseTokenScopeManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, extensionCenter_) {
-        address join = IExtensionCenter(extensionCenter_).joinAddress();
-        _requireCode(join);
-
-        JOIN_ADDRESS = join;
-    }
+        address actionTarget_,
+        uint256 recentRounds_
+    ) BaseTokenScopeManager(
+        groupChat_,
+        banSource_,
+        beforePostPlugin_,
+        afterPostPlugin_,
+        actionTarget_,
+        recentRounds_
+    ) {}
 
     function activate(address token) external returns (uint256 groupId) {
         return _activateToken(token, "mgr_token_main_");
     }
 
-    function canPost(uint256 groupId, uint256, address senderAddress) external view returns (bool) {
+    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
         address token = tokenOfGroup[groupId];
         return token != address(0)
             && (
-                _hasTokenBalance(token, senderAddress) || _tokenGovVoteWeight(token, senderAddress) != 0
-                    || _hasTokenActionParticipation(token, senderAddress)
+                _hasTokenBalance(token, senderId) || _tokenGovVoteWeight(token, senderId) != 0
+                    || _hasTokenActionParticipation(token, senderId)
             );
     }
 
-    function _hasTokenBalance(address token, address account) internal view returns (bool) {
-        return IERC20Balance(token).balanceOf(account) > 1;
+    function _hasTokenBalance(address token, uint256 memberId) internal view returns (bool) {
+        return IERC20(token).balanceOf(MemberOwner.ofOrZero(_groupAddress, memberId)) > 1;
     }
 
-    function _hasTokenActionParticipation(address token, address account) internal view returns (bool) {
-        return ILOVE20Join(JOIN_ADDRESS).amountByAccount(token, account) != 0;
+    function _hasTokenActionParticipation(address token, uint256 memberId) internal view returns (bool) {
+        (, uint256 joinedActionTotal) =
+            IActionTarget(ACTION_TARGET_ADDRESS).actionIdsByMemberId(token, memberId, 0, 1, false);
+        return joinedActionTotal != 0;
     }
 }

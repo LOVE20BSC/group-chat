@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {IERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/IERC721Enumerable.sol";
-import {IGroupDelegate} from "./interfaces/IGroupDelegate.sol";
+import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
+import {MemberOwner} from "./MemberOwner.sol";
+import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 
-contract GroupDelegate is IGroupDelegate {
+contract GroupChatDelegate is IGroupChatDelegate {
     address public immutable GROUP_ADDRESS;
 
     struct DelegateState {
@@ -23,7 +23,7 @@ contract GroupDelegate is IGroupDelegate {
 
     constructor(address groupAddress_) {
         if (groupAddress_ == address(0)) {
-            revert InvalidAddress();
+            revert GroupNotExist();
         }
 
         GROUP_ADDRESS = groupAddress_;
@@ -72,7 +72,7 @@ contract GroupDelegate is IGroupDelegate {
         }
 
         uint256 length = groupIds.length;
-        for (uint256 i; i < length;) {
+        for (uint256 i = 0; i < length;) {
             DelegateState storage state = _delegateStates[groupIds[i]];
             if (state.delegateId == delegateId) {
                 state.delegateId = 0;
@@ -113,7 +113,7 @@ contract GroupDelegate is IGroupDelegate {
         }
 
         uint256 groupSupply = _groupSupply();
-        for (uint256 i; i < length;) {
+        for (uint256 i = 0; i < length;) {
             uint256 groupId = groupIds[i];
             _validateGroupExists(groupId, groupSupply);
             if (groupId == delegateId) {
@@ -170,7 +170,7 @@ contract GroupDelegate is IGroupDelegate {
         uint256 remaining = total - offset;
         uint256 length = limit < remaining ? limit : remaining;
         groupIds = new uint256[](length);
-        for (uint256 i; i < length;) {
+        for (uint256 i = 0; i < length;) {
             groupIds[i] = storedGroupIds[offset + i];
             unchecked {
                 ++i;
@@ -196,7 +196,7 @@ contract GroupDelegate is IGroupDelegate {
         }
 
         uint256 groupSupply = _groupSupply();
-        for (uint256 i; i < length;) {
+        for (uint256 i = 0; i < length;) {
             uint256 groupId = groupIds[i];
             _validateGroupExists(groupId, groupSupply);
 
@@ -229,7 +229,7 @@ contract GroupDelegate is IGroupDelegate {
         groupIds = new uint256[](length);
         isEffective = new bool[](length);
 
-        for (uint256 i; i < length;) {
+        for (uint256 i = 0; i < length;) {
             uint256 groupId = storedGroupIds[offset + i];
             groupIds[i] = groupId;
             isEffective[i] = _isEffectiveDelegateId(groupId, delegateId);
@@ -246,10 +246,6 @@ contract GroupDelegate is IGroupDelegate {
 
     function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256) {
         return _ownerOrDelegateIdOf(groupId, account);
-    }
-
-    function isOwnerOrDelegate(uint256 groupId, address account) external view returns (bool) {
-        return _ownerOrDelegateIdOf(groupId, account) != 0;
     }
 
     function _ownerOrDelegateIdOf(uint256 groupId, address account) internal view returns (uint256) {
@@ -320,7 +316,7 @@ contract GroupDelegate is IGroupDelegate {
     }
 
     function _groupSupply() internal view returns (uint256) {
-        return IERC721Enumerable(GROUP_ADDRESS).totalSupply();
+        return IMemberNFT(GROUP_ADDRESS).totalSupply();
     }
 
     function _addDelegatedGroupId(uint256 delegateId, uint256 groupId) internal {
@@ -383,9 +379,8 @@ contract GroupDelegate is IGroupDelegate {
     }
 
     function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {
-        try IERC721(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
-            return resolved;
-        } catch {
+        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
+        if (owner == address(0)) {
             revert GroupNotExist();
         }
     }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.17;
+pragma solidity =0.8.37;
 
-import {IERC721Receiver} from "../external/IERC721Receiver.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 import {IPostScopeSource} from "../sources/IPostScopeSource.sol";
 import {IBanVoteWeightSource} from "../sources/ban/IBanVoteWeightSource.sol";
@@ -16,13 +16,10 @@ interface IBaseManager is IPostScopeSource, IBanVoteWeightSource, IERC721Receive
     error ManagerApprovalFailed();
     error TokenNotLOVE20();
     error UnexpectedManagerERC721Received();
-    error ActionIdNotExist();
 
     function GROUP_CHAT_ADDRESS() external view returns (address);
 
     function GROUP_ADDRESS() external view returns (address);
-
-    function EXTENSION_CENTER_ADDRESS() external view returns (address);
 
     function BAN_SOURCE_ADDRESS() external view returns (address);
 
