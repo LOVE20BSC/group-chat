@@ -45,6 +45,7 @@ contract GroupChat is IGroupChat {
         string content;
         uint256 blockNumber;
         uint256 timestamp;
+        uint256 round;
         uint256[] mentionedSenderIds;
         bool mentionAll;
         uint256 quotedMessageId;
@@ -239,7 +240,7 @@ contract GroupChat is IGroupChat {
         }
 
         uint256 messageIndex =
-            _storeMessage(groupId, senderId, content, mentionedSenderIds, mentionAll, quotedMessageId);
+            _storeMessage(groupId, senderId, content, mentionedSenderIds, mentionAll, quotedMessageId, round);
 
         if (_senderMessageIndexes[groupId][senderId].length == 0) {
             _senderIdsByChat[groupId].push(senderId);
@@ -662,7 +663,9 @@ contract GroupChat is IGroupChat {
         if (!config.activated) {
             revert ChatNotActivated();
         }
-        if (IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender) != operatorId) {
+        uint256 resolvedOperatorId =
+            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
+        if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
             revert NotChatOwnerOrDelegateIdOwner();
         }
     }
@@ -808,7 +811,8 @@ contract GroupChat is IGroupChat {
         string calldata content,
         uint256[] calldata mentionedSenderIds,
         bool mentionAll,
-        uint256 quotedMessageId
+        uint256 quotedMessageId,
+        uint256 round
     ) internal returns (uint256 messageIndex) {
         messageIndex = _messagesByChat[groupId].length;
         _messagesByChat[groupId].push();
@@ -819,6 +823,7 @@ contract GroupChat is IGroupChat {
         message_.content = content;
         message_.blockNumber = block.number;
         message_.timestamp = block.timestamp;
+        message_.round = round;
         message_.mentionAll = mentionAll;
         message_.quotedMessageId = quotedMessageId;
 
@@ -879,7 +884,7 @@ contract GroupChat is IGroupChat {
         result.groupId = groupId;
         result.senderId = source.senderId;
         result.senderAddress = source.senderAddress;
-        result.round = _roundByBlockNumber(source.blockNumber);
+        result.round = source.round;
         result.messageId = messageIndex + 1;
         result.content = source.content;
         result.blockNumber = source.blockNumber;

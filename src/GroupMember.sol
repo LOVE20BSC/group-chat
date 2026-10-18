@@ -83,12 +83,14 @@ contract GroupMember is IGroupMember {
     }
 
     function _requireOperator(uint256 groupId, uint256 operatorId) internal view {
-        if (IGroupChatDelegate(_groupDelegateAddress).ownerOrDelegateIdOf(groupId, msg.sender) == operatorId) {
+        uint256 resolvedOperatorId =
+            IGroupChatDelegate(_groupDelegateAddress).ownerOrDelegateIdOf(groupId, msg.sender);
+        if (operatorId != 0 && resolvedOperatorId == operatorId) {
             return;
         }
         // Load-bearing: a nonexistent operatorId collapses into the unauthorized revert instead of
         // reverting separately, so the caller cannot use the error to probe whether a member id exists.
-        if (IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
+        if (operatorId != 0 && IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
             && MemberOwner.ofOrZero(GROUP_ADDRESS, operatorId) == msg.sender) {
             return;
         }

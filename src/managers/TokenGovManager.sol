@@ -9,15 +9,13 @@ contract TokenGovManager is BaseTokenScopeManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address actionTarget_,
-        uint256 recentRounds_
+        address actionTarget_
     ) BaseTokenScopeManager(
         groupChat_,
         banSource_,
         beforePostPlugin_,
         afterPostPlugin_,
-        actionTarget_,
-        recentRounds_
+        actionTarget_
     ) {}
 
     function activate(address token) external returns (uint256 groupId) {

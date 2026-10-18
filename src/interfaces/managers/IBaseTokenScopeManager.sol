@@ -6,8 +6,6 @@ import {IBaseManager} from "./IBaseManager.sol";
 interface IBaseTokenScopeManager is IBaseManager {
     event Activate(address indexed token, uint256 indexed groupId, address indexed operator);
 
-    function RECENT_ROUNDS() external view returns (uint256);
-
     function activate(address token) external returns (uint256 groupId);
 
     function tokenOfGroup(uint256 groupId) external view returns (address);

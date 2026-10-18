@@ -8,11 +8,6 @@ import {IStake} from "core/src/interfaces/IStake.sol";
 import {IVote} from "core/src/interfaces/IVote.sol";
 
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
-    address public immutable GROUP_CHAT_ADDRESS;
-    address public immutable GROUP_ADDRESS;
-    address public immutable BAN_SOURCE_ADDRESS;
-    address public immutable BEFORE_POST_PLUGIN_ADDRESS;
-    address public immutable AFTER_POST_PLUGIN_ADDRESS;
     uint256 public immutable RECENT_ROUNDS;
 
     function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
@@ -35,13 +30,9 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         address afterPostPlugin_,
         address actionTarget_,
         uint256 recentRounds_
-    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_, recentRounds_) {
-        GROUP_CHAT_ADDRESS = _groupChatAddress;
-        GROUP_ADDRESS = _groupAddress;
-        BAN_SOURCE_ADDRESS = _banSourceAddress;
-        BEFORE_POST_PLUGIN_ADDRESS = _beforePostPluginAddress;
-        AFTER_POST_PLUGIN_ADDRESS = _afterPostPluginAddress;
-        RECENT_ROUNDS = _recentRounds;
+    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
+        _requireRecentRounds(recentRounds_);
+        RECENT_ROUNDS = recentRounds_;
     }
 
     function actionsByTokenCount(address token) external view returns (uint256) {

@@ -12,15 +12,13 @@ contract TokenMainManager is BaseTokenScopeManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address actionTarget_,
-        uint256 recentRounds_
+        address actionTarget_
     ) BaseTokenScopeManager(
         groupChat_,
         banSource_,
         beforePostPlugin_,
         afterPostPlugin_,
-        actionTarget_,
-        recentRounds_
+        actionTarget_
     ) {}
 
     function activate(address token) external returns (uint256 groupId) {
@@ -37,7 +35,7 @@ contract TokenMainManager is BaseTokenScopeManager {
     }
 
     function _hasTokenBalance(address token, uint256 memberId) internal view returns (bool) {
-        return IERC20(token).balanceOf(MemberOwner.ofOrZero(_groupAddress, memberId)) > 1;
+        return IERC20(token).balanceOf(MemberOwner.ofOrZero(GROUP_ADDRESS, memberId)) > 1;
     }
 
     function _hasTokenActionParticipation(address token, uint256 memberId) internal view returns (bool) {

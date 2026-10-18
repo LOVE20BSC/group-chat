@@ -15,9 +15,8 @@ abstract contract BaseTokenManager is BaseManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address actionTarget_,
-        uint256 recentRounds_
-    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_, recentRounds_) {
+        address actionTarget_
+    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
         STAKE_ADDRESS = IVote(VOTE_ADDRESS).stakeAddress();
         LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).launchAddress();
         _requireCode(STAKE_ADDRESS);

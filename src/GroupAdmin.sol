@@ -136,10 +136,11 @@ contract GroupAdmin is IGroupAdmin {
     }
 
     function _requireOwnerOrDelegate(uint256 groupId, uint256 operatorId) internal view {
-        if (IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender) == operatorId) {
-            return;
+        uint256 resolvedOperatorId =
+            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
+        if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
+            revert UnauthorizedGroupAdminManager();
         }
-        revert UnauthorizedGroupAdminManager();
     }
 
     function _requireCode(address target) internal view {

@@ -11,14 +11,12 @@ import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 import {IVote} from "core/src/interfaces/IVote.sol";
 
 abstract contract BaseManager is IBaseManager {
-    address public immutable _groupChatAddress;
-    address public immutable _groupAddress;
+    address public immutable GROUP_CHAT_ADDRESS;
+    address public immutable GROUP_ADDRESS;
     uint256 internal immutable MAX_NAME_LENGTH;
-    address public immutable _banSourceAddress;
-    address public immutable _beforePostPluginAddress;
-    address public immutable _afterPostPluginAddress;
-
-    uint256 public immutable _recentRounds;
+    address public immutable BAN_SOURCE_ADDRESS;
+    address public immutable BEFORE_POST_PLUGIN_ADDRESS;
+    address public immutable AFTER_POST_PLUGIN_ADDRESS;
 
     bytes4 internal constant TEST_PREFIX = bytes4("Test");
     bytes internal constant FALLBACK_TOKEN_SYMBOL = "TOKEN";
@@ -37,15 +35,13 @@ abstract contract BaseManager is IBaseManager {
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
-        address actionTarget_,
-        uint256 recentRounds_
+        address actionTarget_
     ) {
         _requireCode(groupChat_);
         _requireOptionalCode(banSource_);
         _requireOptionalCode(beforePostPlugin_);
         _requireOptionalCode(afterPostPlugin_);
         _requireCode(actionTarget_);
-        _requireRecentRounds(recentRounds_);
 
         address memberNFT = IGroupChat(groupChat_).GROUP_ADDRESS();
         _requireCode(memberNFT);
@@ -54,20 +50,19 @@ abstract contract BaseManager is IBaseManager {
         address vote = IActionTarget(actionTarget_).voteAddress();
         _requireCode(submit);
         _requireCode(vote);
-        _groupChatAddress = groupChat_;
-        _groupAddress = memberNFT;
+        GROUP_CHAT_ADDRESS = groupChat_;
+        GROUP_ADDRESS = memberNFT;
         MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();
-        _banSourceAddress = banSource_;
-        _beforePostPluginAddress = beforePostPlugin_;
-        _afterPostPluginAddress = afterPostPlugin_;
-        _recentRounds = recentRounds_;
+        BAN_SOURCE_ADDRESS = banSource_;
+        BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
+        AFTER_POST_PLUGIN_ADDRESS = afterPostPlugin_;
         ACTION_TARGET_ADDRESS = actionTarget_;
         SUBMIT_ADDRESS = submit;
         VOTE_ADDRESS = vote;
     }
 
     function _onERC721ReceivedFromMint(address from) internal view returns (bytes4) {
-        if (msg.sender != _groupAddress || from != address(0)) {
+        if (msg.sender != GROUP_ADDRESS || from != address(0)) {
             revert UnexpectedManagerERC721Received();
         }
         return IERC721Receiver.onERC721Received.selector;
@@ -75,7 +70,7 @@ abstract contract BaseManager is IBaseManager {
 
     function _mintManagedGroup(string memory groupNameStem) internal returns (uint256 groupId) {
         string memory groupName = _nextGroupName(groupNameStem);
-        IMemberNFT memberNFT = IMemberNFT(_groupAddress);
+        IMemberNFT memberNFT = IMemberNFT(GROUP_ADDRESS);
 
         uint256 expectedMintCost = memberNFT.calculateMintCost(groupName);
         if (expectedMintCost != 0) {
@@ -83,7 +78,7 @@ abstract contract BaseManager is IBaseManager {
             if (!IERC20(love20).transferFrom(msg.sender, address(this), expectedMintCost)) {
                 revert ManagerPaymentFailed();
             }
-            if (!IERC20(love20).approve(_groupAddress, expectedMintCost)) {
+            if (!IERC20(love20).approve(GROUP_ADDRESS, expectedMintCost)) {
                 revert ManagerApprovalFailed();
             }
         }
@@ -96,8 +91,8 @@ abstract contract BaseManager is IBaseManager {
     }
 
     function _activateManagedGroup(uint256 groupId) internal {
-        IGroupChat(_groupChatAddress).activateChat(
-            groupId, address(this), _banSourceAddress, _beforePostPluginAddress, _afterPostPluginAddress
+        IGroupChat(GROUP_CHAT_ADDRESS).activateChat(
+            groupId, address(this), BAN_SOURCE_ADDRESS, BEFORE_POST_PLUGIN_ADDRESS, AFTER_POST_PLUGIN_ADDRESS
         );
     }
 
@@ -174,7 +169,7 @@ abstract contract BaseManager is IBaseManager {
             unchecked {
                 _mintNonce++;
             }
-            if (!IMemberNFT(_groupAddress).isNameUsed(groupName)) {
+            if (!IMemberNFT(GROUP_ADDRESS).isNameUsed(groupName)) {
                 return groupName;
             }
         }
@@ -196,7 +191,7 @@ abstract contract BaseManager is IBaseManager {
     }
 
     function _love20TokenRequiresTestPrefix() internal view returns (bool) {
-        address love20 = IMemberNFT(_groupAddress).LOVE20_TOKEN_ADDRESS();
+        address love20 = IMemberNFT(GROUP_ADDRESS).LOVE20_TOKEN_ADDRESS();
         if (love20.code.length == 0) {
             return false;
         }
