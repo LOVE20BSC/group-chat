@@ -22,15 +22,13 @@ contract GovVotedBanSource is IGovVotedBanSource {
     struct TargetState {
         uint256 supportWeight;
         uint256 opposeWeight;
-        uint256[] voters;
-        mapping(uint256 => uint256) voterIndexPlusOne;
+        Uint256Set.Storage voters;
         mapping(uint256 => VoteState) votes;
     }
 
     struct ChatState {
         uint256 stateVersion;
-        uint256[] senderIdTargets;
-        mapping(uint256 => uint256) senderIdTargetIndexPlusOne;
+        Uint256Set.Storage senderIdTargets;
         mapping(uint256 => TargetState) senderIdTargetStates;
         Uint256Set.Storage senderIdBanList;
     }
@@ -101,7 +99,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (!_sourceHasCode(groupId)) {
             return 0;
         }
-        return _states[groupId].senderIdTargets.length;
+        return _states[groupId].senderIdTargets.count();
     }
 
     function votedSenderIds(uint256 groupId, uint256 offset, uint256 limit)
@@ -119,19 +117,18 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
 
         ChatState storage state = _states[groupId];
-        uint256 count = _pageCount(state.senderIdTargets.length, offset, limit);
-        senderIds = new uint256[](count);
+        (senderIds,) = state.senderIdTargets.values(offset, limit, false);
+        uint256 count = senderIds.length;
         supportWeights = new uint256[](count);
         opposeWeights = new uint256[](count);
         voterCounts = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 senderId = state.senderIdTargets[offset + i];
+            uint256 senderId = senderIds[i];
             TargetState storage target = state.senderIdTargetStates[senderId];
-            senderIds[i] = senderId;
             supportWeights[i] = target.supportWeight;
             opposeWeights[i] = target.opposeWeight;
-            voterCounts[i] = target.voters.length;
+            voterCounts[i] = target.voters.count();
         }
     }
 
@@ -139,7 +136,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (!_sourceHasCode(groupId)) {
             return 0;
         }
-        return _states[groupId].senderIdTargetStates[senderId].voters.length;
+        return _states[groupId].senderIdTargetStates[senderId].voters.count();
     }
 
     function votersBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit)
@@ -229,8 +226,8 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
 
         if (!voteExists) {
-            _addSenderIdTarget(state, targetSenderId);
-            _addVoter(target, voterId);
+            state.senderIdTargets.add(targetSenderId);
+            target.voters.add(voterId);
         } else {
             _removeWeight(target, vote.supportBan, vote.settledWeight);
         }
@@ -458,9 +455,9 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 voterId
     ) internal {
         delete target.votes[voterId];
-        _removeVoter(target, voterId);
-        if (target.voters.length == 0) {
-            _removeSenderIdTarget(state, targetSenderId);
+        target.voters.remove(voterId);
+        if (target.voters.count() == 0) {
+            state.senderIdTargets.remove(targetSenderId);
         }
     }
 
@@ -478,56 +475,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
     function _emitSetBan(uint256 groupId, uint256 targetSenderId, bool listed, uint256 newVersion) internal {
         emit SetSenderIdBan(groupId, targetSenderId, listed, newVersion);
-    }
-
-    function _addSenderIdTarget(ChatState storage state, uint256 targetSenderId) internal {
-        if (state.senderIdTargetIndexPlusOne[targetSenderId] != 0) {
-            return;
-        }
-        state.senderIdTargets.push(targetSenderId);
-        state.senderIdTargetIndexPlusOne[targetSenderId] = state.senderIdTargets.length;
-    }
-
-    function _removeSenderIdTarget(ChatState storage state, uint256 targetSenderId) internal {
-        uint256 indexPlusOne = state.senderIdTargetIndexPlusOne[targetSenderId];
-        if (indexPlusOne == 0) {
-            return;
-        }
-
-        uint256 index = indexPlusOne - 1;
-        uint256 lastIndex = state.senderIdTargets.length - 1;
-        if (index != lastIndex) {
-            uint256 last = state.senderIdTargets[lastIndex];
-            state.senderIdTargets[index] = last;
-            state.senderIdTargetIndexPlusOne[last] = indexPlusOne;
-        }
-        state.senderIdTargets.pop();
-        delete state.senderIdTargetIndexPlusOne[targetSenderId];
-    }
-
-    function _addVoter(TargetState storage target, uint256 voterId) internal {
-        if (target.voterIndexPlusOne[voterId] != 0) {
-            return;
-        }
-        target.voters.push(voterId);
-        target.voterIndexPlusOne[voterId] = target.voters.length;
-    }
-
-    function _removeVoter(TargetState storage target, uint256 voterId) internal {
-        uint256 indexPlusOne = target.voterIndexPlusOne[voterId];
-        if (indexPlusOne == 0) {
-            return;
-        }
-
-        uint256 index = indexPlusOne - 1;
-        uint256 lastIndex = target.voters.length - 1;
-        if (index != lastIndex) {
-            uint256 last = target.voters[lastIndex];
-            target.voters[index] = last;
-            target.voterIndexPlusOne[last] = indexPlusOne;
-        }
-        target.voters.pop();
-        delete target.voterIndexPlusOne[voterId];
     }
 
     function _addWeight(TargetState storage target, bool supportBan, uint256 weight) internal {
@@ -551,15 +498,13 @@ contract GovVotedBanSource is IGovVotedBanSource {
         view
         returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights)
     {
-        uint256 count = _pageCount(target.voters.length, offset, limit);
-        voterIds = new uint256[](count);
+        (voterIds,) = target.voters.values(offset, limit, false);
+        uint256 count = voterIds.length;
         supportWeights = new uint256[](count);
         opposeWeights = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 voterId = target.voters[offset + i];
-            VoteState storage vote = target.votes[voterId];
-            voterIds[i] = voterId;
+            VoteState storage vote = target.votes[voterIds[i]];
             (supportWeights[i], opposeWeights[i]) = _voteWeights(vote);
         }
     }
@@ -572,14 +517,5 @@ contract GovVotedBanSource is IGovVotedBanSource {
             return (vote.settledWeight, 0);
         }
         return (0, vote.settledWeight);
-    }
-
-    function _pageCount(uint256 total, uint256 offset, uint256 limit) internal pure returns (uint256) {
-        if (limit == 0 || offset >= total) {
-            return 0;
-        }
-
-        uint256 remaining = total - offset;
-        return remaining < limit ? remaining : limit;
     }
 }

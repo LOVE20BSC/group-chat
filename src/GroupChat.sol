@@ -11,6 +11,7 @@ import {IPostScopeSource} from "./interfaces/sources/IPostScopeSource.sol";
 import {MemberOwner} from "./MemberOwner.sol";
 import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 import {IPhase} from "core/src/interfaces/IPhase.sol";
+import {Pagination} from "libs/Pagination.sol";
 
 contract GroupChat is IGroupChat {
     uint256 public immutable MAX_CONTENT_LENGTH;
@@ -224,21 +225,21 @@ contract GroupChat is IGroupChat {
             revert SenderNotMemberOwner(senderId);
         }
 
-        uint256 contentLength = bytes(content).length;
-        if (contentLength == 0) {
+        if (bytes(content).length == 0) {
             revert ContentEmpty();
         }
-        if (contentLength > MAX_CONTENT_LENGTH) {
-            revert ContentTooLong(contentLength, MAX_CONTENT_LENGTH);
+        if (bytes(content).length > MAX_CONTENT_LENGTH) {
+            revert ContentTooLong(bytes(content).length, MAX_CONTENT_LENGTH);
         }
         _validateMentionedSenderIds(mentionedSenderIds);
+        uint256 delegateId = IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId);
         if (mentionAll) {
-            _requireMentionAllOperator(groupId, senderId);
+            _requireMentionAllOperator(groupId, senderId, delegateId);
         }
         _validateQuotedMessageId(groupId, quotedMessageId);
 
         uint256 round = currentRound();
-        _requirePostSources(config, groupId, senderId);
+        _requirePostSources(config, groupId, senderId, delegateId);
         if (config.beforePostPlugin != address(0)) {
             IBeforePostPlugin(config.beforePostPlugin).beforePost(
                 groupId, senderId, msg.sender, content, mentionedSenderIds, mentionAll, quotedMessageId
@@ -504,11 +505,11 @@ contract GroupChat is IGroupChat {
     {
         _requireExistingGroup(groupId);
         uint256[] storage list = _roundListByChat[groupId];
-        uint256 count = _pageCount(list.length, offset, limit);
+        uint256 count = Pagination.pageCount(list.length, offset, limit);
         RoundSpan[] memory result = new RoundSpan[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 round = list[_pageIndex(list.length, offset, i, reverse)];
+            uint256 round = list[Pagination.pageIndex(list.length, offset, i, reverse)];
             result[i] = _roundSpan(groupId, round);
         }
 
@@ -596,11 +597,11 @@ contract GroupChat is IGroupChat {
         view
         returns (uint256[] memory)
     {
-        uint256 count = _pageCount(source.length, offset, limit);
+        uint256 count = Pagination.pageCount(source.length, offset, limit);
         uint256[] memory result = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            result[i] = source[_pageIndex(source.length, offset, i, reverse)];
+            result[i] = source[Pagination.pageIndex(source.length, offset, i, reverse)];
         }
 
         return result;
@@ -614,11 +615,11 @@ contract GroupChat is IGroupChat {
         uint256 limit,
         bool reverse
     ) internal view returns (Message[] memory) {
-        uint256 count = _pageCount(total, offset, limit);
+        uint256 count = Pagination.pageCount(total, offset, limit);
         Message[] memory result = new Message[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 messageIndex = startIndex + _pageIndex(total, offset, i, reverse);
+            uint256 messageIndex = startIndex + Pagination.pageIndex(total, offset, i, reverse);
             result[i] = _copyMessage(_messagesByChat[groupId][messageIndex], groupId, messageIndex);
         }
 
@@ -630,11 +631,11 @@ contract GroupChat is IGroupChat {
         view
         returns (Message[] memory)
     {
-        uint256 count = _pageCount(indexes.length, offset, limit);
+        uint256 count = Pagination.pageCount(indexes.length, offset, limit);
         Message[] memory result = new Message[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 messageIndex = indexes[_pageIndex(indexes.length, offset, i, reverse)];
+            uint256 messageIndex = indexes[Pagination.pageIndex(indexes.length, offset, i, reverse)];
             result[i] = _copyMessage(_messagesByChat[groupId][messageIndex], groupId, messageIndex);
         }
 
@@ -646,11 +647,11 @@ contract GroupChat is IGroupChat {
         view
         returns (uint256[] memory)
     {
-        uint256 count = _pageCount(indexes.length, offset, limit);
+        uint256 count = Pagination.pageCount(indexes.length, offset, limit);
         uint256[] memory result = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            result[i] = indexes[_pageIndex(indexes.length, offset, i, reverse)] + 1;
+            result[i] = indexes[Pagination.pageIndex(indexes.length, offset, i, reverse)] + 1;
         }
 
         return result;
@@ -669,8 +670,8 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    function _requireMentionAllOperator(uint256 groupId, uint256 senderId) internal view {
-        if (senderId == groupId || IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId) == senderId) {
+    function _requireMentionAllOperator(uint256 groupId, uint256 senderId, uint256 delegateId) internal view {
+        if (senderId == groupId || delegateId == senderId) {
             return;
         }
         if (IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, senderId)) {
@@ -679,19 +680,22 @@ contract GroupChat is IGroupChat {
         revert MentionAllUnauthorized();
     }
 
-    function _requirePostSources(ChatConfig storage config, uint256 groupId, uint256 senderId) internal view {
-        bytes4 reasonCode = _postSourceRejection(config, groupId, senderId);
+    function _requirePostSources(ChatConfig storage config, uint256 groupId, uint256 senderId, uint256 delegateId)
+        internal
+        view
+    {
+        bytes4 reasonCode = _postSourceRejection(config, groupId, senderId, delegateId);
         if (reasonCode != bytes4(0)) {
             _revertPostSourceReason(reasonCode);
         }
     }
 
-    function _postSourceRejection(ChatConfig storage config, uint256 groupId, uint256 senderId)
+    function _postSourceRejection(ChatConfig storage config, uint256 groupId, uint256 senderId, uint256 delegateId)
         internal
         view
         returns (bytes4 reasonCode)
     {
-        if (senderId == groupId || IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId) == senderId) {
+        if (senderId == groupId || delegateId == senderId) {
             return bytes4(0);
         }
         if (config.scopeSource != address(0)) {
@@ -728,7 +732,7 @@ contract GroupChat is IGroupChat {
         if (reasonCode == BanSourceFailed.selector) {
             revert BanSourceFailed();
         }
-        revert();
+        assert(false);
     }
 
     function _canPost(uint256 groupId, uint256 senderId) internal view returns (bool allowed, bytes4 reasonCode) {
@@ -752,7 +756,9 @@ contract GroupChat is IGroupChat {
             return (false, GroupNotExist.selector);
         }
 
-        bytes4 sourceReasonCode = _postSourceRejection(config, groupId, senderId);
+        bytes4 sourceReasonCode = _postSourceRejection(
+            config, groupId, senderId, IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId)
+        );
         if (sourceReasonCode != bytes4(0)) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, sourceReasonCode);
@@ -834,22 +840,6 @@ contract GroupChat is IGroupChat {
         if (mentionAll) {
             _mentionAllMessageIndexes[groupId].push(messageIndex);
         }
-    }
-
-    function _pageCount(uint256 total, uint256 offset, uint256 limit) internal pure returns (uint256) {
-        if (limit == 0 || offset >= total) {
-            return 0;
-        }
-
-        uint256 remaining = total - offset;
-        return remaining < limit ? remaining : limit;
-    }
-
-    function _pageIndex(uint256 total, uint256 offset, uint256 index, bool reverse) internal pure returns (uint256) {
-        if (!reverse) {
-            return offset + index;
-        }
-        return total - 1 - offset - index;
     }
 
     function _roundByBlockNumber(uint256 blockNumber) internal view returns (uint256) {

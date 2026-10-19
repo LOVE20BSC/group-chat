@@ -4,8 +4,11 @@ pragma solidity =0.8.37;
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {MemberOwner} from "./MemberOwner.sol";
 import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
+import {Uint256Set} from "libs/Uint256Set.sol";
 
 contract GroupChatDelegate is IGroupChatDelegate {
+    using Uint256Set for Uint256Set.Storage;
+
     address public immutable GROUP_ADDRESS;
 
     struct DelegateState {
@@ -15,11 +18,9 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     mapping(uint256 => DelegateState) internal _delegateStates;
-    mapping(uint256 => uint256[]) internal _groupIdsByDelegateId;
-    mapping(uint256 => mapping(uint256 => uint256)) internal _groupIdIndexPlusOneByDelegateId;
+    mapping(uint256 => Uint256Set.Storage) internal _groupIdsByDelegateId;
     mapping(uint256 => bool) internal _delegatorWhitelistEnabled;
-    mapping(uint256 => uint256[]) internal _allowedDelegatorGroupIdsByDelegateId;
-    mapping(uint256 => mapping(uint256 => uint256)) internal _allowedDelegatorIndexPlusOneByDelegateId;
+    mapping(uint256 => Uint256Set.Storage) internal _allowedDelegatorGroupIdsByDelegateId;
 
     constructor(address groupAddress_) {
         if (groupAddress_ == address(0)) {
@@ -53,10 +54,10 @@ contract GroupChatDelegate is IGroupChatDelegate {
         uint256 prevDelegateId = _delegateIdOf(groupId, state, owner);
         uint256 prevRawDelegateId = state.delegateId;
         if (prevRawDelegateId != 0 && prevRawDelegateId != delegateId) {
-            _removeDelegatedGroupId(prevRawDelegateId, groupId);
+            _groupIdsByDelegateId[prevRawDelegateId].remove(groupId);
         }
         if (delegateId != 0 && prevRawDelegateId != delegateId) {
-            _addDelegatedGroupId(delegateId, groupId);
+            _groupIdsByDelegateId[delegateId].add(groupId);
         }
 
         state.delegateId = delegateId;
@@ -78,7 +79,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
                 state.delegateId = 0;
                 state.ownerSnapshot = address(0);
                 state.delegateOwnerSnapshot = address(0);
-                _removeDelegatedGroupId(delegateId, groupIds[i]);
+                _groupIdsByDelegateId[delegateId].remove(groupIds[i]);
                 emit ClearDelegatedGroupId(groupIds[i], delegateId, delegateOwner);
             }
 
@@ -122,9 +123,9 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
             bool changed;
             if (allowed) {
-                changed = _addAllowedDelegatorGroupId(delegateId, groupId);
+                changed = _allowedDelegatorGroupIdsByDelegateId[delegateId].add(groupId);
             } else {
-                changed = _removeAllowedDelegatorGroupId(delegateId, groupId);
+                changed = _allowedDelegatorGroupIdsByDelegateId[delegateId].remove(groupId);
             }
             if (changed) {
                 emit SetAllowedDelegatorGroupId(delegateId, groupId, delegateOwner, allowed);
@@ -160,27 +161,12 @@ contract GroupChatDelegate is IGroupChatDelegate {
         returns (uint256[] memory groupIds, uint256 total)
     {
         _validateGroupExists(delegateId);
-
-        uint256[] storage storedGroupIds = _allowedDelegatorGroupIdsByDelegateId[delegateId];
-        total = storedGroupIds.length;
-        if (offset >= total || limit == 0) {
-            return (new uint256[](0), total);
-        }
-
-        uint256 remaining = total - offset;
-        uint256 length = limit < remaining ? limit : remaining;
-        groupIds = new uint256[](length);
-        for (uint256 i = 0; i < length;) {
-            groupIds[i] = storedGroupIds[offset + i];
-            unchecked {
-                ++i;
-            }
-        }
+        return _allowedDelegatorGroupIdsByDelegateId[delegateId].values(offset, limit, false);
     }
 
     function allowedDelegatorGroupIdsCount(uint256 delegateId) external view returns (uint256) {
         _validateGroupExists(delegateId);
-        return _allowedDelegatorGroupIdsByDelegateId[delegateId].length;
+        return _allowedDelegatorGroupIdsByDelegateId[delegateId].count();
     }
 
     function delegateIdOf(uint256 groupId) external view returns (uint256) {
@@ -218,21 +204,11 @@ contract GroupChatDelegate is IGroupChatDelegate {
     {
         _validateGroupExists(delegateId);
 
-        uint256[] storage storedGroupIds = _groupIdsByDelegateId[delegateId];
-        total = storedGroupIds.length;
-        if (offset >= total || limit == 0) {
-            return (new uint256[](0), new bool[](0), total);
-        }
-
-        uint256 remaining = total - offset;
-        uint256 length = limit < remaining ? limit : remaining;
-        groupIds = new uint256[](length);
+        (groupIds, total) = _groupIdsByDelegateId[delegateId].values(offset, limit, false);
+        uint256 length = groupIds.length;
         isEffective = new bool[](length);
-
         for (uint256 i = 0; i < length;) {
-            uint256 groupId = storedGroupIds[offset + i];
-            groupIds[i] = groupId;
-            isEffective[i] = _isEffectiveDelegateId(groupId, delegateId);
+            isEffective[i] = _isEffectiveDelegateId(groupIds[i], delegateId);
             unchecked {
                 ++i;
             }
@@ -241,7 +217,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
     function delegatedGroupIdsCount(uint256 delegateId) external view returns (uint256) {
         _validateGroupExists(delegateId);
-        return _groupIdsByDelegateId[delegateId].length;
+        return _groupIdsByDelegateId[delegateId].count();
     }
 
     function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256) {
@@ -265,7 +241,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         if (delegateId == 0 || !_delegatorWhitelistEnabled[delegateId]) {
             return true;
         }
-        return _allowedDelegatorIndexPlusOneByDelegateId[delegateId][groupId] != 0;
+        return _allowedDelegatorGroupIdsByDelegateId[delegateId].contains(groupId);
     }
 
     function _isEffectiveDelegateId(uint256 groupId, uint256 delegateId) internal view returns (bool) {
@@ -317,65 +293,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
     function _groupSupply() internal view returns (uint256) {
         return IMemberNFT(GROUP_ADDRESS).totalSupply();
-    }
-
-    function _addDelegatedGroupId(uint256 delegateId, uint256 groupId) internal {
-        if (_groupIdIndexPlusOneByDelegateId[delegateId][groupId] != 0) {
-            return;
-        }
-
-        _groupIdsByDelegateId[delegateId].push(groupId);
-        _groupIdIndexPlusOneByDelegateId[delegateId][groupId] = _groupIdsByDelegateId[delegateId].length;
-    }
-
-    function _removeDelegatedGroupId(uint256 delegateId, uint256 groupId) internal {
-        uint256 indexPlusOne = _groupIdIndexPlusOneByDelegateId[delegateId][groupId];
-        if (indexPlusOne == 0) {
-            return;
-        }
-
-        uint256[] storage groupIds = _groupIdsByDelegateId[delegateId];
-        uint256 index = indexPlusOne - 1;
-        uint256 lastIndex = groupIds.length - 1;
-        if (index != lastIndex) {
-            uint256 lastGroupId = groupIds[lastIndex];
-            groupIds[index] = lastGroupId;
-            _groupIdIndexPlusOneByDelegateId[delegateId][lastGroupId] = indexPlusOne;
-        }
-
-        groupIds.pop();
-        delete _groupIdIndexPlusOneByDelegateId[delegateId][groupId];
-    }
-
-    function _addAllowedDelegatorGroupId(uint256 delegateId, uint256 groupId) internal returns (bool) {
-        if (_allowedDelegatorIndexPlusOneByDelegateId[delegateId][groupId] != 0) {
-            return false;
-        }
-
-        _allowedDelegatorGroupIdsByDelegateId[delegateId].push(groupId);
-        _allowedDelegatorIndexPlusOneByDelegateId[delegateId][groupId] =
-            _allowedDelegatorGroupIdsByDelegateId[delegateId].length;
-        return true;
-    }
-
-    function _removeAllowedDelegatorGroupId(uint256 delegateId, uint256 groupId) internal returns (bool) {
-        uint256 indexPlusOne = _allowedDelegatorIndexPlusOneByDelegateId[delegateId][groupId];
-        if (indexPlusOne == 0) {
-            return false;
-        }
-
-        uint256[] storage groupIds = _allowedDelegatorGroupIdsByDelegateId[delegateId];
-        uint256 index = indexPlusOne - 1;
-        uint256 lastIndex = groupIds.length - 1;
-        if (index != lastIndex) {
-            uint256 lastGroupId = groupIds[lastIndex];
-            groupIds[index] = lastGroupId;
-            _allowedDelegatorIndexPlusOneByDelegateId[delegateId][lastGroupId] = indexPlusOne;
-        }
-
-        groupIds.pop();
-        delete _allowedDelegatorIndexPlusOneByDelegateId[delegateId][groupId];
-        return true;
     }
 
     function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {

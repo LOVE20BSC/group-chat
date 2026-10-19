@@ -8,7 +8,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
-import {IVote} from "core/src/interfaces/IVote.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseManager is IBaseManager {
@@ -24,6 +23,7 @@ abstract contract BaseManager is IBaseManager {
     bytes16 internal constant HEX_SYMBOLS = "0123456789abcdef";
     uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 12;
     uint256 internal constant GROUP_NAME_SEPARATOR_BYTES = 1;
+    uint256 internal constant GROUP_NAME_TEST_PREFIX_BYTES = 4;
 
     address internal immutable ACTION_TARGET_ADDRESS;
     address internal immutable SUBMIT_ADDRESS;
@@ -54,6 +54,10 @@ abstract contract BaseManager is IBaseManager {
         GROUP_CHAT_ADDRESS = groupChat_;
         GROUP_ADDRESS = memberNFT;
         MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();
+        if (MAX_NAME_LENGTH < GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH + GROUP_NAME_TEST_PREFIX_BYTES)
+        {
+            revert ManagerGroupNameSpaceTooSmall();
+        }
         BAN_SOURCE_ADDRESS = banSource_;
         BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
         AFTER_POST_PLUGIN_ADDRESS = afterPostPlugin_;
@@ -95,25 +99,6 @@ abstract contract BaseManager is IBaseManager {
         IGroupChat(GROUP_CHAT_ADDRESS).activateChat(
             groupId, address(this), BAN_SOURCE_ADDRESS, BEFORE_POST_PLUGIN_ADDRESS, AFTER_POST_PLUGIN_ADDRESS
         );
-    }
-
-    function _pageCount(uint256 total, uint256 offset, uint256 limit) internal pure returns (uint256) {
-        if (offset >= total) {
-            return 0;
-        }
-        uint256 remaining = total - offset;
-        return remaining < limit ? remaining : limit;
-    }
-
-    function _pageIndex(uint256 total, uint256 offset, uint256 localIndex, bool reverse)
-        internal
-        pure
-        returns (uint256)
-    {
-        if (reverse) {
-            return total - 1 - offset - localIndex;
-        }
-        return offset + localIndex;
     }
 
     function _requireCode(address target) internal view {
@@ -238,7 +223,7 @@ abstract contract BaseManager is IBaseManager {
     {
         uint256 reservedBytes = GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH;
         if (requiresTestPrefix && !_hasTestPrefix(groupNameStem)) {
-            reservedBytes += 4;
+            reservedBytes += GROUP_NAME_TEST_PREFIX_BYTES;
         }
         uint256 maxStemBytes = MAX_NAME_LENGTH > reservedBytes ? MAX_NAME_LENGTH - reservedBytes : 0;
         return _truncateAscii(groupNameStem, maxStemBytes);

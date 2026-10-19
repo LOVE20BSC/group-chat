@@ -286,6 +286,31 @@ contract AdminBanSourceTest is GroupChatFixture {
         );
     }
 
+    function testT129G_senderIdBannedBatchMatchesDetails() public {
+        _configureAdmin();
+
+        vm.prank(adminOwner);
+        banList.banBySenderIds(groupId, adminId, _uints(senderId, otherGroupId));
+
+        (bool[] memory banned,,) = banList.senderIdBanDetails(groupId, _uints(senderId, otherGroupId, groupId));
+        bool[] memory batchBanned = banList.isSenderIdBannedBatch(groupId, _uints(senderId, otherGroupId, groupId));
+
+        assertEq(batchBanned.length, 3);
+        for (uint256 i = 0; i < batchBanned.length; i++) {
+            assertEq(batchBanned[i], banned[i]);
+        }
+        assertTrue(batchBanned[0]);
+        assertTrue(batchBanned[1]);
+        assertTrue(!batchBanned[2]);
+
+        vm.prank(adminOwner);
+        banList.unbanBySenderIds(groupId, adminId, _uints(senderId));
+        batchBanned = banList.isSenderIdBannedBatch(groupId, _uints(senderId, otherGroupId, groupId));
+        assertTrue(!batchBanned[0]);
+        assertTrue(batchBanned[1]);
+        assertTrue(!batchBanned[2]);
+    }
+
     function _assertPageOperator(
         uint256[] memory ids,
         address[] memory operatorAddresses,

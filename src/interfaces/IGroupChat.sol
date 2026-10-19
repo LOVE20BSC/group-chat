@@ -168,7 +168,7 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
 
     function chatInfo(uint256 groupId) external view returns (ChatInfo memory);
 
-    function chatInfos(uint256[] calldata groupIds) external view returns (ChatInfo[] memory);
+    function chatInfos(uint256[] calldata groupIds_) external view returns (ChatInfo[] memory);
 
     function postingAllowed(uint256 groupId) external view returns (bool);
 
@@ -265,7 +265,7 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
 
     function roundInfo(uint256 groupId, uint256 round) external view returns (RoundSpan memory);
 
-    function roundInfos(uint256 groupId, uint256[] calldata rounds)
+    function roundInfos(uint256 groupId, uint256[] calldata rounds_)
         external
         view
         returns (RoundSpan[] memory);

@@ -28,9 +28,9 @@ interface IGroupAdmin {
 
     function MAX_ADMIN_IDS() external view returns (uint256);
 
-    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds) external;
+    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_) external;
 
-    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds) external;
+    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_) external;
 
     function isAdminId(uint256 groupId, uint256 adminId) external view returns (bool);
 

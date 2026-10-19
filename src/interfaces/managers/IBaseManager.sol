@@ -16,6 +16,7 @@ interface IBaseManager is IPostScopeSource, IBanVoteWeightSource, IERC721Receive
     error ManagerApprovalFailed();
     error TokenNotLOVE20();
     error UnexpectedManagerERC721Received();
+    error ManagerGroupNameSpaceTooSmall();
 
     function GROUP_CHAT_ADDRESS() external view returns (address);
 

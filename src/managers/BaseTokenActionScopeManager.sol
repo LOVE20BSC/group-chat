@@ -6,6 +6,7 @@ import {IBaseTokenActionScopeManager} from "../interfaces/managers/IBaseTokenAct
 import {ISubmit} from "core/src/interfaces/ISubmit.sol";
 import {IStake} from "core/src/interfaces/IStake.sol";
 import {IVote} from "core/src/interfaces/IVote.sol";
+import {Pagination} from "libs/Pagination.sol";
 
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
     uint256 public immutable RECENT_ROUNDS;
@@ -54,12 +55,12 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         returns (uint256[] memory actionIds, uint256[] memory groupIds)
     {
         uint256[] storage source = _actionIdsByToken[token];
-        uint256 count = _pageCount(source.length, offset, limit);
+        uint256 count = Pagination.pageCount(source.length, offset, limit);
         actionIds = new uint256[](count);
         groupIds = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 actionId = source[_pageIndex(source.length, offset, i, reverse)];
+            uint256 actionId = source[Pagination.pageIndex(source.length, offset, i, reverse)];
             actionIds[i] = actionId;
             groupIds[i] = _groupIdOfAction[token][actionId];
         }

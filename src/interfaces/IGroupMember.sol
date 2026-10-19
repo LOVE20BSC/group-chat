@@ -15,13 +15,13 @@ interface IGroupMember {
 
     function GROUP_ADDRESS() external view returns (address);
 
-    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds) external;
+    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_) external;
 
-    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds) external;
+    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_) external;
 
     function isMemberId(uint256 groupId, uint256 memberId) external view returns (bool);
 
-    function isMemberIdBatch(uint256 groupId, uint256[] calldata memberIds)
+    function isMemberIdBatch(uint256 groupId, uint256[] calldata memberIds_)
         external
         view
         returns (bool[] memory listed);

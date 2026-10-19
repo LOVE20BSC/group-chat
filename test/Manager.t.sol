@@ -2,10 +2,13 @@
 pragma solidity =0.8.37;
 
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {GroupAdmin} from "../src/GroupAdmin.sol";
+import {GroupChat} from "../src/GroupChat.sol";
+import {GroupChatDelegate} from "../src/GroupChatDelegate.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
 
-import {MockERC20Payment} from "./mocks/MockLOVE20Group.sol";
+import {MockERC20Payment, MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {MockManager} from "./mocks/MockManagers.sol";
 import {MockBeforePostRejectPlugin, MockPostBanSource} from "./mocks/MockPlugins.sol";
@@ -122,6 +125,21 @@ contract ManagerTest is GroupChatFixture {
         assertEq(token.balanceOf(address(manager)), 0);
         assertEq(token.balanceOf(address(groupNft)), 10);
         assertEq(chat.chatInfo(groupId).owner, address(manager));
+    }
+
+    function testT106_managerRejectsGroupNameSpaceBelowReservedSuffix() public {
+        MockLOVE20Group smallGroupNft = new MockLOVE20Group();
+        smallGroupNft.setMaxGroupNameLength(16);
+        GroupChatDelegate smallGroupDelegate = new GroupChatDelegate(address(smallGroupNft));
+        GroupAdmin smallGroupAdmin = new GroupAdmin(address(smallGroupDelegate), 20);
+        GroupChat smallChat =
+            new GroupChat(address(smallGroupAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
+
+        vm.expectRevert(IBaseManager.ManagerGroupNameSpaceTooSmall.selector);
+        new MockManager(address(smallChat), address(0), address(0), address(0), address(managerCenter));
+
+        smallGroupNft.setMaxGroupNameLength(17);
+        new MockManager(address(smallChat), address(0), address(0), address(0), address(managerCenter));
     }
 
     function _expectUnknownSelector(address target, bytes memory data) internal {

@@ -4,6 +4,7 @@ pragma solidity =0.8.37;
 import {BaseTokenManager} from "./BaseTokenManager.sol";
 import {IBaseTokenScopeManager} from "../interfaces/managers/IBaseTokenScopeManager.sol";
 import {IStake} from "core/src/interfaces/IStake.sol";
+import {Pagination} from "libs/Pagination.sol";
 
 abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeManager {
     function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
@@ -39,12 +40,12 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         view
         returns (address[] memory tokenList, uint256[] memory groupIds)
     {
-        uint256 count = _pageCount(_tokens.length, offset, limit);
+        uint256 count = Pagination.pageCount(_tokens.length, offset, limit);
         tokenList = new address[](count);
         groupIds = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            address token = _tokens[_pageIndex(_tokens.length, offset, i, reverse)];
+            address token = _tokens[Pagination.pageIndex(_tokens.length, offset, i, reverse)];
             tokenList[i] = token;
             groupIds[i] = _groupIdOfToken[token];
         }
