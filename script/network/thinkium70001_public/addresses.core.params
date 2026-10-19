@@ -1,5 +1,0 @@
-# core 已部署地址。MemberNFT 与 Phase 由 GroupChat / GroupChatDelegate / GroupAdmin 直接绑定，
-# 需从 core 对应网络的地址文件复制后填写；留零时 11_deploy.sh 会在广播前拒绝部署。
-
-GROUP_ADDRESS=0x0000000000000000000000000000000000000000
-PHASE_ADDRESS=0x0000000000000000000000000000000000000000

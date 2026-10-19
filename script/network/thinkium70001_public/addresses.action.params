@@ -1,6 +1,0 @@
-# action 已部署地址。ActionTarget 供四个 Manager 派生 Vote/Submit/Stake/Launch，
-# GroupActionExecutor 供 GroupJoinScopeSource 查询群归属；需从 action 对应网络的地址文件复制后
-# 填写，留零时 11_deploy.sh 会在广播前拒绝部署。
-
-ACTION_TARGET_ADDRESS=0x0000000000000000000000000000000000000000
-GROUP_ACTION_EXECUTOR_ADDRESS=0x0000000000000000000000000000000000000000

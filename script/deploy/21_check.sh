@@ -66,11 +66,17 @@ cast_call() {
     cast call "$1" "$2" --rpc-url "$RPC_URL"
 }
 
+# cast 对 uint 返回值会带科学计数法标注（形如 [1e18]），比对前先剥掉，
+# 否则 "1000000000000000000" 与 "1000000000000000000 [1e18]" 会被判为不一致。
+strip_sci_notation() {
+    echo "$1" | sed -E 's/\[[0-9]+e[0-9]+\]//g' | tr -d ' '
+}
+
 check_equal() {
     local description="$1" expected="$2" actual="$3"
 
-    expected=$(echo "$expected" | tr '[:upper:]' '[:lower:]')
-    actual=$(echo "$actual" | tr '[:upper:]' '[:lower:]')
+    expected=$(strip_sci_notation "$expected" | tr '[:upper:]' '[:lower:]')
+    actual=$(strip_sci_notation "$actual" | tr '[:upper:]' '[:lower:]')
     if [ "$expected" = "$actual" ]; then
         echo -e "${GREEN}✓${NC} $description"
         return 0
@@ -164,17 +170,20 @@ check_equal "GroupJoinScopeSource: GROUP_ACTION_EXECUTOR_ADDRESS" "$GROUP_ACTION
     "$(cast_call "$GROUPJOINSCOPESOURCE_ADDRESS" "GROUP_ACTION_EXECUTOR_ADDRESS()(address)")" || ((failed_checks += 1))
 echo ""
 
-echo "Verifying ActionTarget values used by managers..."
-for field in ACTION_TARGET_ADDRESS; do
-    check_contract_code "ActionTarget" "${!field}" || ((failed_checks += 1))
-done
-action_target_vote_address=$(cast_call "$ACTION_TARGET_ADDRESS" "voteAddress()(address)")
+echo "Verifying ActionTarget bindings..."
+check_contract_code "ActionTarget" "$ACTION_TARGET_ADDRESS" || ((failed_checks += 1))
+# ActionTarget 暴露 memberNFT/phase/submit/vote 四个地址；前两个应与 core 地址文件一致，
+# 后两个是 action 库内依赖，只要求是已部署合约。
+check_equal "ActionTarget: memberNFTAddress" "$GROUP_ADDRESS" \
+    "$(cast_call "$ACTION_TARGET_ADDRESS" "memberNFTAddress()(address)")" || ((failed_checks += 1))
+check_equal "ActionTarget: phaseAddress" "$PHASE_ADDRESS" \
+    "$(cast_call "$ACTION_TARGET_ADDRESS" "phaseAddress()(address)")" || ((failed_checks += 1))
 action_target_submit_address=$(cast_call "$ACTION_TARGET_ADDRESS" "submitAddress()(address)")
-action_target_stake_address=$(cast_call "$ACTION_TARGET_ADDRESS" "stakeAddress()(address)")
-action_target_launch_address=$(cast_call "$ACTION_TARGET_ADDRESS" "launchAddress()(address)")
-for field in action_target_vote_address action_target_submit_address action_target_stake_address action_target_launch_address; do
-    check_contract_code "$field" "${!field}" || ((failed_checks += 1))
-done
+action_target_vote_address=$(cast_call "$ACTION_TARGET_ADDRESS" "voteAddress()(address)")
+check_contract_code "ActionTarget: submitAddress" "$action_target_submit_address" || ((failed_checks += 1))
+check_contract_code "ActionTarget: voteAddress" "$action_target_vote_address" || ((failed_checks += 1))
+echo -e "  SUBMIT_ADDRESS: $action_target_submit_address"
+echo -e "  VOTE_ADDRESS:   $action_target_vote_address"
 echo ""
 
 echo "Verifying manager immutable configuration..."

@@ -12,7 +12,7 @@ script/
 │   └── DeployGroupChat.s.sol     # Foundry 部署脚本（输出 KEY=VALUE 地址行，由 11_deploy.sh 落盘）
 └── network/<链名><链id>_<部署类型>/
     ├── .account                  # KEYSTORE_ACCOUNT / ACCOUNT_ADDRESS / KEYSTORE_PASSWORD（可选），已 gitignore
-    ├── network.params            # CHAIN_ID / RPC_URL（thinkium 另带 VERIFIER / VERIFIER_URL）
+    ├── network.params            # CHAIN_ID / RPC_URL（接入浏览器的链另带 VERIFIER / VERIFIER_URL）
     ├── group-chat.params         # 本库 13 个合约的构造参数
     ├── addresses.group-chat.params  # 本库已部署地址，11_deploy.sh 写入
     ├── addresses.core.params     # 被依赖方：MemberNFT、Phase（从 core 对应网络复制）
@@ -51,6 +51,9 @@ keystore 密码不继承调用方环境变量，非交互场景请写进 `.accou
 mkdir -p script/network/<链名><链id>_<部署类型>
 cp script/network/anvil31337_dev/{network.params,group-chat.params} script/network/<新目录>/
 ```
+
+`.account` 已 gitignore、不在拷贝范围，需按部署账户自建（`KEYSTORE_ACCOUNT` / `ACCOUNT_ADDRESS` /
+`KEYSTORE_PASSWORD`，密码可留空走交互）；`addresses.group-chat.params` 无需自建，由 `11_deploy.sh` 写入。
 
 被依赖方地址从对应网络的 `core` / `action` 地址文件复制后填入本目录的
 `addresses.core.params` / `addresses.action.params`；留零时部署会在广播前明确报错。
