@@ -154,8 +154,8 @@ echo ""
 
 check_equal "GovVotedBanSource: PRECISION" "1000000000000000000" \
     "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "PRECISION()(uint256)")" || ((failed_checks += 1))
-check_equal "GovVotedBanSource: MIN_SUPPORT_TO_OPPOSE_RATIO" "$GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_RATIO" \
-    "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "MIN_SUPPORT_TO_OPPOSE_RATIO()(uint256)")" || ((failed_checks += 1))
+check_equal "GovVotedBanSource: MIN_SUPPORT_TO_OPPOSE_MULTIPLIER" "$GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER" \
+    "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "MIN_SUPPORT_TO_OPPOSE_MULTIPLIER()(uint256)")" || ((failed_checks += 1))
 check_equal "GovVotedBanSource: BAN_THRESHOLD_RATIO" "$GROUP_CHAT_BAN_THRESHOLD_RATIO" \
     "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "BAN_THRESHOLD_RATIO()(uint256)")" || ((failed_checks += 1))
 echo ""

@@ -11,7 +11,7 @@ interface IGovVotedBanSource is IPostBanSource {
     error VoteUnchanged();
     error VoteNotFound();
     error BanThresholdTooHigh();
-    error MinSupportToOpposeRatioZero();
+    error MinSupportToOpposeMultiplierZero();
     error SenderNotMemberOwner(uint256 senderId);
 
     event SetSenderIdBanVote(
@@ -33,7 +33,7 @@ interface IGovVotedBanSource is IPostBanSource {
 
     function PRECISION() external view returns (uint256);
 
-    function MIN_SUPPORT_TO_OPPOSE_RATIO() external view returns (uint256);
+    function MIN_SUPPORT_TO_OPPOSE_MULTIPLIER() external view returns (uint256);
 
     function BAN_THRESHOLD_RATIO() external view returns (uint256);
 

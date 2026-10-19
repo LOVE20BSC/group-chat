@@ -90,7 +90,7 @@ require_group_chat_params() {
     local field
     for field in GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH \
         GROUP_CHAT_MAX_MENTIONED_SENDER_IDS GROUP_CHAT_MAX_ADMIN_IDS \
-        GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_RATIO GROUP_CHAT_BAN_THRESHOLD_RATIO; do
+        GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER GROUP_CHAT_BAN_THRESHOLD_RATIO; do
         if [ -z "${!field:-}" ] || [ "${!field}" = "0" ]; then
             echo "Error: $field is missing or zero in $NETWORK_DIR/group-chat.params"
             exit 1

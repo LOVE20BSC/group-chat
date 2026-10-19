@@ -11,8 +11,8 @@ GROUP_CHAT_MAX_MENTIONED_SENDER_IDS=32
 # GroupAdmin 每群管理员 NFT 数量上限
 GROUP_CHAT_MAX_ADMIN_IDS=20
 
-# GovVotedBanSource：支持票须超过反对票的倍数，以及占社区总有效治理票的阈值（精度 1e18）
-GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_RATIO=10
+# GovVotedBanSource：支持票须超过反对票的整数倍数，以及占社区总有效治理票的阈值（1e18）
+GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER=10
 GROUP_CHAT_BAN_THRESHOLD_RATIO=3000000000000000
 
 # Manager 铸造群时使用的固定插件槽位，零地址表示未挂载

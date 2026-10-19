@@ -20,7 +20,7 @@ import {GroupMemberScope} from "../../src/sources/scope/GroupMemberScope.sol";
 
 contract DeployGroupChat is Script {
     uint256 internal constant DEFAULT_MAX_ADMIN_IDS = 20;
-    uint256 internal constant DEFAULT_MIN_SUPPORT_TO_OPPOSE_RATIO = 10;
+    uint256 internal constant DEFAULT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = 10;
     uint256 internal constant DEFAULT_MAX_CONTENT_LENGTH = 4096;
     uint256 internal constant DEFAULT_MAX_MENTIONED_SENDER_IDS = 32;
 
@@ -38,7 +38,7 @@ contract DeployGroupChat is Script {
         uint256 maxMentionedSenderIds;
         uint256 actionRecentRounds;
         uint256 maxAdminIds;
-        uint256 minSupportToOpposeRatio;
+        uint256 minSupportToOpposeMultiplier;
         uint256 banThresholdRatio;
     }
 
@@ -91,8 +91,8 @@ contract DeployGroupChat is Script {
             vm.envOr("GROUP_CHAT_MAX_MENTIONED_SENDER_IDS", DEFAULT_MAX_MENTIONED_SENDER_IDS);
         config.actionRecentRounds = vm.envUint("GROUP_CHAT_ACTION_RECENT_ROUNDS");
         config.maxAdminIds = vm.envOr("GROUP_CHAT_MAX_ADMIN_IDS", DEFAULT_MAX_ADMIN_IDS);
-        config.minSupportToOpposeRatio =
-            vm.envOr("GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_RATIO", DEFAULT_MIN_SUPPORT_TO_OPPOSE_RATIO);
+        config.minSupportToOpposeMultiplier =
+            vm.envOr("GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER", DEFAULT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER);
         config.banThresholdRatio = vm.envOr("GROUP_CHAT_BAN_THRESHOLD_RATIO", uint256(3e15));
     }
 
@@ -107,7 +107,7 @@ contract DeployGroupChat is Script {
         deployed.groupChatBanList = address(new GroupChatBanList(deployed.groupAdmin));
         deployed.adminBanSource = address(new AdminBanSource(deployed.groupChatBanList));
         deployed.govVotedBanSource = address(
-            new GovVotedBanSource(deps.groupNft, config.minSupportToOpposeRatio, config.banThresholdRatio)
+            new GovVotedBanSource(deps.groupNft, config.minSupportToOpposeMultiplier, config.banThresholdRatio)
         );
         deployed.groupMember = address(new GroupMember(deployed.groupAdmin));
         deployed.groupMemberScope = address(new GroupMemberScope(deployed.groupMember));
