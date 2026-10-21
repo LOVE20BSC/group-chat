@@ -2,6 +2,7 @@
 pragma solidity =0.8.37;
 
 import {GroupAdmin} from "../src/GroupAdmin.sol";
+import {GroupChat} from "../src/GroupChat.sol";
 
 import {GroupChatBanList} from "../src/GroupChatBanList.sol";
 import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
@@ -71,6 +72,35 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.prank(adminOwner);
         vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
         groupAdmin.addAdmins(groupId, adminId, new uint256[](0));
+    }
+
+    function testT121B_adminDoesNotBypassBanButOwnerSendingAsGroupDoes() public {
+        GroupChat localChat = new GroupChat(address(groupAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
+
+        vm.prank(chatOwner);
+        localChat.activateChat(groupId, address(0), address(banSource), address(0), address(0));
+
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+        assertTrue(groupAdmin.isAdminId(groupId, adminId));
+
+        vm.prank(chatOwner);
+        banList.banBySenderIds(groupId, groupId, _uints(adminId));
+        assertTrue(banList.isSenderIdBanned(groupId, adminId));
+
+        (bool allowed, bytes4 reasonCode) = localChat.canPost(groupId, adminId);
+        assertTrue(!allowed);
+        assertEq(bytes32(reasonCode), bytes32(IGroupChatErrors.BanRejected.selector));
+
+        vm.roll(originBlocks);
+        vm.prank(adminOwner);
+        vm.expectRevert(IGroupChatErrors.BanRejected.selector);
+        localChat.post(groupId, adminId, "admin", _emptyMentionedSenderIds(), false, 0);
+
+        vm.prank(chatOwner);
+        localChat.post(groupId, groupId, "owner", _emptyMentionedSenderIds(), false, 0);
+
+        assertEq(localChat.messagesCount(groupId), 1);
     }
 
     function testT122_banSourceRejectsPostsAndUnbanRestoresPosting() public {

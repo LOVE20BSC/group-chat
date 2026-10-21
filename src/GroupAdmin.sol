@@ -25,9 +25,6 @@ contract GroupAdmin is IGroupAdmin {
         if (maxAdminIds_ == 0) {
             revert MaxAdminIdsZero();
         }
-        if (groupDelegate_ == address(0)) {
-            revert GroupAdminAddressHasNoCode();
-        }
         _requireCode(groupDelegate_);
 
         address love20Group = IGroupChatDelegate(groupDelegate_).GROUP_ADDRESS();

@@ -134,6 +134,8 @@ check_equal "GroupChat: GROUP_ADMIN_ADDRESS" "$GROUPADMIN_ADDRESS" \
     "$(cast_call "$GROUPCHAT_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupChat: GROUP_DELEGATE_ADDRESS" "$GROUPCHATDELEGATE_ADDRESS" \
     "$(cast_call "$GROUPCHAT_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChat: PHASE_ADDRESS" "$PHASE_ADDRESS" \
+    "$(cast_call "$GROUPCHAT_ADDRESS" "PHASE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: GROUP_DELEGATE_ADDRESS" "$GROUPCHATDELEGATE_ADDRESS" \
     "$(cast_call "$GROUPADMIN_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: MAX_ADMIN_IDS" "$GROUP_CHAT_MAX_ADMIN_IDS" \

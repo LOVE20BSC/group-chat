@@ -20,8 +20,7 @@ contract GroupChat is IGroupChat {
     address public immutable GROUP_ADMIN_ADDRESS;
     address public immutable GROUP_ADDRESS;
     address public immutable GROUP_DELEGATE_ADDRESS;
-
-    address internal immutable PHASE_ADDRESS;
+    address public immutable PHASE_ADDRESS;
 
     struct ChatConfig {
         bool activated;
@@ -732,7 +731,7 @@ contract GroupChat is IGroupChat {
         if (reasonCode == BanSourceFailed.selector) {
             revert BanSourceFailed();
         }
-        assert(false);
+        revert();
     }
 
     function _canPost(uint256 groupId, uint256 senderId) internal view returns (bool allowed, bytes4 reasonCode) {
@@ -792,6 +791,9 @@ contract GroupChat is IGroupChat {
     }
 
     function _validateMentionedSenderIds(uint256[] calldata mentionedSenderIds) internal view {
+        if (mentionedSenderIds.length == 0) {
+            return;
+        }
         if (mentionedSenderIds.length > MAX_MENTIONED_SENDER_IDS) {
             revert TooManyMentionedSenderIds(mentionedSenderIds.length, MAX_MENTIONED_SENDER_IDS);
         }

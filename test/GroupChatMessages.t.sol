@@ -276,6 +276,36 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(batch[2].messageCount, 2);
     }
 
+    function testT050B_messageRoundIsFrozenWhenPhaseIsRecalibrated() public {
+        _activateEmpty();
+
+        vm.roll(originBlocks);
+        vm.prank(senderOwner);
+        _post(groupId, senderId, "round-1");
+
+        vm.roll(originBlocks + phaseBlocks);
+        vm.prank(senderOwner);
+        _post(groupId, senderId, "round-2");
+        assertEq(chat.currentRound(), 2);
+
+        phase.setPhase(originBlocks, phaseBlocks / 2);
+        assertEq(chat.currentRound(), 3);
+
+        IGroupChat.Message memory second = chat.message(groupId, 2);
+        assertEq(second.round, 2);
+        assertEq(chat.messagesByRoundCount(groupId, 2), 1);
+        assertEq(chat.messagesByRoundCount(groupId, 3), 0);
+        assertEq(chat.messagesByRound(groupId, 2, 0, 10, false)[0].messageId, 2);
+
+        vm.prank(senderOwner);
+        _post(groupId, senderId, "round-3");
+
+        assertEq(chat.message(groupId, 3).round, 3);
+        assertEq(chat.roundInfo(groupId, 2).messageCount, 1);
+        assertEq(chat.roundInfo(groupId, 3).messageCount, 1);
+        assertEq(chat.roundsCount(groupId), 3);
+    }
+
     function testT051T052T053T054T055_roundAndPaginationBoundaries() public {
         _activateEmpty();
 

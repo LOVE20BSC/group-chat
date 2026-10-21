@@ -135,6 +135,30 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
     }
 
+    function testT131C_stateVersionAdvancesOnlyOnSettledChanges() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 7);
+        assertEq(banSource.stateVersion(managerGroupId), 0);
+
+        vm.prank(senderOwner);
+        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        uint256 afterVote = banSource.stateVersion(managerGroupId);
+        assertEq(afterVote, 1);
+
+        vm.prank(senderOwner);
+        vm.expectRevert(IGovVotedBanSource.VoteUnchanged.selector);
+        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        assertEq(banSource.stateVersion(managerGroupId), afterVote);
+
+        protocol.setGovVotes(token, senderId, 8);
+        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        uint256 afterRefresh = banSource.stateVersion(managerGroupId);
+        assertEq(afterRefresh, afterVote + 1);
+
+        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        assertEq(banSource.stateVersion(managerGroupId), afterRefresh);
+    }
+
     function testT132_zeroWeightAndMissingVoteRevert() public {
         uint256 managerGroupId = _activateTokenGovManager();
 
