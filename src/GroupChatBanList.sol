@@ -110,7 +110,8 @@ contract GroupChatBanList is IGroupChatBanList {
         for (uint256 i = 0; i < senderIds.length; i++) {
             uint256 senderId = senderIds[i];
             _requireSenderIdTarget(senderId);
-            if (_setSenderIdList(state.senderIdBanList, senderId, listed)) {
+            bool changed = listed ? state.senderIdBanList.add(senderId) : state.senderIdBanList.remove(senderId);
+            if (changed) {
                 _setSenderIdBanOperatorState(state, senderId, operatorId, listed);
                 emit SetSenderIdBan(groupId, msg.sender, senderId, operatorId, listed);
             }
@@ -125,10 +126,6 @@ contract GroupChatBanList is IGroupChatBanList {
         } else {
             delete state.senderIdBanOperatorStates[senderId];
         }
-    }
-
-    function _setSenderIdList(Uint256Set.Storage storage set, uint256 senderId, bool listed) internal returns (bool) {
-        return listed ? set.add(senderId) : set.remove(senderId);
     }
 
     function _requireSenderIdTarget(uint256 senderId) internal pure {

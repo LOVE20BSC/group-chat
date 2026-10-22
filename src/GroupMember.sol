@@ -75,15 +75,12 @@ contract GroupMember is IGroupMember {
         MemberState storage state = _states[groupId];
         for (uint256 i = 0; i < memberIds_.length; i++) {
             uint256 memberId = memberIds_[i];
-            _requireMemberIdTarget(memberId);
-            if (_setMemberId(state.memberIds, memberId, listed)) {
+            MemberOwner.ownerOf(GROUP_ADDRESS, memberId);
+            bool changed = listed ? state.memberIds.add(memberId) : state.memberIds.remove(memberId);
+            if (changed) {
                 emit SetMemberId(groupId, msg.sender, memberId, operatorId, listed);
             }
         }
-    }
-
-    function _setMemberId(Uint256Set.Storage storage set, uint256 memberId, bool listed) internal returns (bool) {
-        return listed ? set.add(memberId) : set.remove(memberId);
     }
 
     modifier onlyOperator(
@@ -109,19 +106,5 @@ contract GroupMember is IGroupMember {
             return true;
         }
         return false;
-    }
-
-    function _requireMemberIdTarget(uint256 memberId) internal view {
-        if (memberId == 0) {
-            revert TargetMemberIdZero();
-        }
-        _ownerOfOrRevert(memberId);
-    }
-
-    function _ownerOfOrRevert(uint256 memberId) internal view returns (address owner) {
-        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
-        if (owner == address(0)) {
-            revert GroupNotExist();
-        }
     }
 }

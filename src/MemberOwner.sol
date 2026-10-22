@@ -4,6 +4,10 @@ pragma solidity =0.8.37;
 import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 
 library MemberOwner {
+    function ownerOf(address memberNFT, uint256 memberId) internal view returns (address owner) {
+        return IMemberNFT(memberNFT).ownerOf(memberId);
+    }
+
     // Load-bearing: an absent id yields address(0). Callers turn that into a failed code check, an
     // authorization miss, or a `GroupNotExist` revert. If ownerOf ever returned a non-zero owner for
     // an absent id, the code-check callers would answer true and the views would silently report

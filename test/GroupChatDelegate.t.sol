@@ -136,8 +136,22 @@ contract GroupChatDelegateTest is TestBase {
         assertTrue(groupDelegate.canSetDelegateTo(strangerGroupId, 0));
         assertTrue(groupDelegate.canSetDelegateTo(strangerGroupId, delegateId));
         assertTrue(!groupDelegate.canSetDelegateTo(groupId, groupId));
-        vm.expectRevert(IGroupChatDelegateErrors.GroupNotExist.selector);
-        groupDelegate.canSetDelegateTo(groupId, 999);
+        assertTrue(!groupDelegate.canSetDelegateTo(groupId, 999));
+    }
+
+    function testT146B_delegateQueriesReturnEmptyForMissingDelegate() public view {
+        assertTrue(!groupDelegate.isDelegatorWhitelistEnabled(999));
+        assertEq(groupDelegate.allowedDelegatorGroupIdsCount(999), 0);
+        (uint256[] memory allowed, uint256 allowedTotal) = groupDelegate.allowedDelegatorGroupIds(999, 0, 10);
+        assertEq(allowed.length, 0);
+        assertEq(allowedTotal, 0);
+        assertEq(groupDelegate.delegatedGroupIdsCount(999), 0);
+        (uint256[] memory delegated, bool[] memory effective, uint256 delegatedTotal) =
+            groupDelegate.delegatedGroupIds(999, 0, 10);
+        assertEq(delegated.length, 0);
+        assertEq(effective.length, 0);
+        assertEq(delegatedTotal, 0);
+        assertTrue(groupDelegate.canSetDelegateTo(groupId, 0));
     }
 
     function testT147_delegatedAndAllowedIndexesSwapPopOnRemoval() public {

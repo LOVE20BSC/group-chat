@@ -3,6 +3,7 @@ pragma solidity =0.8.37;
 
 import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {IGovVotedBanSource} from "../src/interfaces/sources/ban/IGovVotedBanSource.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import {TokenActionGovManager} from "../src/managers/TokenActionGovManager.sol";
 import {TokenGovManager} from "../src/managers/TokenGovManager.sol";
@@ -177,6 +178,10 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         vm.prank(senderOwner);
         vm.expectRevert(IGovVotedBanSource.VoteUnchanged.selector);
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+
+        vm.prank(senderOwner);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999999)));
+        banSource.voteBySenderId(managerGroupId, otherGroupId, 999999, true);
     }
 
     function testT133_readerDegradesWhenSourceUnavailable() public {
@@ -259,7 +264,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(supportWeight, 7);
 
         vm.prank(senderOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSource.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSource.NotMemberOwner.selector, senderId));
         banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
 
         vm.prank(other);

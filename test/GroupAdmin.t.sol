@@ -3,6 +3,7 @@ pragma solidity =0.8.37;
 
 import {GroupAdmin} from "../src/GroupAdmin.sol";
 import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
@@ -154,7 +155,11 @@ contract GroupAdminTest is GroupChatFixture {
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId, adminId));
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.GroupNotExist.selector);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(0)));
+        groupAdmin.addAdmins(groupId, groupId, _uints(0));
+
+        vm.prank(chatOwner);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999999)));
         groupAdmin.addAdmins(groupId, groupId, _uints(999999));
 
         uint256[] memory admins = new uint256[](MAX_ADMIN_IDS + 1);

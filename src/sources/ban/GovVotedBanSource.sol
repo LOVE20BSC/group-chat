@@ -4,6 +4,7 @@ pragma solidity =0.8.37;
 import {IBanVoteWeightSource} from "../../interfaces/sources/ban/IBanVoteWeightSource.sol";
 import {IGovVotedBanSource} from "../../interfaces/sources/ban/IGovVotedBanSource.sol";
 import {MemberOwner} from "../../MemberOwner.sol";
+import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 import {Uint256Set} from "libs/Uint256Set.sol";
 
 contract GovVotedBanSource is IGovVotedBanSource {
@@ -193,8 +194,8 @@ contract GovVotedBanSource is IGovVotedBanSource {
     }
 
     modifier onlyVoterOwner(uint256 voterId) {
-        if (MemberOwner.ofOrZero(GROUP_ADDRESS, voterId) != msg.sender) {
-            revert SenderNotMemberOwner(voterId);
+        if (IMemberNFT(GROUP_ADDRESS).ownerOf(voterId) != msg.sender) {
+            revert NotMemberOwner(voterId);
         }
         _;
     }

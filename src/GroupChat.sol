@@ -9,7 +9,6 @@ import {IBeforePostPlugin} from "./interfaces/plugins/IBeforePostPlugin.sol";
 import {IPostBanSource} from "./interfaces/sources/IPostBanSource.sol";
 import {IPostScopeSource} from "./interfaces/sources/IPostScopeSource.sol";
 import {MemberOwner} from "./MemberOwner.sol";
-import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 import {IPhase} from "core/src/interfaces/IPhase.sol";
 import {Pagination} from "libs/Pagination.sol";
 
@@ -114,7 +113,7 @@ contract GroupChat is IGroupChat {
     }
 
     modifier onlySenderOwner(uint256 senderId) {
-        if (_memberOwnerOfOrRevert(senderId) != msg.sender) {
+        if (MemberOwner.ownerOf(GROUP_ADDRESS, senderId) != msg.sender) {
             revert SenderNotMemberOwner(senderId);
         }
         _;
@@ -369,7 +368,7 @@ contract GroupChat is IGroupChat {
     }
 
     function currentRound() public view returns (uint256) {
-        uint256 round = _roundByBlockNumber(block.number);
+        uint256 round = IPhase(PHASE_ADDRESS).currentPhase();
         if (round == 0) {
             revert RoundNotStarted();
         }
@@ -792,7 +791,7 @@ contract GroupChat is IGroupChat {
             return (false, PostingNotAllowed.selector);
         }
 
-        if (_memberOwnerOfOrZero(senderId) == address(0)) {
+        if (MemberOwner.ofOrZero(GROUP_ADDRESS, senderId) == address(0)) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, GroupNotExist.selector);
         }
@@ -820,14 +819,6 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    function _memberOwnerOfOrRevert(uint256 memberId) internal view returns (address) {
-        return IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
-    }
-
-    function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {
-        return MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
-    }
-
     function _validateSourceAddress(address sourceAddress) internal view {
         if (sourceAddress != address(0) && sourceAddress.code.length == 0) {
             revert SourceAddressHasNoCode();
@@ -849,7 +840,7 @@ contract GroupChat is IGroupChat {
         }
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
             uint256 mentionedSenderId = mentionedSenderIds[i];
-            _memberOwnerOfOrRevert(mentionedSenderId);
+            MemberOwner.ownerOf(GROUP_ADDRESS, mentionedSenderId);
             for (uint256 j = 0; j < i; j++) {
                 if (mentionedSenderIds[j] == mentionedSenderId) {
                     revert DuplicateMentionedSenderId();
@@ -888,10 +879,6 @@ contract GroupChat is IGroupChat {
         if (mentionAll) {
             _mentionAllMessageIndexes[groupId].push(messageIndex);
         }
-    }
-
-    function _roundByBlockNumber(uint256 blockNumber) internal view returns (uint256) {
-        return IPhase(PHASE_ADDRESS).phaseAtBlock(blockNumber);
     }
 
     function _roundSpan(uint256 groupId, uint256 round) internal view returns (RoundSpan memory) {

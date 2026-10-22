@@ -8,6 +8,7 @@ import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {IGroupMember} from "../src/interfaces/IGroupMember.sol";
 import {IGroupMemberScope} from "../src/interfaces/sources/scope/IGroupMemberScope.sol";
 import {GroupMemberScope} from "../src/sources/scope/GroupMemberScope.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 
 contract GroupMemberScopeTest is GroupChatFixture {
@@ -116,11 +117,11 @@ contract GroupMemberScopeTest is GroupChatFixture {
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
 
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupMember.TargetMemberIdZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(0)));
         member.addMemberIds(groupId, adminId, _uints(0));
 
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupMember.GroupNotExist.selector);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999999)));
         member.addMemberIds(groupId, adminId, _uints(999999));
 
         vm.prank(adminOwner);

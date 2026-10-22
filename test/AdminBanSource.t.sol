@@ -10,6 +10,7 @@ import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
 import {IGroupChatBanList} from "../src/interfaces/IGroupChatBanList.sol";
 import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {AdminBanSource} from "../src/sources/ban/AdminBanSource.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 
 contract AdminBanSourceTest is GroupChatFixture {
@@ -180,7 +181,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId, adminId));
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.GroupNotExist.selector);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999999)));
         groupAdmin.addAdmins(groupId, groupId, _uints(999999));
 
         vm.prank(adminOwner);

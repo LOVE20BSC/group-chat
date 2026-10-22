@@ -38,7 +38,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     modifier onlyDelegateOwner(uint256 delegateId) {
-        if (_memberOwnerOfOrRevert(delegateId) != msg.sender) {
+        if (MemberOwner.ownerOf(GROUP_ADDRESS, delegateId) != msg.sender) {
             revert SenderNotDelegateOwner();
         }
         _;
@@ -49,7 +49,8 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
         DelegateState storage state = _delegateStates[groupId];
         address targetOwnerSnapshot = delegateId == 0 ? address(0) : owner;
-        address targetDelegateOwnerSnapshot = delegateId == 0 ? address(0) : _memberOwnerOfOrRevert(delegateId);
+        address targetDelegateOwnerSnapshot =
+            delegateId == 0 ? address(0) : MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
         if (
             state.delegateId == delegateId && state.ownerSnapshot == targetOwnerSnapshot
                 && state.delegateOwnerSnapshot == targetDelegateOwnerSnapshot
@@ -57,7 +58,9 @@ contract GroupChatDelegate is IGroupChatDelegate {
             return;
         }
 
-        _validateDelegateId(groupId, delegateId);
+        if (delegateId == groupId) {
+            revert DelegateIdCannotBeGroupId();
+        }
         if (!_canDelegateTo(groupId, delegateId)) {
             revert DelegatorGroupIdNotAllowed();
         }
@@ -81,7 +84,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         external
         onlyDelegateOwner(delegateId)
     {
-        address delegateOwner = _memberOwnerOfOrRevert(delegateId);
+        address delegateOwner = MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
 
         uint256 length = groupIds.length;
         for (uint256 i = 0; i < length;) {
@@ -101,7 +104,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function setDelegatorWhitelistEnabled(uint256 delegateId, bool enabled) external onlyDelegateOwner(delegateId) {
-        address delegateOwner = _memberOwnerOfOrRevert(delegateId);
+        address delegateOwner = MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
         if (_delegatorWhitelistEnabled[delegateId] == enabled) {
             return;
         }
@@ -114,7 +117,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         external
         onlyDelegateOwner(delegateId)
     {
-        address delegateOwner = _memberOwnerOfOrRevert(delegateId);
+        address delegateOwner = MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
 
         uint256 length = groupIds.length;
         if (length == 0) {
@@ -146,7 +149,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function isDelegatorWhitelistEnabled(uint256 delegateId) external view returns (bool) {
-        _validateGroupExists(delegateId);
         return _delegatorWhitelistEnabled[delegateId];
     }
 
@@ -156,10 +158,9 @@ contract GroupChatDelegate is IGroupChatDelegate {
         if (delegateId == 0) {
             return true;
         }
-        if (delegateId == groupId) {
+        if (delegateId == groupId || _memberOwnerOfOrZero(delegateId) == address(0)) {
             return false;
         }
-        _validateGroupExists(delegateId, groupSupply);
         return _canDelegateTo(groupId, delegateId);
     }
 
@@ -168,12 +169,10 @@ contract GroupChatDelegate is IGroupChatDelegate {
         view
         returns (uint256[] memory groupIds, uint256 total)
     {
-        _validateGroupExists(delegateId);
         return _allowedDelegatorGroupIdsByDelegateId[delegateId].values(offset, limit, false);
     }
 
     function allowedDelegatorGroupIdsCount(uint256 delegateId) external view returns (uint256) {
-        _validateGroupExists(delegateId);
         return _allowedDelegatorGroupIdsByDelegateId[delegateId].count();
     }
 
@@ -210,8 +209,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
         view
         returns (uint256[] memory groupIds, bool[] memory isEffective, uint256 total)
     {
-        _validateGroupExists(delegateId);
-
         (groupIds, total) = _groupIdsByDelegateId[delegateId].values(offset, limit, false);
         uint256 length = groupIds.length;
         isEffective = new bool[](length);
@@ -224,7 +221,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function delegatedGroupIdsCount(uint256 delegateId) external view returns (uint256) {
-        _validateGroupExists(delegateId);
         return _groupIdsByDelegateId[delegateId].count();
     }
 
@@ -282,20 +278,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
         return delegateId;
     }
 
-    function _validateDelegateId(uint256 groupId, uint256 delegateId) internal view {
-        if (delegateId == 0) {
-            return;
-        }
-        if (delegateId == groupId) {
-            revert DelegateIdCannotBeGroupId();
-        }
-        _validateGroupExists(delegateId);
-    }
-
-    function _validateGroupExists(uint256 groupId) internal view {
-        _validateGroupExists(groupId, _groupSupply());
-    }
-
     function _validateGroupExists(uint256 groupId, uint256 groupSupply) internal pure {
         // Group IDs start at 1 and are never burned, so totalSupply is the upper bound of minted IDs.
         if (groupId == 0 || groupId > groupSupply) {
@@ -312,10 +294,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
         if (owner == address(0)) {
             revert GroupNotExist();
         }
-    }
-
-    function _memberOwnerOfOrRevert(uint256 memberId) internal view returns (address) {
-        return IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
     }
 
     function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {

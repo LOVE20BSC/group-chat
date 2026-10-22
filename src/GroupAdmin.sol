@@ -46,10 +46,10 @@ contract GroupAdmin is IGroupAdmin {
             revert AdminIdsLimitExceeded();
         }
 
-        address groupOwnerSnapshot = _ownerOfOrRevert(groupId);
+        address groupOwnerSnapshot = _groupOwnerOfOrRevert(groupId);
         for (uint256 i = 0; i < adminIds_.length; i++) {
             uint256 adminId = adminIds_[i];
-            address adminOwnerSnapshot = _ownerOfOrRevert(adminId);
+            address adminOwnerSnapshot = MemberOwner.ownerOf(GROUP_ADDRESS, adminId);
             bool snapshotChanged = false;
             if (state.groupOwnerSnapshots[adminId] != groupOwnerSnapshot) {
                 state.groupOwnerSnapshots[adminId] = groupOwnerSnapshot;
@@ -103,7 +103,7 @@ contract GroupAdmin is IGroupAdmin {
 
     function _validateAdminIds(uint256[] calldata adminIds_) internal view {
         for (uint256 i = 0; i < adminIds_.length; i++) {
-            _ownerOfOrRevert(adminIds_[i]);
+            MemberOwner.ownerOf(GROUP_ADDRESS, adminIds_[i]);
             for (uint256 j = 0; j < i; j++) {
                 if (adminIds_[i] == adminIds_[j]) {
                     revert DuplicateAdminId();
@@ -154,8 +154,8 @@ contract GroupAdmin is IGroupAdmin {
         }
     }
 
-    function _ownerOfOrRevert(uint256 memberId) internal view returns (address owner) {
-        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
+    function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {
+        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist();
         }
