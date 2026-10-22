@@ -73,7 +73,7 @@ contract DeployGroupChat is Script {
     }
 
     function _loadDependencies() internal view returns (Dependencies memory deps) {
-        deps.groupNft = vm.envAddress("GROUP_ADDRESS");
+        deps.groupNft = vm.envAddress("MEMBER_NFT_ADDRESS");
         deps.phase = vm.envAddress("PHASE_ADDRESS");
         deps.actionTarget = vm.envAddress("ACTION_TARGET_ADDRESS");
         deps.groupActionExecutor = vm.envAddress("GROUP_ACTION_EXECUTOR_ADDRESS");
@@ -160,18 +160,18 @@ contract DeployGroupChat is Script {
 
     function _logDeploymentSummary(DeployedAddresses memory deployed) internal pure {
         console2.log("\n=== Deployment Summary ===");
-        console2.log("GROUPCHATDELEGATE_ADDRESS=", deployed.groupChatDelegate);
-        console2.log("GROUPADMIN_ADDRESS=", deployed.groupAdmin);
-        console2.log("GROUPCHAT_ADDRESS=", deployed.groupChat);
-        console2.log("GROUPCHATBANLIST_ADDRESS=", deployed.groupChatBanList);
-        console2.log("ADMINBANSOURCE_ADDRESS=", deployed.adminBanSource);
-        console2.log("GOVVOTEDBANSOURCE_ADDRESS=", deployed.govVotedBanSource);
-        console2.log("GROUPMEMBER_ADDRESS=", deployed.groupMember);
-        console2.log("GROUPMEMBERSCOPE_ADDRESS=", deployed.groupMemberScope);
-        console2.log("GROUPJOINSCOPESOURCE_ADDRESS=", deployed.groupJoinScopeSource);
-        console2.log("TOKENMAINMANAGER_ADDRESS=", deployed.tokenMainManager);
-        console2.log("TOKENGOVMANAGER_ADDRESS=", deployed.tokenGovManager);
-        console2.log("TOKENACTIONGOVMANAGER_ADDRESS=", deployed.tokenActionGovManager);
-        console2.log("TOKENACTIONMAINMANAGER_ADDRESS=", deployed.tokenActionMainManager);
+        console2.log("GROUP_CHAT_DELEGATE_ADDRESS=", deployed.groupChatDelegate);
+        console2.log("GROUP_ADMIN_ADDRESS=", deployed.groupAdmin);
+        console2.log("GROUP_CHAT_ADDRESS=", deployed.groupChat);
+        console2.log("GROUP_CHAT_BAN_LIST_ADDRESS=", deployed.groupChatBanList);
+        console2.log("ADMIN_BAN_SOURCE_ADDRESS=", deployed.adminBanSource);
+        console2.log("GOV_VOTED_BAN_SOURCE_ADDRESS=", deployed.govVotedBanSource);
+        console2.log("GROUP_MEMBER_ADDRESS=", deployed.groupMember);
+        console2.log("GROUP_MEMBER_SCOPE_ADDRESS=", deployed.groupMemberScope);
+        console2.log("GROUP_JOIN_SCOPE_SOURCE_ADDRESS=", deployed.groupJoinScopeSource);
+        console2.log("TOKEN_MAIN_MANAGER_ADDRESS=", deployed.tokenMainManager);
+        console2.log("TOKEN_GOV_MANAGER_ADDRESS=", deployed.tokenGovManager);
+        console2.log("TOKEN_ACTION_GOV_MANAGER_ADDRESS=", deployed.tokenActionGovManager);
+        console2.log("TOKEN_ACTION_MAIN_MANAGER_ADDRESS=", deployed.tokenActionMainManager);
     }
 }

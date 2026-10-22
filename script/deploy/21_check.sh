@@ -36,11 +36,11 @@ set +a
 # 地址文件的键集合必须与期望合约集合一致：键名漏改会让后续变量静默为空，
 # 逐项 cast 调用要到很后面才以难以定位的形式失败，故在此显式断言。
 address_file="$NETWORK_DIR/addresses.group-chat.params"
-expected_keys="ADMINBANSOURCE_ADDRESS GOVVOTEDBANSOURCE_ADDRESS GROUPADMIN_ADDRESS \
-GROUPCHATBANLIST_ADDRESS GROUPCHATDELEGATE_ADDRESS GROUPCHAT_ADDRESS \
-GROUPJOINSCOPESOURCE_ADDRESS GROUPMEMBERSCOPE_ADDRESS GROUPMEMBER_ADDRESS \
-TOKENACTIONGOVMANAGER_ADDRESS TOKENACTIONMAINMANAGER_ADDRESS TOKENGOVMANAGER_ADDRESS \
-TOKENMAINMANAGER_ADDRESS"
+expected_keys="ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS GROUP_ADMIN_ADDRESS \
+GROUP_CHAT_BAN_LIST_ADDRESS GROUP_CHAT_DELEGATE_ADDRESS GROUP_CHAT_ADDRESS \
+GROUP_JOIN_SCOPE_SOURCE_ADDRESS GROUP_MEMBER_SCOPE_ADDRESS GROUP_MEMBER_ADDRESS \
+TOKEN_ACTION_GOV_MANAGER_ADDRESS TOKEN_ACTION_MAIN_MANAGER_ADDRESS TOKEN_GOV_MANAGER_ADDRESS \
+TOKEN_MAIN_MANAGER_ADDRESS"
 actual_keys=$(grep -oE '^[A-Z0-9_]+=' "$address_file" | sed 's/=$//' | sort | tr '\n' ' ' || true)
 if [ "$actual_keys" != "$(printf '%s\n' $expected_keys | sort | tr '\n' ' ')" ]; then
     echo "Error: $address_file key set mismatch"
@@ -107,76 +107,76 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 
 echo "Verifying deployed contract code..."
-for field in GROUPCHATDELEGATE_ADDRESS GROUPADMIN_ADDRESS GROUPCHAT_ADDRESS \
-    GROUPCHATBANLIST_ADDRESS ADMINBANSOURCE_ADDRESS GOVVOTEDBANSOURCE_ADDRESS \
-    GROUPMEMBER_ADDRESS GROUPMEMBERSCOPE_ADDRESS GROUPJOINSCOPESOURCE_ADDRESS \
-    TOKENMAINMANAGER_ADDRESS TOKENGOVMANAGER_ADDRESS TOKENACTIONGOVMANAGER_ADDRESS \
-    TOKENACTIONMAINMANAGER_ADDRESS; do
+for field in GROUP_CHAT_DELEGATE_ADDRESS GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
+    GROUP_CHAT_BAN_LIST_ADDRESS ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS \
+    GROUP_MEMBER_ADDRESS GROUP_MEMBER_SCOPE_ADDRESS GROUP_JOIN_SCOPE_SOURCE_ADDRESS \
+    TOKEN_MAIN_MANAGER_ADDRESS TOKEN_GOV_MANAGER_ADDRESS TOKEN_ACTION_GOV_MANAGER_ADDRESS \
+    TOKEN_ACTION_MAIN_MANAGER_ADDRESS; do
     check_contract_code "$field" "${!field}" || ((failed_checks += 1))
 done
 echo ""
 
 echo "Verifying core / action dependency bindings..."
 
-check_equal "GroupChatDelegate: GROUP_ADDRESS" "$GROUP_ADDRESS" \
-    "$(cast_call "$GROUPCHATDELEGATE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupChat: GROUP_ADDRESS" "$GROUP_ADDRESS" \
-    "$(cast_call "$GROUPCHAT_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupAdmin: GROUP_ADDRESS" "$GROUP_ADDRESS" \
-    "$(cast_call "$GROUPADMIN_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupMember: GROUP_ADDRESS" "$GROUP_ADDRESS" \
-    "$(cast_call "$GROUPMEMBER_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GovVotedBanSource: GROUP_ADDRESS" "$GROUP_ADDRESS" \
-    "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChatDelegate: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_DELEGATE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChat: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupAdmin: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$GROUP_ADMIN_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupMember: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$GROUP_MEMBER_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GovVotedBanSource: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 echo ""
 
-check_equal "GroupChat: GROUP_ADMIN_ADDRESS" "$GROUPADMIN_ADDRESS" \
-    "$(cast_call "$GROUPCHAT_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupChat: GROUP_DELEGATE_ADDRESS" "$GROUPCHATDELEGATE_ADDRESS" \
-    "$(cast_call "$GROUPCHAT_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChat: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChat: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupChat: PHASE_ADDRESS" "$PHASE_ADDRESS" \
-    "$(cast_call "$GROUPCHAT_ADDRESS" "PHASE_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupAdmin: GROUP_DELEGATE_ADDRESS" "$GROUPCHATDELEGATE_ADDRESS" \
-    "$(cast_call "$GROUPADMIN_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
+    "$(cast_call "$GROUP_CHAT_ADDRESS" "PHASE_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupAdmin: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
+    "$(cast_call "$GROUP_ADMIN_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: MAX_ADMIN_IDS" "$GROUP_CHAT_MAX_ADMIN_IDS" \
-    "$(cast_call "$GROUPADMIN_ADDRESS" "MAX_ADMIN_IDS()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$GROUP_ADMIN_ADDRESS" "MAX_ADMIN_IDS()(uint256)")" || ((failed_checks += 1))
 echo ""
 
 check_equal "GroupChat: MAX_CONTENT_LENGTH" "$GROUP_CHAT_MAX_CONTENT_LENGTH" \
-    "$(cast_call "$GROUPCHAT_ADDRESS" "MAX_CONTENT_LENGTH()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$GROUP_CHAT_ADDRESS" "MAX_CONTENT_LENGTH()(uint256)")" || ((failed_checks += 1))
 check_equal "GroupChat: MAX_MENTIONED_SENDER_IDS" "$GROUP_CHAT_MAX_MENTIONED_SENDER_IDS" \
-    "$(cast_call "$GROUPCHAT_ADDRESS" "MAX_MENTIONED_SENDER_IDS()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$GROUP_CHAT_ADDRESS" "MAX_MENTIONED_SENDER_IDS()(uint256)")" || ((failed_checks += 1))
 echo ""
 
-check_equal "GroupChatBanList: GROUP_ADMIN_ADDRESS" "$GROUPADMIN_ADDRESS" \
-    "$(cast_call "$GROUPCHATBANLIST_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "AdminBanSource: GROUP_BAN_LIST_ADDRESS" "$GROUPCHATBANLIST_ADDRESS" \
-    "$(cast_call "$ADMINBANSOURCE_ADDRESS" "GROUP_BAN_LIST_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChatBanList: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_BAN_LIST_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "AdminBanSource: GROUP_BAN_LIST_ADDRESS" "$GROUP_CHAT_BAN_LIST_ADDRESS" \
+    "$(cast_call "$ADMIN_BAN_SOURCE_ADDRESS" "GROUP_BAN_LIST_ADDRESS()(address)")" || ((failed_checks += 1))
 echo ""
 
 check_equal "GovVotedBanSource: PRECISION" "1000000000000000000" \
-    "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "PRECISION()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "PRECISION()(uint256)")" || ((failed_checks += 1))
 check_equal "GovVotedBanSource: MIN_SUPPORT_TO_OPPOSE_MULTIPLIER" "$GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER" \
-    "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "MIN_SUPPORT_TO_OPPOSE_MULTIPLIER()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "MIN_SUPPORT_TO_OPPOSE_MULTIPLIER()(uint256)")" || ((failed_checks += 1))
 check_equal "GovVotedBanSource: BAN_THRESHOLD_RATIO" "$GROUP_CHAT_BAN_THRESHOLD_RATIO" \
-    "$(cast_call "$GOVVOTEDBANSOURCE_ADDRESS" "BAN_THRESHOLD_RATIO()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "BAN_THRESHOLD_RATIO()(uint256)")" || ((failed_checks += 1))
 echo ""
 
-check_equal "GroupMember: GROUP_ADMIN_ADDRESS" "$GROUPADMIN_ADDRESS" \
-    "$(cast_call "$GROUPMEMBER_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupMemberScope: GROUP_MEMBER_ADDRESS" "$GROUPMEMBER_ADDRESS" \
-    "$(cast_call "$GROUPMEMBERSCOPE_ADDRESS" "GROUP_MEMBER_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupJoinScopeSource: GROUP_MEMBER_ADDRESS" "$GROUPMEMBER_ADDRESS" \
-    "$(cast_call "$GROUPJOINSCOPESOURCE_ADDRESS" "GROUP_MEMBER_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupMember: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
+    "$(cast_call "$GROUP_MEMBER_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupMemberScope: GROUP_MEMBER_ADDRESS" "$GROUP_MEMBER_ADDRESS" \
+    "$(cast_call "$GROUP_MEMBER_SCOPE_ADDRESS" "GROUP_MEMBER_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupJoinScopeSource: GROUP_MEMBER_ADDRESS" "$GROUP_MEMBER_ADDRESS" \
+    "$(cast_call "$GROUP_JOIN_SCOPE_SOURCE_ADDRESS" "GROUP_MEMBER_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupJoinScopeSource: GROUP_ACTION_EXECUTOR_ADDRESS" "$GROUP_ACTION_EXECUTOR_ADDRESS" \
-    "$(cast_call "$GROUPJOINSCOPESOURCE_ADDRESS" "GROUP_ACTION_EXECUTOR_ADDRESS()(address)")" || ((failed_checks += 1))
+    "$(cast_call "$GROUP_JOIN_SCOPE_SOURCE_ADDRESS" "GROUP_ACTION_EXECUTOR_ADDRESS()(address)")" || ((failed_checks += 1))
 echo ""
 
 echo "Verifying ActionTarget bindings..."
 check_contract_code "ActionTarget" "$ACTION_TARGET_ADDRESS" || ((failed_checks += 1))
 # ActionTarget 暴露 memberNFT/phase/submit/vote 四个地址；前两个应与 core 地址文件一致，
 # 后两个是 action 库内依赖，只要求是已部署合约。
-check_equal "ActionTarget: memberNFTAddress" "$GROUP_ADDRESS" \
+check_equal "ActionTarget: memberNFTAddress" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$ACTION_TARGET_ADDRESS" "memberNFTAddress()(address)")" || ((failed_checks += 1))
 check_equal "ActionTarget: phaseAddress" "$PHASE_ADDRESS" \
     "$(cast_call "$ACTION_TARGET_ADDRESS" "phaseAddress()(address)")" || ((failed_checks += 1))
@@ -189,14 +189,14 @@ echo -e "  VOTE_ADDRESS:   $action_target_vote_address"
 echo ""
 
 echo "Verifying manager immutable configuration..."
-for manager in TOKENMAINMANAGER TOKENGOVMANAGER TOKENACTIONGOVMANAGER TOKENACTIONMAINMANAGER; do
+for manager in TOKEN_MAIN_MANAGER TOKEN_GOV_MANAGER TOKEN_ACTION_GOV_MANAGER TOKEN_ACTION_MAIN_MANAGER; do
     manager_address_field="${manager}_ADDRESS"
     manager_address="${!manager_address_field}"
-    check_equal "$manager: GROUP_CHAT_ADDRESS" "$GROUPCHAT_ADDRESS" \
+    check_equal "$manager: GROUP_CHAT_ADDRESS" "$GROUP_CHAT_ADDRESS" \
         "$(cast_call "$manager_address" "GROUP_CHAT_ADDRESS()(address)")" || ((failed_checks += 1))
-    check_equal "$manager: GROUP_ADDRESS" "$GROUP_ADDRESS" \
+    check_equal "$manager: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
         "$(cast_call "$manager_address" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
-    check_equal "$manager: BAN_SOURCE_ADDRESS" "$GOVVOTEDBANSOURCE_ADDRESS" \
+    check_equal "$manager: BAN_SOURCE_ADDRESS" "$GOV_VOTED_BAN_SOURCE_ADDRESS" \
         "$(cast_call "$manager_address" "BAN_SOURCE_ADDRESS()(address)")" || ((failed_checks += 1))
     check_equal "$manager: BEFORE_POST_PLUGIN_ADDRESS" "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}" \
         "$(cast_call "$manager_address" "BEFORE_POST_PLUGIN_ADDRESS()(address)")" || ((failed_checks += 1))
@@ -206,13 +206,13 @@ for manager in TOKENMAINMANAGER TOKENGOVMANAGER TOKENACTIONGOVMANAGER TOKENACTIO
 done
 
 check_equal "TokenActionGovManager: RECENT_ROUNDS" "$GROUP_CHAT_ACTION_RECENT_ROUNDS" \
-    "$(cast_call "$TOKENACTIONGOVMANAGER_ADDRESS" "RECENT_ROUNDS()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$TOKEN_ACTION_GOV_MANAGER_ADDRESS" "RECENT_ROUNDS()(uint256)")" || ((failed_checks += 1))
 check_equal "TokenActionMainManager: RECENT_ROUNDS" "$GROUP_CHAT_ACTION_RECENT_ROUNDS" \
-    "$(cast_call "$TOKENACTIONMAINMANAGER_ADDRESS" "RECENT_ROUNDS()(uint256)")" || ((failed_checks += 1))
+    "$(cast_call "$TOKEN_ACTION_MAIN_MANAGER_ADDRESS" "RECENT_ROUNDS()(uint256)")" || ((failed_checks += 1))
 echo ""
 
 echo "Verifying the round source..."
-actual_round=$(cast_call "$GROUPCHAT_ADDRESS" "currentRound()(uint256)" 2>/dev/null || echo "")
+actual_round=$(cast_call "$GROUP_CHAT_ADDRESS" "currentRound()(uint256)" 2>/dev/null || echo "")
 if [ -n "$actual_round" ]; then
     echo -e "${GREEN}✓${NC} GroupChat: currentRound ($actual_round)"
     phase_round=$(cast_call "$PHASE_ADDRESS" "currentPhase()(uint256)" 2>/dev/null || echo "")
