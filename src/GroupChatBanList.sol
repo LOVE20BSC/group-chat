@@ -36,13 +36,17 @@ contract GroupChatBanList is IGroupChatBanList {
         _groupDelegateAddress = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
     }
 
-    function banBySenderIds(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds) external {
-        _requireOperator(groupId, operatorId);
+    function banBySenderIds(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds)
+        external
+        onlyOperator(groupId, operatorId)
+    {
         _setSenderIdBanTargets(groupId, operatorId, senderIds, true);
     }
 
-    function unbanBySenderIds(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds) external {
-        _requireOperator(groupId, operatorId);
+    function unbanBySenderIds(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds)
+        external
+        onlyOperator(groupId, operatorId)
+    {
         _setSenderIdBanTargets(groupId, operatorId, senderIds, false);
     }
 
@@ -133,18 +137,28 @@ contract GroupChatBanList is IGroupChatBanList {
         }
     }
 
-    function _requireOperator(uint256 groupId, uint256 operatorId) internal view {
+    modifier onlyOperator(
+        uint256 groupId,
+        uint256 operatorId
+    ) {
+        if (!_isOperator(groupId, operatorId)) {
+            revert UnauthorizedGroupBanListManager();
+        }
+        _;
+    }
+
+    function _isOperator(uint256 groupId, uint256 operatorId) private view returns (bool) {
         uint256 resolvedOperatorId =
             IGroupChatDelegate(_groupDelegateAddress).ownerOrDelegateIdOf(groupId, msg.sender);
         if (operatorId != 0 && resolvedOperatorId == operatorId) {
-            return;
+            return true;
         }
         // Load-bearing: a nonexistent operatorId collapses into the unauthorized revert instead of
         // reverting separately, so the caller cannot use the error to probe whether a member id exists.
         if (operatorId != 0 && IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
             && MemberOwner.ofOrZero(_groupAddress, operatorId) == msg.sender) {
-            return;
+            return true;
         }
-        revert UnauthorizedGroupBanListManager();
+        return false;
     }
 }

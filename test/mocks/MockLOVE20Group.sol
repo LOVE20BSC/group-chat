@@ -2,6 +2,7 @@
 pragma solidity =0.8.37;
 
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract MockLOVE20Group {
     bytes4 internal constant TEST_PREFIX = bytes4("Test");
@@ -70,7 +71,7 @@ contract MockLOVE20Group {
 
     function ownerOf(uint256 tokenId) external view returns (address owner) {
         owner = _owners[tokenId];
-        require(owner != address(0), "NOT_MINTED");
+        if (owner == address(0)) revert IERC721Errors.ERC721NonexistentToken(tokenId);
     }
 
     function transferFrom(address from, address to, uint256 tokenId) external {

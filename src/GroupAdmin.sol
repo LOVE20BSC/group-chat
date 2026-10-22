@@ -35,8 +35,10 @@ contract GroupAdmin is IGroupAdmin {
         MAX_ADMIN_IDS = maxAdminIds_;
     }
 
-    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_) external {
-        _requireOwnerOrDelegate(groupId, operatorId);
+    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_)
+        external
+        onlyOwnerOrDelegate(groupId, operatorId)
+    {
         _validateAdminIds(adminIds_);
 
         AdminState storage state = _states[groupId];
@@ -66,8 +68,10 @@ contract GroupAdmin is IGroupAdmin {
         }
     }
 
-    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_) external {
-        _requireOwnerOrDelegate(groupId, operatorId);
+    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_)
+        external
+        onlyOwnerOrDelegate(groupId, operatorId)
+    {
         _validateAdminIds(adminIds_);
 
         AdminState storage state = _states[groupId];
@@ -132,12 +136,16 @@ contract GroupAdmin is IGroupAdmin {
             && MemberOwner.ofOrZero(GROUP_ADDRESS, adminId) == adminOwnerSnapshot;
     }
 
-    function _requireOwnerOrDelegate(uint256 groupId, uint256 operatorId) internal view {
+    modifier onlyOwnerOrDelegate(
+        uint256 groupId,
+        uint256 operatorId
+    ) {
         uint256 resolvedOperatorId =
             IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
         if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
             revert UnauthorizedGroupAdminManager();
         }
+        _;
     }
 
     function _requireCode(address target) internal view {

@@ -113,17 +113,28 @@ contract GroupChat is IGroupChat {
         _entered = 0;
     }
 
+    modifier onlySenderOwner(uint256 senderId) {
+        if (_memberOwnerOfOrRevert(senderId) != msg.sender) {
+            revert SenderNotMemberOwner(senderId);
+        }
+        _;
+    }
+
+    modifier onlyChatOwner(uint256 groupId) {
+        if (msg.sender != _ownerOfOrRevertGroupNotExist(groupId)) {
+            revert NotChatOwner();
+        }
+        _;
+    }
+
     function activateChat(
         uint256 groupId,
         address scopeSource_,
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_
-    ) external nonReentrant {
-        address owner = _ownerOfOrRevert(groupId);
-        if (msg.sender != owner) {
-            revert NotChatOwner();
-        }
+    ) external nonReentrant onlyChatOwner(groupId) {
+        address owner = _ownerOfOrRevertGroupNotExist(groupId);
 
         ChatConfig storage config = _chatConfigs[groupId];
         if (config.activated) {
@@ -162,8 +173,12 @@ contract GroupChat is IGroupChat {
         emit Activate(groupId, groupId, owner);
     }
 
-    function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed_) external nonReentrant {
-        _requireOwnerOrDelegateAndActivated(groupId, operatorId);
+    function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed_)
+        external
+        nonReentrant
+        onlyOwnerOrDelegate(groupId, operatorId)
+    {
+        _requireActivated(groupId);
 
         ChatConfig storage config = _chatConfigs[groupId];
         if (config.postingAllowed == postingAllowed_) {
@@ -175,19 +190,35 @@ contract GroupChat is IGroupChat {
         emit SetPostingAllowed(groupId, operatorId, msg.sender, postingAllowed_);
     }
 
-    function setScopeSource(uint256 groupId, uint256 operatorId, address sourceAddress) external nonReentrant {
+    function setScopeSource(
+        uint256 groupId,
+        uint256 operatorId,
+        address sourceAddress
+    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
         _setSource(groupId, operatorId, sourceAddress, true);
     }
 
-    function setBanSource(uint256 groupId, uint256 operatorId, address sourceAddress) external nonReentrant {
+    function setBanSource(
+        uint256 groupId,
+        uint256 operatorId,
+        address sourceAddress
+    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
         _setSource(groupId, operatorId, sourceAddress, false);
     }
 
-    function setBeforePostPlugin(uint256 groupId, uint256 operatorId, address pluginAddress) external nonReentrant {
+    function setBeforePostPlugin(
+        uint256 groupId,
+        uint256 operatorId,
+        address pluginAddress
+    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
         _setPostPlugin(groupId, operatorId, pluginAddress, true);
     }
 
-    function setAfterPostPlugin(uint256 groupId, uint256 operatorId, address pluginAddress) external nonReentrant {
+    function setAfterPostPlugin(
+        uint256 groupId,
+        uint256 operatorId,
+        address pluginAddress
+    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
         _setPostPlugin(groupId, operatorId, pluginAddress, false);
     }
 
@@ -198,7 +229,7 @@ contract GroupChat is IGroupChat {
         uint256[] calldata mentionedSenderIds,
         bool mentionAll,
         uint256 quotedMessageId
-    ) external nonReentrant {
+    ) external nonReentrant onlySenderOwner(senderId) {
         _post(groupId, senderId, content, mentionedSenderIds, mentionAll, quotedMessageId);
     }
 
@@ -217,11 +248,6 @@ contract GroupChat is IGroupChat {
         }
         if (!config.postingAllowed) {
             revert PostingNotAllowed();
-        }
-
-        address senderOwner = _ownerOfOrRevert(senderId);
-        if (msg.sender != senderOwner) {
-            revert SenderNotMemberOwner(senderId);
         }
 
         if (bytes(content).length == 0) {
@@ -296,7 +322,7 @@ contract GroupChat is IGroupChat {
     }
 
     function _chatInfo(uint256 groupId) internal view returns (ChatInfo memory) {
-        address owner = _ownerOfOrRevert(groupId);
+        address owner = _ownerOfOrRevertGroupNotExist(groupId);
         ChatConfig storage config = _chatConfigs[groupId];
         return ChatInfo({
             groupId: groupId,
@@ -531,8 +557,13 @@ contract GroupChat is IGroupChat {
         return result;
     }
 
-    function _setSource(uint256 groupId, uint256 operatorId, address sourceAddress, bool isScope) internal {
-        _requireOwnerOrDelegateAndActivated(groupId, operatorId);
+    function _setSource(
+        uint256 groupId,
+        uint256 operatorId,
+        address sourceAddress,
+        bool isScope
+    ) internal {
+        _requireActivated(groupId);
         _validateSourceAddress(sourceAddress);
 
         ChatConfig storage config = _chatConfigs[groupId];
@@ -555,8 +586,13 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    function _setPostPlugin(uint256 groupId, uint256 operatorId, address pluginAddress, bool isBefore) internal {
-        _requireOwnerOrDelegateAndActivated(groupId, operatorId);
+    function _setPostPlugin(
+        uint256 groupId,
+        uint256 operatorId,
+        address pluginAddress,
+        bool isBefore
+    ) internal {
+        _requireActivated(groupId);
         _validatePluginAddress(pluginAddress);
 
         ChatConfig storage config = _chatConfigs[groupId];
@@ -656,16 +692,22 @@ contract GroupChat is IGroupChat {
         return result;
     }
 
-    function _requireOwnerOrDelegateAndActivated(uint256 groupId, uint256 operatorId) internal view {
-        _ownerOfOrRevert(groupId);
-        ChatConfig storage config = _chatConfigs[groupId];
-        if (!config.activated) {
-            revert ChatNotActivated();
-        }
+    modifier onlyOwnerOrDelegate(
+        uint256 groupId,
+        uint256 operatorId
+    ) {
         uint256 resolvedOperatorId =
             IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
         if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
             revert NotChatOwnerOrDelegateIdOwner();
+        }
+        _;
+    }
+
+    function _requireActivated(uint256 groupId) internal view {
+        _ownerOfOrRevertGroupNotExist(groupId);
+        if (!_chatConfigs[groupId].activated) {
+            revert ChatNotActivated();
         }
     }
 
@@ -750,7 +792,7 @@ contract GroupChat is IGroupChat {
             return (false, PostingNotAllowed.selector);
         }
 
-        if (MemberOwner.ofOrZero(GROUP_ADDRESS, senderId) == address(0)) {
+        if (_memberOwnerOfOrZero(senderId) == address(0)) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, GroupNotExist.selector);
         }
@@ -768,14 +810,22 @@ contract GroupChat is IGroupChat {
     }
 
     function _requireExistingGroup(uint256 groupId) internal view {
-        _ownerOfOrRevert(groupId);
+        _ownerOfOrRevertGroupNotExist(groupId);
     }
 
-    function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {
+    function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist();
         }
+    }
+
+    function _memberOwnerOfOrRevert(uint256 memberId) internal view returns (address) {
+        return IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
+    }
+
+    function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {
+        return MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
     }
 
     function _validateSourceAddress(address sourceAddress) internal view {
@@ -797,13 +847,9 @@ contract GroupChat is IGroupChat {
         if (mentionedSenderIds.length > MAX_MENTIONED_SENDER_IDS) {
             revert TooManyMentionedSenderIds(mentionedSenderIds.length, MAX_MENTIONED_SENDER_IDS);
         }
-        // MemberNFT mints token IDs as 1..totalSupply and does not expose an NFT burn path.
-        uint256 mintedCount = IMemberNFT(GROUP_ADDRESS).totalSupply();
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
             uint256 mentionedSenderId = mentionedSenderIds[i];
-            if (mentionedSenderId == 0 || mentionedSenderId > mintedCount) {
-                revert GroupNotExist();
-            }
+            _memberOwnerOfOrRevert(mentionedSenderId);
             for (uint256 j = 0; j < i; j++) {
                 if (mentionedSenderIds[j] == mentionedSenderId) {
                     revert DuplicateMentionedSenderId();

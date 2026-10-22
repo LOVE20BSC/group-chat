@@ -3,6 +3,7 @@ pragma solidity =0.8.37;
 
 import {GroupChat} from "../src/GroupChat.sol";
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {MockPhase} from "./mocks/MockPhase.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
@@ -53,6 +54,17 @@ contract GroupChatMessagesTest is GroupChatFixture {
         vm.prank(other);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
         _post(groupId, senderId, "hello");
+    }
+
+    function testT042B_post_rejectsMissingSenderId() public {
+        _activateEmpty();
+
+        vm.roll(originBlocks);
+        vm.prank(senderOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999))
+        );
+        _post(groupId, 999_999, "missing sender");
     }
 
     function testT043T044T045T046T047_postInvalidCases() public {
@@ -150,7 +162,9 @@ contract GroupChatMessagesTest is GroupChatFixture {
         uint256[] memory futureMentionedSenderIds = new uint256[](1);
         futureMentionedSenderIds[0] = 999999;
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.GroupNotExist.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999))
+        );
         _postWithMentionedSenderIds(groupId, senderId, "future mention", futureMentionedSenderIds, false);
     }
 

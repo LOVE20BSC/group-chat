@@ -6,6 +6,7 @@ import {GroupChat} from "../src/GroupChat.sol";
 import {GroupChatDelegate} from "../src/GroupChatDelegate.sol";
 import {IGroupChatDelegateErrors} from "../src/interfaces/IGroupChatDelegate.sol";
 import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockPostBanSource} from "./mocks/MockPlugins.sol";
@@ -222,6 +223,22 @@ contract GroupChatDelegateTest is TestBase {
         vm.prank(delegateOwner);
         vm.expectRevert(IGroupChatDelegateErrors.DelegateIdCannotBeGroupId.selector);
         groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(delegateId), true);
+    }
+
+    function testT151B_delegateWritesRejectMissingDelegateId() public {
+        vm.prank(chatOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999))
+        );
+        groupDelegate.setDelegatorWhitelistEnabled(999_999, true);
+    }
+
+    function testT151C_setDelegateIdRejectsMissingDelegateId() public {
+        vm.prank(chatOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999))
+        );
+        groupDelegate.setDelegateId(groupId, 999_999);
     }
 
     function testT152_idempotentAndEmptyInputsAreNoop() public {

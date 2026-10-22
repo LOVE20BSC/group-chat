@@ -77,6 +77,27 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
     }
 
+    function testT010B_postAndSettersCheckAuthBeforeGroupState() public {
+        // Not activated: sender auth wins over ChatNotActivated.
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        _post(groupId, senderId, "blocked");
+
+        // Not activated: setter auth wins over ChatNotActivated.
+        vm.prank(other);
+        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        chat.setScopeSource(groupId, groupId, address(0));
+
+        // Activated but posting disabled: sender auth wins over PostingNotAllowed.
+        _activateEmpty();
+        vm.prank(chatOwner);
+        chat.setPostingAllowed(groupId, groupId, false);
+
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        _post(groupId, senderId, "blocked");
+    }
+
     function testT011_activateChat_setsLiveStateAndFirstActivationSnapshot() public {
         _activateEmpty();
 

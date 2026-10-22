@@ -30,15 +30,26 @@ contract GroupChatDelegate is IGroupChatDelegate {
         GROUP_ADDRESS = groupAddress_;
     }
 
-    function setDelegateId(uint256 groupId, uint256 delegateId) external {
-        address owner = _ownerOfOrRevert(groupId);
-        if (msg.sender != owner) {
+    modifier onlyGroupOwner(uint256 groupId) {
+        if (msg.sender != _ownerOfOrRevertGroupNotExist(groupId)) {
             revert SenderNotGroupOwner();
         }
+        _;
+    }
+
+    modifier onlyDelegateOwner(uint256 delegateId) {
+        if (_memberOwnerOfOrRevert(delegateId) != msg.sender) {
+            revert SenderNotDelegateOwner();
+        }
+        _;
+    }
+
+    function setDelegateId(uint256 groupId, uint256 delegateId) external onlyGroupOwner(groupId) {
+        address owner = _ownerOfOrRevertGroupNotExist(groupId);
 
         DelegateState storage state = _delegateStates[groupId];
         address targetOwnerSnapshot = delegateId == 0 ? address(0) : owner;
-        address targetDelegateOwnerSnapshot = delegateId == 0 ? address(0) : _ownerOfOrRevert(delegateId);
+        address targetDelegateOwnerSnapshot = delegateId == 0 ? address(0) : _memberOwnerOfOrRevert(delegateId);
         if (
             state.delegateId == delegateId && state.ownerSnapshot == targetOwnerSnapshot
                 && state.delegateOwnerSnapshot == targetDelegateOwnerSnapshot
@@ -66,11 +77,11 @@ contract GroupChatDelegate is IGroupChatDelegate {
         emit SetDelegateId(groupId, owner, delegateId, prevDelegateId);
     }
 
-    function clearDelegatedGroupIds(uint256 delegateId, uint256[] calldata groupIds) external {
-        address delegateOwner = _ownerOfOrRevert(delegateId);
-        if (msg.sender != delegateOwner) {
-            revert SenderNotDelegateOwner();
-        }
+    function clearDelegatedGroupIds(uint256 delegateId, uint256[] calldata groupIds)
+        external
+        onlyDelegateOwner(delegateId)
+    {
+        address delegateOwner = _memberOwnerOfOrRevert(delegateId);
 
         uint256 length = groupIds.length;
         for (uint256 i = 0; i < length;) {
@@ -89,11 +100,8 @@ contract GroupChatDelegate is IGroupChatDelegate {
         }
     }
 
-    function setDelegatorWhitelistEnabled(uint256 delegateId, bool enabled) external {
-        address delegateOwner = _ownerOfOrRevert(delegateId);
-        if (msg.sender != delegateOwner) {
-            revert SenderNotDelegateOwner();
-        }
+    function setDelegatorWhitelistEnabled(uint256 delegateId, bool enabled) external onlyDelegateOwner(delegateId) {
+        address delegateOwner = _memberOwnerOfOrRevert(delegateId);
         if (_delegatorWhitelistEnabled[delegateId] == enabled) {
             return;
         }
@@ -102,11 +110,11 @@ contract GroupChatDelegate is IGroupChatDelegate {
         emit SetDelegatorWhitelistEnabled(delegateId, delegateOwner, enabled);
     }
 
-    function setAllowedDelegatorGroupIds(uint256 delegateId, uint256[] calldata groupIds, bool allowed) external {
-        address delegateOwner = _ownerOfOrRevert(delegateId);
-        if (msg.sender != delegateOwner) {
-            revert SenderNotDelegateOwner();
-        }
+    function setAllowedDelegatorGroupIds(uint256 delegateId, uint256[] calldata groupIds, bool allowed)
+        external
+        onlyDelegateOwner(delegateId)
+    {
+        address delegateOwner = _memberOwnerOfOrRevert(delegateId);
 
         uint256 length = groupIds.length;
         if (length == 0) {
@@ -170,7 +178,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function delegateIdOf(uint256 groupId) external view returns (uint256) {
-        address owner = _ownerOfOrRevert(groupId);
+        address owner = _ownerOfOrRevertGroupNotExist(groupId);
         return _delegateIdOf(groupId, _delegateStates[groupId], owner);
     }
 
@@ -188,7 +196,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
             DelegateState storage state = _delegateStates[groupId];
             if (state.delegateId != 0) {
-                delegateIds[i] = _delegateIdOf(groupId, state, _ownerOfOrRevert(groupId));
+                delegateIds[i] = _delegateIdOf(groupId, state, _ownerOfOrRevertGroupNotExist(groupId));
             }
 
             unchecked {
@@ -225,14 +233,17 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function _ownerOrDelegateIdOf(uint256 groupId, address account) internal view returns (uint256) {
-        address owner = _ownerOfOrRevert(groupId);
+        address owner = _ownerOfOrRevertGroupNotExist(groupId);
         if (account == owner) {
             return groupId;
         }
 
         uint256 delegateId = _delegateIdOf(groupId, _delegateStates[groupId], owner);
-        if (delegateId != 0 && account == _ownerOfOrRevert(delegateId)) {
-            return delegateId;
+        if (delegateId != 0) {
+            address delegateOwner = _memberOwnerOfOrZero(delegateId);
+            if (delegateOwner != address(0) && account == delegateOwner) {
+                return delegateId;
+            }
         }
         return 0;
     }
@@ -245,7 +256,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function _isEffectiveDelegateId(uint256 groupId, uint256 delegateId) internal view returns (bool) {
-        address owner = _ownerOfOrRevert(groupId);
+        address owner = _ownerOfOrRevertGroupNotExist(groupId);
         return _delegateIdOf(groupId, _delegateStates[groupId], owner) == delegateId;
     }
 
@@ -261,7 +272,8 @@ contract GroupChatDelegate is IGroupChatDelegate {
         if (delegateId == 0) {
             return 0;
         }
-        if (state.delegateOwnerSnapshot != _ownerOfOrRevert(delegateId)) {
+        address delegateOwner = _memberOwnerOfOrZero(delegateId);
+        if (delegateOwner == address(0) || state.delegateOwnerSnapshot != delegateOwner) {
             return 0;
         }
         if (!_canDelegateTo(groupId, delegateId)) {
@@ -295,10 +307,18 @@ contract GroupChatDelegate is IGroupChatDelegate {
         return IMemberNFT(GROUP_ADDRESS).totalSupply();
     }
 
-    function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {
+    function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist();
         }
+    }
+
+    function _memberOwnerOfOrRevert(uint256 memberId) internal view returns (address) {
+        return IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
+    }
+
+    function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {
+        return MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
     }
 }

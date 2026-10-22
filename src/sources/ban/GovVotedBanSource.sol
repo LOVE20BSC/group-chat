@@ -50,13 +50,17 @@ contract GovVotedBanSource is IGovVotedBanSource {
         BAN_THRESHOLD_RATIO = banThresholdRatio_;
     }
 
-    function voteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) external {
-        _requireVoterOwner(voterId);
+    function voteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan)
+        external
+        onlyVoterOwner(voterId)
+    {
         _setSenderIdVote(groupId, targetSenderId, voterId, supportBan);
     }
 
-    function clearVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external {
-        _requireVoterOwner(voterId);
+    function clearVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId)
+        external
+        onlyVoterOwner(voterId)
+    {
         _clearSenderIdVote(groupId, targetSenderId, voterId);
     }
 
@@ -188,10 +192,11 @@ contract GovVotedBanSource is IGovVotedBanSource {
         return _states[groupId].stateVersion;
     }
 
-    function _requireVoterOwner(uint256 voterId) internal view {
+    modifier onlyVoterOwner(uint256 voterId) {
         if (MemberOwner.ofOrZero(GROUP_ADDRESS, voterId) != msg.sender) {
             revert SenderNotMemberOwner(voterId);
         }
+        _;
     }
 
     function _setSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) internal {
