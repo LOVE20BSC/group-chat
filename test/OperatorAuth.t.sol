@@ -28,31 +28,31 @@ contract OperatorAuthTest is GroupChatFixture {
 
     function testT200_zeroOperatorIdRejectedByGroupChat() public {
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, 0));
         chat.setPostingAllowed(groupId, 0, false);
     }
 
     function testT201_zeroOperatorIdRejectedByGroupAdmin() public {
         vm.prank(other);
-        vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, 0));
         groupAdmin.addAdmins(groupId, 0, _uints(adminId));
     }
 
     function testT202_zeroOperatorIdRejectedByGroupMember() public {
         vm.prank(other);
-        vm.expectRevert(IGroupMember.UnauthorizedGroupMemberManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, 0));
         member.addMemberIds(groupId, 0, _uints(senderId));
     }
 
     function testT203_zeroOperatorIdRejectedByBanList() public {
         vm.prank(other);
-        vm.expectRevert(IGroupChatBanList.UnauthorizedGroupBanListManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, 0));
         banList.banBySenderIds(groupId, 0, _uints(senderId));
     }
 
     function testT204_wrongOperatorIdRejected() public {
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, delegateId));
         chat.setPostingAllowed(groupId, delegateId, false);
     }
 

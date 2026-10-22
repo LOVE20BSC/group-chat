@@ -100,7 +100,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
         _post(groupId, senderId, "not-owner");
 
         vm.prank(other);
@@ -110,7 +110,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
 
     function testT133D_permissionsTargetsAndGroupIsolation() public {
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupMember.UnauthorizedGroupMemberManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMember.NotGroupOperator.selector, groupId, adminId));
         member.addMemberIds(groupId, adminId, _uints(senderId));
 
         vm.prank(chatOwner);
@@ -131,11 +131,11 @@ contract GroupMemberScopeTest is GroupChatFixture {
         assertTrue(!member.isMemberId(otherGroupId, senderId));
 
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupMember.UnauthorizedGroupMemberManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMember.NotGroupOperator.selector, otherGroupId, adminId));
         member.addMemberIds(otherGroupId, adminId, _uints(senderId));
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, otherGroupId, groupId));
         groupAdmin.addAdmins(otherGroupId, groupId, _uints(adminId));
     }
 

@@ -50,7 +50,11 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         MockGroupChatAdminConfig badAdmin =
             new MockGroupChatAdminConfig(address(otherGroupDelegate), address(groupNft));
 
-        vm.expectRevert(IGroupChatErrors.GroupDelegateGroupMismatch.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGroupChatErrors.GroupAddressMismatch.selector, address(groupNft), address(otherGroupNft)
+            )
+        );
         new GroupChat(address(badAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
     }
 
@@ -73,19 +77,19 @@ contract GroupChatLifecycleTest is GroupChatFixture {
 
     function testT010_activateChat_requiresCurrentOwner() public {
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.NotChatOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOwner.selector, groupId));
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
     }
 
     function testT010B_postAndSettersCheckAuthBeforeGroupState() public {
         // Not activated: sender auth wins over ChatNotActivated.
         vm.prank(other);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
         _post(groupId, senderId, "blocked");
 
         // Not activated: setter auth wins over ChatNotActivated.
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setScopeSource(groupId, groupId, address(0));
 
         // Activated but posting disabled: sender auth wins over PostingNotAllowed.
@@ -94,7 +98,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         chat.setPostingAllowed(groupId, groupId, false);
 
         vm.prank(other);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
         _post(groupId, senderId, "blocked");
     }
 
@@ -196,7 +200,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         _activateEmpty();
 
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setPostingAllowed(groupId, groupId, false);
 
         vm.recordLogs();
@@ -222,10 +226,10 @@ contract GroupChatLifecycleTest is GroupChatFixture {
     function testT015_managementWritesRejectNonexistentGroup() public {
         uint256 missingGroupId = 999_999;
 
-        vm.expectRevert(IGroupChatErrors.GroupNotExist.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupNotExist.selector, missingGroupId));
         chat.setPostingAllowed(missingGroupId, missingGroupId, false);
 
-        vm.expectRevert(IGroupChatErrors.GroupNotExist.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupNotExist.selector, missingGroupId));
         chat.setScopeSource(missingGroupId, missingGroupId, address(0));
     }
 

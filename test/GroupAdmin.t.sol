@@ -77,11 +77,11 @@ contract GroupAdminTest is GroupChatFixture {
         assertTrue(groupAdmin.isAdminId(groupId, secondAdminId));
 
         vm.prank(stranger);
-        vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, groupId, groupId));
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
 
         vm.prank(stranger);
-        vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, groupId, groupId));
         groupAdmin.removeAdmins(groupId, groupId, _uints(secondAdminId));
     }
 
@@ -151,7 +151,7 @@ contract GroupAdminTest is GroupChatFixture {
 
     function testT129D_addRemoveAdminsValidateInputLimitsAndList() public {
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.DuplicateAdminId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.DuplicateMemberId.selector, adminId));
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId, adminId));
 
         vm.prank(chatOwner);

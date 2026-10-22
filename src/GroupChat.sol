@@ -92,8 +92,9 @@ contract GroupChat is IGroupChat {
         if (groupDelegate.code.length == 0) {
             revert GroupDelegateHasNoCode();
         }
-        if (IGroupChatDelegate(groupDelegate).GROUP_ADDRESS() != groupAddress) {
-            revert GroupDelegateGroupMismatch();
+        address delegateGroupAddress = IGroupChatDelegate(groupDelegate).GROUP_ADDRESS();
+        if (delegateGroupAddress != groupAddress) {
+            revert GroupAddressMismatch(groupAddress, delegateGroupAddress);
         }
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         GROUP_DELEGATE_ADDRESS = groupDelegate;
@@ -114,14 +115,14 @@ contract GroupChat is IGroupChat {
 
     modifier onlySenderOwner(uint256 senderId) {
         if (MemberOwner.ownerOf(GROUP_ADDRESS, senderId) != msg.sender) {
-            revert SenderNotMemberOwner(senderId);
+            revert NotMemberOwner(senderId);
         }
         _;
     }
 
     modifier onlyChatOwner(uint256 groupId) {
         if (msg.sender != _ownerOfOrRevertGroupNotExist(groupId)) {
-            revert NotChatOwner();
+            revert NotGroupOwner(groupId);
         }
         _;
     }
@@ -698,7 +699,7 @@ contract GroupChat is IGroupChat {
         uint256 resolvedOperatorId =
             IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
         if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
-            revert NotChatOwnerOrDelegateIdOwner();
+            revert NotGroupOperator(groupId, operatorId);
         }
         _;
     }
@@ -815,7 +816,7 @@ contract GroupChat is IGroupChat {
     function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
-            revert GroupNotExist();
+            revert GroupNotExist(groupId);
         }
     }
 
@@ -843,7 +844,7 @@ contract GroupChat is IGroupChat {
             MemberOwner.ownerOf(GROUP_ADDRESS, mentionedSenderId);
             for (uint256 j = 0; j < i; j++) {
                 if (mentionedSenderIds[j] == mentionedSenderId) {
-                    revert DuplicateMentionedSenderId();
+                    revert DuplicateMemberId(mentionedSenderId);
                 }
             }
         }

@@ -59,7 +59,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         uint256[] memory admins = _uints(adminId);
 
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupChatBanList.UnauthorizedGroupBanListManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, adminId));
         banList.banBySenderIds(groupId, adminId, _uints(senderId));
 
         vm.prank(chatOwner);
@@ -71,7 +71,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(banList.isSenderIdBanned(groupId, senderId));
 
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupAdmin.UnauthorizedGroupAdminManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, groupId, adminId));
         groupAdmin.addAdmins(groupId, adminId, new uint256[](0));
     }
 
@@ -177,7 +177,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(isEffective[1]);
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.DuplicateAdminId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.DuplicateMemberId.selector, adminId));
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId, adminId));
 
         vm.prank(chatOwner);
@@ -193,11 +193,11 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(!invalidatedIsEffective[0]);
 
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupChatBanList.UnauthorizedGroupBanListManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, adminId));
         banList.banBySenderIds(groupId, adminId, _uints(otherGroupId));
 
         vm.prank(stranger);
-        vm.expectRevert(IGroupChatBanList.UnauthorizedGroupBanListManager.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, adminId));
         banList.banBySenderIds(groupId, adminId, _uints(otherGroupId));
 
         groupNft.transferFrom(stranger, adminOwner, adminId);

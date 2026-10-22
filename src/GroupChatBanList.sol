@@ -139,7 +139,7 @@ contract GroupChatBanList is IGroupChatBanList {
         uint256 operatorId
     ) {
         if (!_isOperator(groupId, operatorId)) {
-            revert UnauthorizedGroupBanListManager();
+            revert NotGroupOperator(groupId, operatorId);
         }
         _;
     }

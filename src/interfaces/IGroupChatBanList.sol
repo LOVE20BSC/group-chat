@@ -3,7 +3,7 @@ pragma solidity =0.8.37;
 
 interface IGroupChatBanList {
     error GroupBanListAddressHasNoCode();
-    error UnauthorizedGroupBanListManager();
+    error NotGroupOperator(uint256 groupId, uint256 operatorId);
     error TargetSenderIdZero();
 
     event SetSenderIdBan(

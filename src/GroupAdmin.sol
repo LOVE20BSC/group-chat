@@ -106,7 +106,7 @@ contract GroupAdmin is IGroupAdmin {
             MemberOwner.ownerOf(GROUP_ADDRESS, adminIds_[i]);
             for (uint256 j = 0; j < i; j++) {
                 if (adminIds_[i] == adminIds_[j]) {
-                    revert DuplicateAdminId();
+                    revert DuplicateMemberId(adminIds_[i]);
                 }
             }
         }
@@ -143,7 +143,7 @@ contract GroupAdmin is IGroupAdmin {
         uint256 resolvedOperatorId =
             IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
         if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
-            revert UnauthorizedGroupAdminManager();
+            revert NotGroupOperator(groupId, operatorId);
         }
         _;
     }
@@ -157,7 +157,7 @@ contract GroupAdmin is IGroupAdmin {
     function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
-            revert GroupNotExist();
+            revert GroupNotExist(groupId);
         }
     }
 }

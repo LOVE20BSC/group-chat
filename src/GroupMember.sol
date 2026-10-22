@@ -88,7 +88,7 @@ contract GroupMember is IGroupMember {
         uint256 operatorId
     ) {
         if (!_isOperator(groupId, operatorId)) {
-            revert UnauthorizedGroupMemberManager();
+            revert NotGroupOperator(groupId, operatorId);
         }
         _;
     }

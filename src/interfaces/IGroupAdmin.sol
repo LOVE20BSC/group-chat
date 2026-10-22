@@ -3,9 +3,9 @@ pragma solidity =0.8.37;
 
 interface IGroupAdmin {
     error GroupAdminAddressHasNoCode();
-    error UnauthorizedGroupAdminManager();
-    error GroupNotExist();
-    error DuplicateAdminId();
+    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error GroupNotExist(uint256 groupId);
+    error DuplicateMemberId(uint256 memberId);
     error AdminIdsLimitExceeded();
     error MaxAdminIdsZero();
 

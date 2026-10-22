@@ -52,7 +52,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
 
         vm.roll(originBlocks);
         vm.prank(other);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
         _post(groupId, senderId, "hello");
     }
 
@@ -75,7 +75,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
 
         vm.roll(originBlocks);
         vm.prank(delegateIdOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
         _post(groupId, senderId, "delegate-send");
 
         vm.prank(chatOwner);
@@ -178,7 +178,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.DuplicateMentionedSenderId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.DuplicateMemberId.selector, otherGroupId));
         _postWithMentionedSenderIds(groupId, senderId, "dup", duplicateMentionedSenderIds, false);
 
         vm.prank(senderOwner);

@@ -87,7 +87,7 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.SenderNotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
         _post(groupId, senderId, "not-owner");
 
         vm.prank(other);

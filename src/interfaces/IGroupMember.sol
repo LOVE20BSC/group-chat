@@ -3,9 +3,8 @@ pragma solidity =0.8.37;
 
 interface IGroupMember {
     error GroupMemberAddressHasNoCode();
-    error UnauthorizedGroupMemberManager();
-    error GroupNotExist();
-    error TargetMemberIdZero();
+    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error GroupNotExist(uint256 groupId);
 
     event SetMemberId(
         uint256 indexed groupId, address indexed operator, uint256 indexed memberId, uint256 operatorId, bool listed

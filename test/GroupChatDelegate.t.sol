@@ -121,7 +121,7 @@ contract GroupChatDelegateTest is TestBase {
         assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 0);
 
         vm.prank(strangerOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.SenderNotDelegateOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotMemberOwner.selector, delegateId));
         groupDelegate.clearDelegatedGroupIds(delegateId, _uints(groupId));
     }
 
@@ -219,23 +219,23 @@ contract GroupChatDelegateTest is TestBase {
 
     function testT151_delegateWritesRejectNonOwnerAndSelf() public {
         vm.prank(strangerOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.SenderNotGroupOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotGroupOwner.selector, groupId));
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.SenderNotDelegateOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotMemberOwner.selector, delegateId));
         groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.SenderNotDelegateOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotMemberOwner.selector, delegateId));
         groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.DelegateIdCannotBeGroupId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateIsSelfGroup.selector, groupId));
         groupDelegate.setDelegateId(groupId, groupId);
 
         vm.prank(delegateOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.DelegateIdCannotBeGroupId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateIsSelfGroup.selector, delegateId));
         groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(delegateId), true);
     }
 
@@ -365,7 +365,7 @@ contract GroupChatDelegateTest is TestBase {
         vm.expectRevert(IGroupChatDelegateErrors.InvalidAddress.selector);
         new GroupChatDelegate(address(0));
 
-        vm.expectRevert(IGroupChatDelegateErrors.GroupNotExist.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotExist.selector, uint256(999)));
         groupDelegate.delegateIdOf(999);
     }
 

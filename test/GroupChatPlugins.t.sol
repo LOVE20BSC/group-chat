@@ -166,7 +166,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _activateEmpty();
 
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setScopeSource(groupId, groupId, address(scope1));
 
         vm.prank(chatOwner);
@@ -219,7 +219,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _activateEmpty();
 
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setBanSource(groupId, groupId, address(ban1));
 
         vm.prank(chatOwner);

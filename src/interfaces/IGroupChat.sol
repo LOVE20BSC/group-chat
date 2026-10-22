@@ -2,13 +2,13 @@
 pragma solidity =0.8.37;
 
 interface IGroupChatErrors {
-    error GroupNotExist();
+    error GroupNotExist(uint256 groupId);
     error ChatAlreadyActivated();
     error ChatNotActivated();
     error PostingNotAllowed();
-    error NotChatOwner();
-    error NotChatOwnerOrDelegateIdOwner();
-    error SenderNotMemberOwner(uint256 senderId);
+    error NotGroupOwner(uint256 groupId);
+    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error NotMemberOwner(uint256 memberId);
     error RoundNotStarted();
     error Reentrant();
     error PhaseBlocksZero();
@@ -19,12 +19,12 @@ interface IGroupChatErrors {
     error ContentEmpty();
     error ContentTooLong(uint256 length, uint256 maxLength);
     error TooManyMentionedSenderIds(uint256 length, uint256 maxLength);
-    error DuplicateMentionedSenderId();
+    error DuplicateMemberId(uint256 memberId);
     error InvalidQuotedMessageId();
     error InvalidMessageId();
     error GroupAdminHasNoCode();
     error GroupDelegateHasNoCode();
-    error GroupDelegateGroupMismatch();
+    error GroupAddressMismatch(address expected, address actual);
     error MentionAllUnauthorized();
     error ScopeRejected();
     error BanRejected();

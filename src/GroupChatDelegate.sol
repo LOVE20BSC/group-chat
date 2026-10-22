@@ -32,14 +32,14 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
     modifier onlyGroupOwner(uint256 groupId) {
         if (msg.sender != _ownerOfOrRevertGroupNotExist(groupId)) {
-            revert SenderNotGroupOwner();
+            revert NotGroupOwner(groupId);
         }
         _;
     }
 
     modifier onlyDelegateOwner(uint256 delegateId) {
         if (MemberOwner.ownerOf(GROUP_ADDRESS, delegateId) != msg.sender) {
-            revert SenderNotDelegateOwner();
+            revert NotMemberOwner(delegateId);
         }
         _;
     }
@@ -59,7 +59,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         }
 
         if (delegateId == groupId) {
-            revert DelegateIdCannotBeGroupId();
+            revert DelegateIsSelfGroup(groupId);
         }
         if (!_canDelegateTo(groupId, delegateId)) {
             revert DelegatorGroupIdNotAllowed();
@@ -129,7 +129,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
             uint256 groupId = groupIds[i];
             _validateGroupExists(groupId, groupSupply);
             if (groupId == delegateId) {
-                revert DelegateIdCannotBeGroupId();
+                revert DelegateIsSelfGroup(groupId);
             }
 
             bool changed;
@@ -281,7 +281,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     function _validateGroupExists(uint256 groupId, uint256 groupSupply) internal pure {
         // Group IDs start at 1 and are never burned, so totalSupply is the upper bound of minted IDs.
         if (groupId == 0 || groupId > groupSupply) {
-            revert GroupNotExist();
+            revert GroupNotExist(groupId);
         }
     }
 
@@ -292,7 +292,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
-            revert GroupNotExist();
+            revert GroupNotExist(groupId);
         }
     }
 

@@ -12,7 +12,6 @@ interface IGovVotedBanSource is IPostBanSource {
     error VoteNotFound();
     error BanThresholdTooHigh();
     error MinSupportToOpposeMultiplierZero();
-    error SenderNotMemberOwner(uint256 senderId);
     error NotMemberOwner(uint256 memberId);
 
     event SetSenderIdBanVote(

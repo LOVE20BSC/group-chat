@@ -50,7 +50,7 @@ contract ManagerTest is GroupChatFixture {
         groupId = manager.activateMockManagedGroup();
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatErrors.NotChatOwnerOrDelegateIdOwner.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setPostingAllowed(groupId, groupId, false);
     }
 

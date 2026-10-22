@@ -4,9 +4,9 @@ pragma solidity =0.8.37;
 import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
 
 contract MockGroupDelegate {
-    error GroupNotExist();
-    error SenderNotGroupOwner();
-    error DelegateIdCannotBeGroupId();
+    error GroupNotExist(uint256 groupId);
+    error NotGroupOwner(uint256 groupId);
+    error DelegateIsSelfGroup(uint256 groupId);
 
     event SetDelegateId(
         uint256 indexed groupId, address indexed owner, uint256 indexed delegateId, uint256 prevDelegateId
@@ -26,15 +26,15 @@ contract MockGroupDelegate {
     }
 
     function setDelegateId(uint256 groupId, uint256 delegateId) external {
-        address owner = _ownerOfOrRevert(groupId);
+        address owner = _groupOwnerOfOrRevert(groupId);
         if (msg.sender != owner) {
-            revert SenderNotGroupOwner();
+            revert NotGroupOwner(groupId);
         }
         if (delegateId == groupId) {
-            revert DelegateIdCannotBeGroupId();
+            revert DelegateIsSelfGroup(groupId);
         }
         if (delegateId != 0) {
-            _ownerOfOrRevert(delegateId);
+            _memberOwnerOfOrRevert(delegateId);
         }
 
         DelegateState storage state = _states[groupId];
@@ -54,17 +54,17 @@ contract MockGroupDelegate {
     }
 
     function delegateIdOf(uint256 groupId) external view returns (uint256) {
-        return _delegateIdOf(_states[groupId], _ownerOfOrRevert(groupId));
+        return _delegateIdOf(_states[groupId], _groupOwnerOfOrRevert(groupId));
     }
 
     function _ownerOrDelegateIdOf(uint256 groupId, address account) internal view returns (uint256) {
-        address owner = _ownerOfOrRevert(groupId);
+        address owner = _groupOwnerOfOrRevert(groupId);
         if (account == owner) {
             return groupId;
         }
 
         uint256 delegateId = _delegateIdOf(_states[groupId], owner);
-        if (delegateId != 0 && account == _ownerOfOrRevert(delegateId)) {
+        if (delegateId != 0 && account == _memberOwnerOfOrZero(delegateId)) {
             return delegateId;
         }
         return 0;
@@ -77,11 +77,23 @@ contract MockGroupDelegate {
         return state.delegateId;
     }
 
-    function _ownerOfOrRevert(uint256 groupId) internal view returns (address owner) {
+    function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {
         try IMemberNFT(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
             return resolved;
         } catch {
-            revert GroupNotExist();
+            revert GroupNotExist(groupId);
+        }
+    }
+
+    function _memberOwnerOfOrRevert(uint256 memberId) internal view returns (address) {
+        return IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
+    }
+
+    function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {
+        try IMemberNFT(GROUP_ADDRESS).ownerOf(memberId) returns (address resolved) {
+            return resolved;
+        } catch {
+            return address(0);
         }
     }
 }
