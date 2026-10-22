@@ -5,7 +5,7 @@ import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {IGroupMember} from "./interfaces/IGroupMember.sol";
 import {MemberOwner} from "./MemberOwner.sol";
-import {Uint256Set} from "libs/Uint256Set.sol";
+import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupMember is IGroupMember {
     using Uint256Set for Uint256Set.Storage;

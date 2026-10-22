@@ -3,11 +3,11 @@ pragma solidity =0.8.37;
 
 import {IGroupChat} from "../interfaces/IGroupChat.sol";
 import {IBaseManager} from "../interfaces/managers/IBaseManager.sol";
-import {IActionTarget} from "action/src/interfaces/IActionTarget.sol";
+import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseManager is IBaseManager {

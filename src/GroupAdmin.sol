@@ -4,7 +4,7 @@ pragma solidity =0.8.37;
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {MemberOwner} from "./MemberOwner.sol";
-import {Uint256Set} from "libs/Uint256Set.sol";
+import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupAdmin is IGroupAdmin {
     using Uint256Set for Uint256Set.Storage;

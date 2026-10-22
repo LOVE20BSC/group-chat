@@ -9,8 +9,8 @@ import {IBeforePostPlugin} from "./interfaces/plugins/IBeforePostPlugin.sol";
 import {IPostBanSource} from "./interfaces/sources/IPostBanSource.sol";
 import {IPostScopeSource} from "./interfaces/sources/IPostScopeSource.sol";
 import {MemberOwner} from "./MemberOwner.sol";
-import {IPhase} from "core/src/interfaces/IPhase.sol";
-import {Pagination} from "libs/Pagination.sol";
+import {IPhase} from "@core/interfaces/IPhase.sol";
+import {Pagination} from "@libs/Pagination.sol";
 
 contract GroupChat is IGroupChat {
     uint256 public immutable MAX_CONTENT_LENGTH;

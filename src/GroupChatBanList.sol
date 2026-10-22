@@ -5,7 +5,7 @@ import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
 import {IGroupChatBanList} from "./interfaces/IGroupChatBanList.sol";
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {MemberOwner} from "./MemberOwner.sol";
-import {Uint256Set} from "libs/Uint256Set.sol";
+import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupChatBanList is IGroupChatBanList {
     using Uint256Set for Uint256Set.Storage;

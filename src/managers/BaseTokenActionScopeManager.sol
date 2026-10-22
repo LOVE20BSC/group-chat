@@ -3,10 +3,10 @@ pragma solidity =0.8.37;
 
 import {BaseTokenManager} from "./BaseTokenManager.sol";
 import {IBaseTokenActionScopeManager} from "../interfaces/managers/IBaseTokenActionScopeManager.sol";
-import {ISubmit} from "core/src/interfaces/ISubmit.sol";
-import {IStake} from "core/src/interfaces/IStake.sol";
-import {IVote} from "core/src/interfaces/IVote.sol";
-import {Pagination} from "libs/Pagination.sol";
+import {ISubmit} from "@core/interfaces/ISubmit.sol";
+import {IStake} from "@core/interfaces/IStake.sol";
+import {IVote} from "@core/interfaces/IVote.sol";
+import {Pagination} from "@libs/Pagination.sol";
 
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
     uint256 public immutable RECENT_ROUNDS;

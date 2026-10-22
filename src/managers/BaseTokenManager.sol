@@ -2,9 +2,9 @@
 pragma solidity =0.8.37;
 
 import {BaseManager} from "./BaseManager.sol";
-import {ILaunch} from "core/src/interfaces/ILaunch.sol";
-import {IStake} from "core/src/interfaces/IStake.sol";
-import {IVote} from "core/src/interfaces/IVote.sol";
+import {ILaunch} from "@core/interfaces/ILaunch.sol";
+import {IStake} from "@core/interfaces/IStake.sol";
+import {IVote} from "@core/interfaces/IVote.sol";
 
 abstract contract BaseTokenManager is BaseManager {
     address internal immutable STAKE_ADDRESS;

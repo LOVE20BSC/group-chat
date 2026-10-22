@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IActionTarget} from "action/src/interfaces/IActionTarget.sol";
+import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {BaseTokenActionScopeManager} from "./BaseTokenActionScopeManager.sol";
 
 contract TokenActionMainManager is BaseTokenActionScopeManager {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IGroupActionIndexes} from "action/src/interfaces/IGroupActionIndexes.sol";
+import {IGroupActionIndexes} from "@action/interfaces/IGroupActionIndexes.sol";
 import {IGroupMember} from "../../interfaces/IGroupMember.sol";
 import {IGroupJoinScopeSource} from "../../interfaces/sources/scope/IGroupJoinScopeSource.sol";
 

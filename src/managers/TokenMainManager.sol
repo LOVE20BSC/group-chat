@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IActionTarget} from "action/src/interfaces/IActionTarget.sol";
+import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MemberOwner} from "../MemberOwner.sol";
 import {BaseTokenScopeManager} from "./BaseTokenScopeManager.sol";

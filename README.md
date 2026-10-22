@@ -8,15 +8,12 @@ Group Chat 负责公开链上群聊业务（`GroupChat`、`GroupAdmin`、`GroupM
 
 | 子模块 | 用途 |
 | --- | --- |
-| `lib/core` | `MemberNFT`、`Phase` 等 Core 接口的唯一来源与测试夹具用的 Core 实现 |
-| `lib/action` | `IGroupActionIndexes.isGroupMember` 等 Action 层接口的来源 |
-| `lib/libs` | 共享库（分页、集合原语、按轮历史） |
-| `lib/openzeppelin-contracts` | 标准 ERC 与数学库 |
+| `lib/action` | Action 层接口的来源；本仓的 `core`、`libs` 与 OpenZeppelin 从该子模块的嵌套依赖解析 |
 | `lib/forge-std` | 测试与脚本 |
 
-自有接口以 `matt-gov` 的 `interfaces/group-chat/` 为唯一来源，实现前冻结为 ABI 对账基准；仓库实现完成后接口迁入本仓 `src/interfaces/`。Core 与 Action 的接口不走暂存副本，直接使用 `lib/core/src/interfaces/` 与 `lib/action/src/interfaces/`。
+自有接口以 `matt-gov` 的 `interfaces/group-chat/` 为唯一来源，实现前冻结为 ABI 对账基准；仓库实现完成后接口迁入本仓 `src/interfaces/`。Action 的接口不走暂存副本，通过 `@action/` 别名（指向 `lib/action/src/`）导入，例如 `@action/interfaces/...`；Core 通过 `@core/` 别名（指向 `lib/action/lib/core/src/`）导入，`libs` 经 `@libs/`（指向 `lib/action/lib/core/lib/libs/src/`）解析，路径见 `remappings.txt`。`lib/action` 须与 `action` 的 `main` 同步；升级时必须同步其嵌套子模块与 `action` 的 `foundry.lock`，并重跑本仓完整构建与测试。
 
-依赖版本固定在同一提交的 `.gitmodules` + `foundry.lock`，不在文档中另行登记。
+依赖版本固定在同一提交的 `.gitmodules` + `foundry.lock`（仅直接子模块；`core`/`libs`/OpenZeppelin 由 `lib/action` 的 commit 固定），跨仓解析路径固定在 `remappings.txt`；规则见 [合约开发规范](https://github.com/LOVE20BSC/matt-gov/blob/main/docs/dev-standards.md) §3.2。
 
 ## 当前状态
 

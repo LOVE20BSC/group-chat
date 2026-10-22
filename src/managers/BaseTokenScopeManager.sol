@@ -3,8 +3,8 @@ pragma solidity =0.8.37;
 
 import {BaseTokenManager} from "./BaseTokenManager.sol";
 import {IBaseTokenScopeManager} from "../interfaces/managers/IBaseTokenScopeManager.sol";
-import {IStake} from "core/src/interfaces/IStake.sol";
-import {Pagination} from "libs/Pagination.sol";
+import {IStake} from "@core/interfaces/IStake.sol";
+import {Pagination} from "@libs/Pagination.sol";
 
 abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeManager {
     function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {

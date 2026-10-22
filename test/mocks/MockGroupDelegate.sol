@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 
 contract MockGroupDelegate {
     error GroupNotExist(uint256 groupId);

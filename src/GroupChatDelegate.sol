@@ -3,8 +3,8 @@ pragma solidity =0.8.37;
 
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {MemberOwner} from "./MemberOwner.sol";
-import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
-import {Uint256Set} from "libs/Uint256Set.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
+import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupChatDelegate is IGroupChatDelegate {
     using Uint256Set for Uint256Set.Storage;

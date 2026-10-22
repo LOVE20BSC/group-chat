@@ -4,8 +4,8 @@ pragma solidity =0.8.37;
 import {IBanVoteWeightSource} from "../../interfaces/sources/ban/IBanVoteWeightSource.sol";
 import {IGovVotedBanSource} from "../../interfaces/sources/ban/IGovVotedBanSource.sol";
 import {MemberOwner} from "../../MemberOwner.sol";
-import {IMemberNFT} from "core/src/interfaces/IMemberNFT.sol";
-import {Uint256Set} from "libs/Uint256Set.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
+import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GovVotedBanSource is IGovVotedBanSource {
     using Uint256Set for Uint256Set.Storage;

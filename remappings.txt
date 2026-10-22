@@ -1,0 +1,5 @@
+@action/=lib/action/src/
+@core/=lib/action/lib/core/src/
+@libs/=lib/action/lib/core/lib/libs/src/
+@openzeppelin/contracts/=lib/action/lib/core/lib/openzeppelin-contracts/contracts/
+@forge-std/=lib/forge-std/src/
