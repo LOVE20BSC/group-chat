@@ -16,6 +16,9 @@ if [ ! -d "$NETWORK_DIR" ]; then
     exit 1
 fi
 
+# 上一次异常退出可能留下地址临时文件；只清理本模块的隐藏临时模式，不碰正式地址文件。
+rm -f "$NETWORK_DIR/.addresses.group-chat.params."*
+
 # 必需配置：addresses.core.params / addresses.action.params 是被依赖方已部署地址，按依赖顺序 source。
 for config in network.params addresses.core.params addresses.action.params group-chat.params .account; do
     if [ ! -f "$NETWORK_DIR/$config" ]; then
@@ -120,21 +123,40 @@ echo "  CHAIN_ID: $CHAIN_ID"
 require_dependency_addresses
 require_group_chat_params
 
+# 广播后失败必须留下日志与产物路径供人工恢复；广播前失败只清理本次临时文件。
+# 密码经临时文件传给 forge：--password 会把明文放进进程参数（/proc/<pid>/cmdline 权限 0444，
+# 本机所有用户可读）。trap 在写入密码之前安装，chmod/printf 失败也不会留下明文。
 DEPLOY_LOG=$(mktemp)
-trap "rm -f $DEPLOY_LOG" EXIT
+PASSWORD_FILE=$(mktemp)
+ADDRESS_TMP="$NETWORK_DIR/.addresses.group-chat.params.$$"
+DEPLOY_SAVED=0
+DEPLOY_ATTEMPTED=0
+trap 'rm -f "$ADDRESS_TMP" "$PASSWORD_FILE"
+if [ "$DEPLOY_SAVED" = 1 ] || [ "$DEPLOY_ATTEMPTED" = 0 ]; then
+    rm -f "$DEPLOY_LOG"
+else
+    echo "  Addresses were not saved; contracts may already be on chain." >&2
+    echo "  Deployment log: $DEPLOY_LOG" >&2
+    echo "  Broadcast artifact: $PROJECT_ROOT/broadcast/DeployGroupChat.s.sol/${CHAIN_ID:-unknown}/run-latest.json" >&2
+fi' EXIT
+chmod 600 "$PASSWORD_FILE"
+printf '%s' "$KEYSTORE_PASSWORD" > "$PASSWORD_FILE"
 
 cd "$PROJECT_ROOT"
+DEPLOY_ATTEMPTED=1
 if ! { forge script script/deploy/DeployGroupChat.s.sol:DeployGroupChat \
     --sig "run()" \
     --rpc-url "$RPC_URL" \
     --chain-id "$CHAIN_ID" \
     --account "$KEYSTORE_ACCOUNT" \
     --sender "$ACCOUNT_ADDRESS" \
-    --password "$KEYSTORE_PASSWORD" \
+    --password-file "$PASSWORD_FILE" \
     --broadcast --slow -vvv 2>&1 | tee "$DEPLOY_LOG"; }; then
     echo "Error: Deployment failed; saved addresses were not changed."
     exit 1
 fi
+# 密码只在本次 forge 调用期间需要，广播结束立即删除。
+rm -f "$PASSWORD_FILE"
 
 # 从部署输出中提取地址（DeployGroupChat.s.sol 的 _logDeploymentSummary 输出）。
 # grep 无匹配会让管道在 set -e 下静默中止，故逐个容错取值，缺项交由 require_deployed_addresses 报错。
@@ -148,7 +170,7 @@ done
 
 require_deployed_addresses
 
-cat > "$NETWORK_DIR/addresses.group-chat.params" <<EOFADDR
+cat > "$ADDRESS_TMP" <<EOFADDR
 # group-chat 已部署地址，由 script/deploy/11_deploy.sh 写入；勿手改。
 GROUP_CHAT_DELEGATE_ADDRESS=$GROUP_CHAT_DELEGATE_ADDRESS
 GROUP_ADMIN_ADDRESS=$GROUP_ADMIN_ADDRESS
@@ -164,5 +186,7 @@ TOKEN_GOV_MANAGER_ADDRESS=$TOKEN_GOV_MANAGER_ADDRESS
 TOKEN_ACTION_GOV_MANAGER_ADDRESS=$TOKEN_ACTION_GOV_MANAGER_ADDRESS
 TOKEN_ACTION_MAIN_MANAGER_ADDRESS=$TOKEN_ACTION_MAIN_MANAGER_ADDRESS
 EOFADDR
+mv "$ADDRESS_TMP" "$NETWORK_DIR/addresses.group-chat.params"
 
+DEPLOY_SAVED=1
 echo "✓ Deployment completed and addresses saved to $NETWORK_DIR/addresses.group-chat.params"

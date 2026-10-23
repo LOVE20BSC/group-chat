@@ -33,7 +33,9 @@ script/deploy/31_verify.sh <network>
 
 `one_click_deploy.sh` 只做编排：先重置并解析 `KEYSTORE_PASSWORD`（环境 → `.account` → macOS 弹窗，全程一次），
 备份地址文件后依次执行部署与校验；校验失败则回滚到上次已保存的地址，不属于失败重试的一部分。
-keystore 密码不继承调用方环境变量，非交互场景请写进 `.account`。
+广播阶段或其后的校验失败时，`11_deploy.sh` 保留部署日志并打印日志与 broadcast 产物路径；广播前失败只清理本次临时文件。
+keystore 密码不继承调用方环境变量，非交互场景请写进 `.account`。密码经权限 600 的临时文件以
+`--password-file` 传给 forge，不进进程参数；广播结束或脚本退出时删除。
 
 ## 部署内容
 
