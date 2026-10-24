@@ -68,29 +68,26 @@ contract GroupChat is IGroupChat {
         uint256 maxContentLength_,
         uint256 maxMentionedSenderIds_
     ) {
-        if (groupAdmin_ == address(0) || phaseAddress_ == address(0)) {
-            revert InvalidAddress();
-        }
         if (groupAdmin_.code.length == 0) {
-            revert GroupAdminHasNoCode();
+            revert GroupAdminNotContract(groupAdmin_);
         }
         if (phaseAddress_.code.length == 0) {
-            revert InvalidAddress();
+            revert PhaseNotContract(phaseAddress_);
         }
         if (IPhase(phaseAddress_).ORIGIN_PHASE_BLOCKS() == 0) {
-            revert PhaseBlocksZero();
+            revert ZeroPhaseBlocks();
         }
         if (maxContentLength_ == 0) {
-            revert MaxContentLengthZero();
+            revert ZeroMaxContentLength();
         }
         if (maxMentionedSenderIds_ == 0) {
-            revert MaxMentionedSenderIdsZero();
+            revert ZeroMaxMentionedSenderIds();
         }
 
         address groupDelegate = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
         address groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
         if (groupDelegate.code.length == 0) {
-            revert GroupDelegateHasNoCode();
+            revert GroupDelegateNotContract(groupDelegate);
         }
         address delegateGroupAddress = IGroupChatDelegate(groupDelegate).GROUP_ADDRESS();
         if (delegateGroupAddress != groupAddress) {
@@ -138,7 +135,7 @@ contract GroupChat is IGroupChat {
 
         ChatConfig storage config = _chatConfigs[groupId];
         if (config.activated) {
-            revert ChatAlreadyActivated();
+            revert ChatAlreadyActivated(groupId);
         }
 
         _validateSourceAddress(scopeSource_);
@@ -244,10 +241,10 @@ contract GroupChat is IGroupChat {
         _requireExistingGroup(groupId);
         ChatConfig storage config = _chatConfigs[groupId];
         if (!config.activated) {
-            revert ChatNotActivated();
+            revert ChatNotActivated(groupId);
         }
         if (!config.postingAllowed) {
-            revert PostingNotAllowed();
+            revert PostingNotAllowed(groupId);
         }
 
         if (bytes(content).length == 0) {
@@ -302,7 +299,21 @@ contract GroupChat is IGroupChat {
                 block.number,
                 block.timestamp
             ) {} catch (bytes memory err) {
-                emit FailAfterPostPlugin(groupId, messageIndex + 1, config.afterPostPlugin, round, err);
+                bytes4 errorSelector = bytes4(0);
+                if (err.length >= 4) {
+                    assembly ("memory-safe") {
+                        errorSelector := mload(add(err, 0x20))
+                    }
+                }
+                emit FailAfterPostPlugin(
+                    groupId,
+                    messageIndex + 1,
+                    config.afterPostPlugin,
+                    round,
+                    keccak256(err),
+                    err.length,
+                    errorSelector
+                );
             }
         }
     }
@@ -364,14 +375,18 @@ contract GroupChat is IGroupChat {
         return _chatConfigs[groupId].afterPostPlugin;
     }
 
-    function canPost(uint256 groupId, uint256 senderId) external view returns (bool allowed, bytes4 reasonCode) {
+    function canPost(uint256 groupId, uint256 senderId)
+        external
+        view
+        returns (bool allowed, PostRejectionReason reason)
+    {
         return _canPost(groupId, senderId);
     }
 
     function currentRound() public view returns (uint256) {
         uint256 round = IPhase(PHASE_ADDRESS).currentPhase();
         if (round == 0) {
-            revert RoundNotStarted();
+            revert RoundNotStarted(1, 0);
         }
         return round;
     }
@@ -384,7 +399,7 @@ contract GroupChat is IGroupChat {
     function message(uint256 groupId, uint256 messageId) external view returns (Message memory) {
         _requireExistingGroup(groupId);
         if (messageId == 0 || messageId > _messagesByChat[groupId].length) {
-            revert InvalidMessageId();
+            revert MessageNotFound(groupId, messageId);
         }
         uint256 messageIndex = messageId - 1;
         return _copyMessage(_messagesByChat[groupId][messageIndex], groupId, messageIndex);
@@ -707,7 +722,7 @@ contract GroupChat is IGroupChat {
     function _requireActivated(uint256 groupId) internal view {
         _ownerOfOrRevertGroupNotExist(groupId);
         if (!_chatConfigs[groupId].activated) {
-            revert ChatNotActivated();
+            revert ChatNotActivated(groupId);
         }
     }
 
@@ -718,95 +733,104 @@ contract GroupChat is IGroupChat {
         if (IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, senderId)) {
             return;
         }
-        revert MentionAllUnauthorized();
+        revert MentionAllUnauthorized(groupId, senderId);
     }
 
     function _requirePostSources(ChatConfig storage config, uint256 groupId, uint256 senderId, uint256 delegateId)
         internal
         view
     {
-        bytes4 reasonCode = _postSourceRejection(config, groupId, senderId, delegateId);
-        if (reasonCode != bytes4(0)) {
-            _revertPostSourceReason(reasonCode);
+        PostRejectionReason reason = _postSourceRejection(config, groupId, senderId, delegateId);
+        if (reason != PostRejectionReason.None) {
+            _revertPostSourceReason(config, reason, groupId, senderId);
         }
     }
 
     function _postSourceRejection(ChatConfig storage config, uint256 groupId, uint256 senderId, uint256 delegateId)
         internal
         view
-        returns (bytes4 reasonCode)
+        returns (PostRejectionReason reason)
     {
         if (senderId == groupId || delegateId == senderId) {
-            return bytes4(0);
+            return PostRejectionReason.None;
         }
         if (config.scopeSource != address(0)) {
             try IPostScopeSource(config.scopeSource).canPost(groupId, senderId) returns (bool sourceAllowed) {
                 if (!sourceAllowed) {
-                    return ScopeRejected.selector;
+                    return PostRejectionReason.ScopeRejected;
                 }
             } catch {
-                return ScopeSourceFailed.selector;
+                return PostRejectionReason.ScopeSourceFailed;
             }
         }
         if (config.banSource != address(0)) {
             try IPostBanSource(config.banSource).isBanned(groupId, senderId) returns (bool banned) {
                 if (banned) {
-                    return BanRejected.selector;
+                    return PostRejectionReason.BanRejected;
                 }
             } catch {
-                return BanSourceFailed.selector;
+                return PostRejectionReason.BanSourceFailed;
             }
         }
-        return bytes4(0);
+        return PostRejectionReason.None;
     }
 
-    function _revertPostSourceReason(bytes4 reasonCode) internal pure {
-        if (reasonCode == ScopeRejected.selector) {
-            revert ScopeRejected();
+    function _revertPostSourceReason(
+        ChatConfig storage config,
+        PostRejectionReason reason,
+        uint256 groupId,
+        uint256 senderId
+    ) internal view {
+        if (reason == PostRejectionReason.ScopeRejected) {
+            revert ScopeRejected(config.scopeSource, groupId, senderId);
         }
-        if (reasonCode == ScopeSourceFailed.selector) {
-            revert ScopeSourceFailed();
+        if (reason == PostRejectionReason.BanRejected) {
+            revert BanRejected(config.banSource, groupId, senderId);
         }
-        if (reasonCode == BanRejected.selector) {
-            revert BanRejected();
+        if (reason == PostRejectionReason.ScopeSourceFailed) {
+            revert ScopeSourceFailed(config.scopeSource);
         }
-        if (reasonCode == BanSourceFailed.selector) {
-            revert BanSourceFailed();
+        if (reason == PostRejectionReason.BanSourceFailed) {
+            revert BanSourceFailed(config.banSource);
         }
-        revert();
+        assert(false);
     }
 
-    function _canPost(uint256 groupId, uint256 senderId) internal view returns (bool allowed, bytes4 reasonCode) {
+    function _canPost(uint256 groupId, uint256 senderId)
+        internal
+        view
+        returns (bool allowed, PostRejectionReason reason)
+    {
         if (MemberOwner.ofOrZero(GROUP_ADDRESS, groupId) == address(0)) {
             // forge-lint: disable-next-item(boolean-cst)
-            return (false, GroupNotExist.selector);
+            return (false, PostRejectionReason.GroupNotExist);
         }
 
         ChatConfig storage config = _chatConfigs[groupId];
         if (!config.activated) {
             // forge-lint: disable-next-item(boolean-cst)
-            return (false, ChatNotActivated.selector);
+            return (false, PostRejectionReason.ChatNotActivated);
         }
         if (!config.postingAllowed) {
             // forge-lint: disable-next-item(boolean-cst)
-            return (false, PostingNotAllowed.selector);
+            return (false, PostRejectionReason.PostingNotAllowed);
         }
 
         if (MemberOwner.ofOrZero(GROUP_ADDRESS, senderId) == address(0)) {
             // forge-lint: disable-next-item(boolean-cst)
-            return (false, GroupNotExist.selector);
+            return (false, PostRejectionReason.SenderNotExist);
         }
 
-        bytes4 sourceReasonCode = _postSourceRejection(
+        reason = _postSourceRejection(
             config, groupId, senderId, IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId)
         );
-        if (sourceReasonCode != bytes4(0)) {
+        if (reason != PostRejectionReason.None) {
             // forge-lint: disable-next-item(boolean-cst)
-            return (false, sourceReasonCode);
+            return (false, reason);
         }
 
         // forge-lint: disable-next-item(boolean-cst)
-        return (true, bytes4(0));
+        return (true, PostRejectionReason.None);
     }
 
     function _requireExistingGroup(uint256 groupId) internal view {
@@ -822,13 +846,13 @@ contract GroupChat is IGroupChat {
 
     function _validateSourceAddress(address sourceAddress) internal view {
         if (sourceAddress != address(0) && sourceAddress.code.length == 0) {
-            revert SourceAddressHasNoCode();
+            revert SourceNotContract(sourceAddress);
         }
     }
 
     function _validatePluginAddress(address pluginAddress) internal view {
         if (pluginAddress != address(0) && pluginAddress.code.length == 0) {
-            revert PluginAddressHasNoCode();
+            revert PluginNotContract(pluginAddress);
         }
     }
 
@@ -928,7 +952,7 @@ contract GroupChat is IGroupChat {
             return;
         }
         if (quotedMessageId > _messagesByChat[groupId].length) {
-            revert InvalidQuotedMessageId();
+            revert QuotedMessageNotFound(groupId, quotedMessageId);
         }
     }
 }

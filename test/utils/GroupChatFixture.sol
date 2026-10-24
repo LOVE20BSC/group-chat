@@ -3,7 +3,7 @@ pragma solidity =0.8.37;
 
 import {GroupAdmin} from "../../src/GroupAdmin.sol";
 import {GroupChat} from "../../src/GroupChat.sol";
-import {IGroupChatErrors} from "../../src/interfaces/IGroupChat.sol";
+import {IGroupChat} from "../../src/interfaces/IGroupChat.sol";
 
 import {MockGroupDelegate} from "../mocks/MockGroupDelegate.sol";
 import {MockLOVE20Group} from "../mocks/MockLOVE20Group.sol";
@@ -43,7 +43,7 @@ abstract contract GroupChatFixture is TestBase {
     bytes32 internal constant MENTION_SENDER_ID_SIG = keccak256("MentionSenderId(uint256,uint256,uint256)");
     bytes32 internal constant MENTION_ALL_SIG = keccak256("MentionAll(uint256,uint256)");
     bytes32 internal constant FAIL_AFTER_POST_PLUGIN_SIG =
-        keccak256("FailAfterPostPlugin(uint256,uint256,address,uint256,bytes)");
+        keccak256("FailAfterPostPlugin(uint256,uint256,address,uint256,bytes32,uint256,bytes4)");
 
     function setUp() public virtual {
         groupNft = new MockLOVE20Group();
@@ -87,7 +87,11 @@ abstract contract GroupChatFixture is TestBase {
         (allowed,) = chat.canPost(groupId_, senderId_);
     }
 
-    function _canPost(uint256 groupId_, uint256 senderId_) internal view returns (bool allowed, bytes4 reasonCode) {
+    function _canPost(uint256 groupId_, uint256 senderId_)
+        internal
+        view
+        returns (bool allowed, IGroupChat.PostRejectionReason reason)
+    {
         return chat.canPost(groupId_, senderId_);
     }
 
@@ -109,6 +113,6 @@ abstract contract GroupChatFixture is TestBase {
     }
 
     function _decodeFailAfterPostPluginRound(bytes memory data) internal pure returns (uint256 round) {
-        (round,) = abi.decode(data, (uint256, bytes));
+        (round,,,) = abi.decode(data, (uint256, bytes32, uint256, bytes4));
     }
 }

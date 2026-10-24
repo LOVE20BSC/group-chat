@@ -5,8 +5,8 @@ import {GroupAdmin} from "../src/GroupAdmin.sol";
 
 import {GroupChatBanList} from "../src/GroupChatBanList.sol";
 import {GroupMember} from "../src/GroupMember.sol";
-import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
-import {IGroupJoinScopeSource} from "../src/interfaces/sources/scope/IGroupJoinScopeSource.sol";
+import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {IGroupJoinScopeSourceErrors} from "../src/interfaces/sources/scope/IGroupJoinScopeSource.sol";
 import {AdminBanSource} from "../src/sources/ban/AdminBanSource.sol";
 import {GroupJoinScopeSource} from "../src/sources/scope/GroupJoinScopeSource.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
@@ -38,26 +38,40 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
     }
 
     function testT130_constructorRequiresGroupActionExecutorCode() public {
-        vm.expectRevert(IGroupJoinScopeSource.GroupJoinScopeSourceAddressHasNoCode.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupActionExecutorNotContract.selector, address(0x1234))
+        );
         new GroupJoinScopeSource(address(member), address(0x1234));
 
-        vm.expectRevert(IGroupJoinScopeSource.GroupJoinScopeSourceAddressHasNoCode.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupMemberNotContract.selector, address(0x1234))
+        );
         new GroupJoinScopeSource(address(0x1234), address(groupActionExecutor));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupMemberNotContract.selector, address(0))
+        );
+        new GroupJoinScopeSource(address(0), address(groupActionExecutor));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupActionExecutorNotContract.selector, address(0))
+        );
+        new GroupJoinScopeSource(address(member), address(0));
     }
 
     function testT131_groupJoinParticipationControlsPost() public {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(scope), address(0), address(0), address(0));
 
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
+        (bool allowed, IGroupChat.PostRejectionReason reason) = _canPost(groupId, senderId);
         assertTrue(!allowed);
-        assertEq(reasonCode, IGroupChatErrors.ScopeRejected.selector);
+        assertEq(reason, IGroupChat.PostRejectionReason.ScopeRejected);
 
         groupActionExecutor.setGroupMember(groupId, senderId, true);
 
-        (allowed, reasonCode) = _canPost(groupId, senderId);
+        (allowed, reason) = _canPost(groupId, senderId);
         assertTrue(allowed);
-        assertEq(reasonCode, bytes4(0));
+        assertEq(reason, IGroupChat.PostRejectionReason.None);
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
@@ -67,7 +81,9 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
         groupActionExecutor.setGroupMember(groupId, senderId, false);
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.ScopeRejected.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatErrors.ScopeRejected.selector, address(scope), groupId, senderId)
+        );
         _post(groupId, senderId, "exited-group");
     }
 
@@ -110,9 +126,9 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
         vm.prank(chatOwner);
         banList.banBySenderIds(groupId, groupId, _uints(senderId));
 
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
+        (bool allowed, IGroupChat.PostRejectionReason reason) = _canPost(groupId, senderId);
         assertTrue(!allowed);
-        assertEq(reasonCode, IGroupChatErrors.BanRejected.selector);
+        assertEq(reason, IGroupChat.PostRejectionReason.BanRejected);
 
         vm.prank(chatOwner);
         banList.unbanBySenderIds(groupId, groupId, _uints(senderId));

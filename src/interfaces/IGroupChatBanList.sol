@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-interface IGroupChatBanList {
-    error GroupBanListAddressHasNoCode();
+interface IGroupChatBanListErrors {
+    error GroupAdminNotContract(address dependency);
     error NotGroupOperator(uint256 groupId, uint256 operatorId);
-    error TargetSenderIdZero();
+    error ZeroTargetSenderId();
+    error DuplicateMemberId(uint256 memberId);
+}
 
+interface IGroupChatBanListEvents {
     event SetSenderIdBan(
         uint256 indexed groupId,
         address indexed operatorAddress,
@@ -13,7 +16,9 @@ interface IGroupChatBanList {
         uint256 operatorId,
         bool listed
     );
+}
 
+interface IGroupChatBanList is IGroupChatBanListErrors, IGroupChatBanListEvents {
     function GROUP_ADMIN_ADDRESS() external view returns (address);
 
     function isSenderIdBanned(uint256 groupId, uint256 senderId) external view returns (bool);

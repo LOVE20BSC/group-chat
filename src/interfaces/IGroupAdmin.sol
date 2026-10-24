@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-interface IGroupAdmin {
-    error GroupAdminAddressHasNoCode();
+interface IGroupAdminErrors {
+    error GroupDelegateNotContract(address dependency);
+    error GroupNotContract(address dependency);
+    error ZeroMaxAdminIds();
     error NotGroupOperator(uint256 groupId, uint256 operatorId);
     error GroupNotExist(uint256 groupId);
     error DuplicateMemberId(uint256 memberId);
-    error AdminIdsLimitExceeded();
-    error MaxAdminIdsZero();
+    error AdminIdsLimitExceeded(uint256 groupId, uint256 count, uint256 max);
+}
 
+interface IGroupAdminEvents {
     event SetAdmin(
         uint256 indexed groupId, address indexed operator, uint256 indexed adminId, uint256 operatorId, bool listed
     );
@@ -21,7 +24,9 @@ interface IGroupAdmin {
         address groupOwnerSnapshot,
         address adminOwnerSnapshot
     );
+}
 
+interface IGroupAdmin is IGroupAdminErrors, IGroupAdminEvents {
     function GROUP_DELEGATE_ADDRESS() external view returns (address);
 
     function GROUP_ADDRESS() external view returns (address);

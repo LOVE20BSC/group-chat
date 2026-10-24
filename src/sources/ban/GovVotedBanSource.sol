@@ -38,13 +38,13 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
     constructor(address groupAddress_, uint256 minSupportToOpposeMultiplier_, uint256 banThresholdRatio_) {
         if (groupAddress_.code.length == 0) {
-            revert GovVotedBanSourceAddressHasNoCode();
+            revert GroupNotContract(groupAddress_);
         }
         if (minSupportToOpposeMultiplier_ == 0) {
-            revert MinSupportToOpposeMultiplierZero();
+            revert ZeroMinSupportToOpposeMultiplier();
         }
         if (banThresholdRatio_ > PRECISION) {
-            revert BanThresholdTooHigh();
+            revert BanThresholdTooHigh(banThresholdRatio_);
         }
         GROUP_ADDRESS = groupAddress_;
         MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = minSupportToOpposeMultiplier_;
@@ -203,7 +203,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     function _setSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) internal {
         uint256 newVersion = _setVoteIfChanged(groupId, targetSenderId, voterId, supportBan, 0);
         if (newVersion == 0) {
-            revert VoteUnchanged();
+            revert VoteUnchanged(groupId, targetSenderId, voterId);
         }
         _emitChangeStateVersion(groupId, newVersion);
     }
@@ -219,7 +219,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         address source = _sourceOrRevert(groupId);
         uint256 weight = _voteWeightOrRevert(source, groupId, voterId);
         if (weight == 0) {
-            revert VoteWeightZero();
+            revert ZeroVoteWeight(groupId, voterId);
         }
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
@@ -250,7 +250,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     function _clearSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId) internal {
         uint256 newVersion = _clearVoteIfFound(groupId, targetSenderId, voterId, 0);
         if (newVersion == 0) {
-            revert VoteNotFound();
+            revert VoteNotFound(groupId, targetSenderId, voterId);
         }
         _emitChangeStateVersion(groupId, newVersion);
     }
@@ -280,7 +280,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     function _refreshSenderIdVote(uint256 groupId, uint256 targetSenderId, uint256 voterId) internal {
         (bool found, uint256 newVersion) = _refreshVoteIfFound(groupId, targetSenderId, voterId, 0);
         if (!found) {
-            revert VoteNotFound();
+            revert VoteNotFound(groupId, targetSenderId, voterId);
         }
         _emitChangeStateVersionIfChanged(groupId, newVersion);
     }
@@ -386,8 +386,11 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
     function _sourceOrRevert(uint256 groupId) internal view returns (address source) {
         source = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
+        if (source == address(0)) {
+            revert GroupNotExist(groupId);
+        }
         if (source.code.length == 0) {
-            revert BanVoteWeightSourceUnavailable();
+            revert BanVoteWeightSourceUnavailable(source);
         }
     }
 
@@ -403,7 +406,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         try IBanVoteWeightSource(source).voteWeightOf(groupId, voterId) returns (uint256 resolved) {
             return resolved;
         } catch {
-            revert BanVoteWeightSourceUnavailable();
+            revert BanVoteWeightSourceUnavailable(source);
         }
     }
 
@@ -411,7 +414,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         try IBanVoteWeightSource(source).totalVoteWeight(groupId) returns (uint256 resolved) {
             return resolved;
         } catch {
-            revert BanVoteWeightSourceUnavailable();
+            revert BanVoteWeightSourceUnavailable(source);
         }
     }
 
@@ -438,7 +441,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
     function _requireTarget(uint256 targetSenderId) internal pure {
         if (targetSenderId == 0) {
-            revert TargetSenderIdZero();
+            revert ZeroTargetSenderId();
         }
     }
 

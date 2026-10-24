@@ -3,8 +3,10 @@ pragma solidity =0.8.37;
 
 import {IPostScopeSource} from "../IPostScopeSource.sol";
 
-interface IGroupMemberScope is IPostScopeSource {
-    function GROUP_MEMBER_ADDRESS() external view returns (address);
+interface IGroupMemberScopeErrors {
+    error GroupMemberNotContract(address dependency);
+}
 
-    error GroupMemberScopeAddressHasNoCode();
+interface IGroupMemberScope is IPostScopeSource, IGroupMemberScopeErrors {
+    function GROUP_MEMBER_ADDRESS() external view returns (address);
 }

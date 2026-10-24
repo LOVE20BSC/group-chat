@@ -28,19 +28,30 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertEq(chat.MAX_CONTENT_LENGTH(), maxContentLength);
         assertEq(chat.MAX_MENTIONED_SENDER_IDS(), maxMentionedSenderIds);
 
-        vm.expectRevert(IGroupChatErrors.RoundNotStarted.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.RoundNotStarted.selector, 1, 0));
         chat.currentRound();
     }
 
     function testT002_constructorRejectsAdminWithoutCode() public {
-        vm.expectRevert(IGroupChatErrors.GroupAdminHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupAdminNotContract.selector, other));
         new GroupChat(other, address(phase), maxContentLength, maxMentionedSenderIds);
+    }
+
+    function testT002A_constructorRejectsZeroDependencies() public {
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupAdminNotContract.selector, address(0)));
+        new GroupChat(address(0), address(phase), maxContentLength, maxMentionedSenderIds);
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PhaseNotContract.selector, address(0)));
+        new GroupChat(address(baseGroupAdmin), address(0), maxContentLength, maxMentionedSenderIds);
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PhaseNotContract.selector, other));
+        new GroupChat(address(baseGroupAdmin), other, maxContentLength, maxMentionedSenderIds);
     }
 
     function testT002C_constructorRejectsDelegateWithoutCode() public {
         MockGroupChatAdminConfig badAdmin = new MockGroupChatAdminConfig(other, address(groupNft));
 
-        vm.expectRevert(IGroupChatErrors.GroupDelegateHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupDelegateNotContract.selector, other));
         new GroupChat(address(badAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
     }
 
@@ -61,17 +72,17 @@ contract GroupChatLifecycleTest is GroupChatFixture {
     function testT003_constructorRejectsZeroPhaseBlocks() public {
         MockPhase zeroPhase = new MockPhase(originBlocks, 0);
 
-        vm.expectRevert(IGroupChatErrors.PhaseBlocksZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ZeroPhaseBlocks.selector));
         new GroupChat(address(baseGroupAdmin), address(zeroPhase), maxContentLength, maxMentionedSenderIds);
     }
 
     function testT003B_constructorRejectsZeroMaxContentLength() public {
-        vm.expectRevert(IGroupChatErrors.MaxContentLengthZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ZeroMaxContentLength.selector));
         new GroupChat(address(baseGroupAdmin), address(phase), 0, maxMentionedSenderIds);
     }
 
     function testT003C_constructorRejectsZeroMaxMentionedSenderIds() public {
-        vm.expectRevert(IGroupChatErrors.MaxMentionedSenderIdsZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ZeroMaxMentionedSenderIds.selector));
         new GroupChat(address(baseGroupAdmin), address(phase), maxContentLength, 0);
     }
 
@@ -79,6 +90,12 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         vm.prank(other);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOwner.selector, groupId));
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
+    }
+
+    function testT010C_postByOwnerBeforeActivationReportsChatNotActivated() public {
+        vm.prank(senderOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ChatNotActivated.selector, groupId));
+        _post(groupId, senderId, "not activated");
     }
 
     function testT010B_postAndSettersCheckAuthBeforeGroupState() public {
@@ -150,7 +167,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatErrors.ChatAlreadyActivated.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ChatAlreadyActivated.selector, groupId));
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
 
         assertEq(chat.groupIdsCount(), 1);
@@ -172,7 +189,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertTrue(!chat.postingAllowed(groupId));
         assertTrue(!_canPostAllowed(groupId, senderId));
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.PostingNotAllowed.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PostingNotAllowed.selector, groupId));
         _post(groupId, senderId, "stopped");
 
         vm.prank(chatOwner);

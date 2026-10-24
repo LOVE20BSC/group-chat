@@ -10,8 +10,11 @@ contract GroupJoinScopeSource is IGroupJoinScopeSource {
     address public immutable GROUP_ACTION_EXECUTOR_ADDRESS;
 
     constructor(address groupMember_, address groupActionExecutor_) {
-        if (groupMember_.code.length == 0 || groupActionExecutor_.code.length == 0) {
-            revert GroupJoinScopeSourceAddressHasNoCode();
+        if (groupMember_.code.length == 0) {
+            revert GroupMemberNotContract(groupMember_);
+        }
+        if (groupActionExecutor_.code.length == 0) {
+            revert GroupActionExecutorNotContract(groupActionExecutor_);
         }
         GROUP_MEMBER_ADDRESS = groupMember_;
         GROUP_ACTION_EXECUTOR_ADDRESS = groupActionExecutor_;

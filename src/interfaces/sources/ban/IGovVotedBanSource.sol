@@ -3,17 +3,20 @@ pragma solidity =0.8.37;
 
 import {IPostBanSource} from "../IPostBanSource.sol";
 
-interface IGovVotedBanSource is IPostBanSource {
-    error GovVotedBanSourceAddressHasNoCode();
-    error BanVoteWeightSourceUnavailable();
-    error TargetSenderIdZero();
-    error VoteWeightZero();
-    error VoteUnchanged();
-    error VoteNotFound();
-    error BanThresholdTooHigh();
-    error MinSupportToOpposeMultiplierZero();
+interface IGovVotedBanSourceErrors {
+    error GroupNotContract(address dependency);
+    error GroupNotExist(uint256 groupId);
+    error BanVoteWeightSourceUnavailable(address source);
+    error ZeroTargetSenderId();
+    error ZeroVoteWeight(uint256 groupId, uint256 voterId);
+    error VoteUnchanged(uint256 groupId, uint256 targetSenderId, uint256 voterId);
+    error VoteNotFound(uint256 groupId, uint256 targetSenderId, uint256 voterId);
+    error BanThresholdTooHigh(uint256 value);
+    error ZeroMinSupportToOpposeMultiplier();
     error NotMemberOwner(uint256 memberId);
+}
 
+interface IGovVotedBanSourceEvents {
     event SetSenderIdBanVote(
         uint256 indexed groupId,
         uint256 indexed targetSenderId,
@@ -28,7 +31,9 @@ interface IGovVotedBanSource is IPostBanSource {
     event SetSenderIdBan(uint256 indexed groupId, uint256 indexed targetSenderId, bool listed, uint256 stateVersion);
 
     event ChangeStateVersion(uint256 indexed groupId, uint256 stateVersion);
+}
 
+interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVotedBanSourceEvents {
     function GROUP_ADDRESS() external view returns (address);
 
     function PRECISION() external view returns (uint256);

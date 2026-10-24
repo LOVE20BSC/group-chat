@@ -5,10 +5,11 @@ import {GroupAdmin} from "../src/GroupAdmin.sol";
 import {GroupChat} from "../src/GroupChat.sol";
 
 import {GroupChatBanList} from "../src/GroupChatBanList.sol";
-import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
+import {IGroupAdminErrors} from "../src/interfaces/IGroupAdmin.sol";
 
 import {IGroupChatBanList} from "../src/interfaces/IGroupChatBanList.sol";
-import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {IAdminBanSourceErrors} from "../src/interfaces/sources/ban/IAdminBanSource.sol";
+import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {AdminBanSource} from "../src/sources/ban/AdminBanSource.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
@@ -32,6 +33,17 @@ contract AdminBanSourceTest is GroupChatFixture {
         groupAdmin = new GroupAdmin(address(groupDelegate), MAX_ADMIN_IDS);
         banList = new GroupChatBanList(address(groupAdmin));
         banSource = new AdminBanSource(address(banList));
+    }
+
+    function testT119_constructorRejectsNonContractBanList() public {
+        address eoa = address(0x1234);
+        vm.expectRevert(abi.encodeWithSelector(IAdminBanSourceErrors.GroupBanListNotContract.selector, eoa));
+        new AdminBanSource(eoa);
+    }
+
+    function testT119B_constructorRejectsZeroBanList() public {
+        vm.expectRevert(abi.encodeWithSelector(IAdminBanSourceErrors.GroupBanListNotContract.selector, address(0)));
+        new AdminBanSource(address(0));
     }
 
     function testT120_ownerAndDelegateCanManageBanLists() public {
@@ -71,7 +83,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(banList.isSenderIdBanned(groupId, senderId));
 
         vm.prank(adminOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, groupId, adminId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, groupId, adminId));
         groupAdmin.addAdmins(groupId, adminId, new uint256[](0));
     }
 
@@ -89,13 +101,15 @@ contract AdminBanSourceTest is GroupChatFixture {
         banList.banBySenderIds(groupId, groupId, _uints(adminId));
         assertTrue(banList.isSenderIdBanned(groupId, adminId));
 
-        (bool allowed, bytes4 reasonCode) = localChat.canPost(groupId, adminId);
+        (bool allowed, IGroupChat.PostRejectionReason reason) = localChat.canPost(groupId, adminId);
         assertTrue(!allowed);
-        assertEq(bytes32(reasonCode), bytes32(IGroupChatErrors.BanRejected.selector));
+        assertEq(reason, IGroupChat.PostRejectionReason.BanRejected);
 
         vm.roll(originBlocks);
         vm.prank(adminOwner);
-        vm.expectRevert(IGroupChatErrors.BanRejected.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, adminId)
+        );
         localChat.post(groupId, adminId, "admin", _emptyMentionedSenderIds(), false, 0);
 
         vm.prank(chatOwner);
@@ -112,13 +126,15 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.prank(adminOwner);
         banList.banBySenderIds(groupId, adminId, _uints(senderId));
 
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
+        (bool allowed, IGroupChat.PostRejectionReason reason) = _canPost(groupId, senderId);
         assertTrue(!allowed);
-        assertEq(bytes32(reasonCode), bytes32(IGroupChatErrors.BanRejected.selector));
+        assertEq(reason, IGroupChat.PostRejectionReason.BanRejected);
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.BanRejected.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, senderId)
+        );
         _post(groupId, senderId, "banned");
 
         vm.prank(adminOwner);
@@ -177,7 +193,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(isEffective[1]);
 
         vm.prank(chatOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.DuplicateMemberId.selector, adminId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.DuplicateMemberId.selector, adminId));
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId, adminId));
 
         vm.prank(chatOwner);
@@ -208,7 +224,7 @@ contract AdminBanSourceTest is GroupChatFixture {
     }
 
     function testT124B_addAdminsRejectsAdminCountAboveLimit() public {
-        vm.expectRevert(IGroupAdmin.MaxAdminIdsZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.ZeroMaxAdminIds.selector));
         new GroupAdmin(address(groupDelegate), 0);
 
         uint256[] memory admins = new uint256[](MAX_ADMIN_IDS + 1);
@@ -217,7 +233,9 @@ contract AdminBanSourceTest is GroupChatFixture {
         }
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.AdminIdsLimitExceeded.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupAdminErrors.AdminIdsLimitExceeded.selector, groupId, MAX_ADMIN_IDS + 1, MAX_ADMIN_IDS)
+        );
         groupAdmin.addAdmins(groupId, groupId, admins);
     }
 

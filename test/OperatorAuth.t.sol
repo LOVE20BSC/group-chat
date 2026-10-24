@@ -6,8 +6,8 @@ import {GroupChatBanList} from "../src/GroupChatBanList.sol";
 import {GroupMember} from "../src/GroupMember.sol";
 import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
-import {IGroupChatBanList} from "../src/interfaces/IGroupChatBanList.sol";
-import {IGroupMember} from "../src/interfaces/IGroupMember.sol";
+import {IGroupChatBanList, IGroupChatBanListErrors} from "../src/interfaces/IGroupChatBanList.sol";
+import {IGroupMember, IGroupMemberErrors} from "../src/interfaces/IGroupMember.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 
 contract OperatorAuthTest is GroupChatFixture {
@@ -69,8 +69,40 @@ contract OperatorAuthTest is GroupChatFixture {
         assertTrue(chat.postingAllowed(groupId));
     }
 
+    function testT206_duplicateMemberIdsRejected() public {
+        vm.prank(chatOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.DuplicateMemberId.selector, senderId));
+        member.addMemberIds(groupId, groupId, _uints(senderId, senderId));
+    }
+
+    function testT207_duplicateBanTargetsRejected() public {
+        vm.prank(chatOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.DuplicateMemberId.selector, senderId));
+        banList.banBySenderIds(groupId, groupId, _uints(senderId, senderId));
+    }
+
+    function testT208_zeroBanTargetRejected() public {
+        vm.prank(chatOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.ZeroTargetSenderId.selector));
+        banList.banBySenderIds(groupId, groupId, _uints(0));
+    }
+
+    function testT209_zeroGroupAdminRejectedByMemberAndBanList() public {
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.GroupAdminNotContract.selector, address(0)));
+        new GroupChatBanList(address(0));
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupAdminNotContract.selector, address(0)));
+        new GroupMember(address(0));
+    }
+
     function _uints(uint256 value) internal pure returns (uint256[] memory values) {
         values = new uint256[](1);
         values[0] = value;
+    }
+
+    function _uints(uint256 a, uint256 b) internal pure returns (uint256[] memory values) {
+        values = new uint256[](2);
+        values[0] = a;
+        values[1] = b;
     }
 }

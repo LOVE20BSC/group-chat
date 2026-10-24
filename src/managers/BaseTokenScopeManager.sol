@@ -7,8 +7,12 @@ import {IStake} from "@core/interfaces/IStake.sol";
 import {Pagination} from "@libs/Pagination.sol";
 
 abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeManager {
-    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
-        return _onERC721ReceivedFromMint(from);
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
+        external
+        view
+        returns (bytes4)
+    {
+        return _onERC721ReceivedFromMint(operator, from, tokenId);
     }
 
     mapping(uint256 => address) internal _tokenOfGroup;
@@ -69,7 +73,7 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
 
     function _activateToken(address token, string memory managerPrefix) internal returns (uint256 groupId) {
         _requireLOVE20Token(token);
-        _requireNotManaged(_groupIdOfToken[token] != 0);
+        _requireNotManaged(_groupIdOfToken[token]);
 
         groupId = _mintManagedGroup(_tokenGroupNameStem(managerPrefix, token));
         // forge-lint: disable-next-item(missing-events-access-control)

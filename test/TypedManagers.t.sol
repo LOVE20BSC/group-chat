@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
-import {IBaseTokenActionScopeManager} from "../src/interfaces/managers/IBaseTokenActionScopeManager.sol";
+import {IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
+import {IBaseTokenActionScopeManagerErrors} from "../src/interfaces/managers/IBaseTokenActionScopeManager.sol";
 
 import {TokenActionGovManager} from "../src/managers/TokenActionGovManager.sol";
 import {TokenActionMainManager} from "../src/managers/TokenActionMainManager.sol";
@@ -51,7 +51,7 @@ contract TypedManagersTest is GroupChatFixture {
         protocol.clearActionJoined(token, senderId);
         assertTrue(!_canPostAllowed(groupId, senderId));
 
-        vm.expectRevert(IBaseManager.AlreadyManaged.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.AlreadyManaged.selector, groupId));
         manager.activate(token);
     }
 
@@ -87,10 +87,12 @@ contract TypedManagersTest is GroupChatFixture {
         TokenActionGovManager manager =
             new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
 
-        vm.expectRevert(IBaseManager.RecentRoundsZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ZeroRecentRounds.selector));
         new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 0);
 
-        vm.expectRevert(IBaseTokenActionScopeManager.ActionIdNotExist.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IBaseTokenActionScopeManagerErrors.ActionNotExist.selector, token, uint256(42))
+        );
         manager.activate(token, 42);
 
         protocol.setActionsCount(token, 44);
@@ -214,7 +216,9 @@ contract TypedManagersTest is GroupChatFixture {
 
         TokenActionGovManager govManager =
             new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
-        vm.expectRevert(IBaseTokenActionScopeManager.ActionIdNotExist.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IBaseTokenActionScopeManagerErrors.ActionNotExist.selector, token, uint256(0))
+        );
         govManager.activate(token, 0);
     }
 
@@ -262,10 +266,10 @@ contract TypedManagersTest is GroupChatFixture {
     }
 
     function testT114_typedManagerProtocolDependenciesRequireCode() public {
-        vm.expectRevert(IBaseManager.ManagerAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
         new TokenGovManager(address(chat), address(0), address(0), address(0), other);
 
-        vm.expectRevert(IBaseManager.ManagerAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
         new TokenMainManager(address(chat), address(0), address(0), address(0), other);
 
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
@@ -274,7 +278,7 @@ contract TypedManagersTest is GroupChatFixture {
         TokenGovManager manager =
             new TokenGovManager(address(chat), address(0), address(0), address(0), address(protocol));
 
-        vm.expectRevert(IBaseManager.TokenNotLOVE20.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.TokenNotLOVE20.selector, token));
         manager.activate(token);
     }
 

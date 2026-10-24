@@ -9,7 +9,7 @@ contract GroupMemberScope is IGroupMemberScope {
 
     constructor(address groupMember_) {
         if (groupMember_.code.length == 0) {
-            revert GroupMemberScopeAddressHasNoCode();
+            revert GroupMemberNotContract(groupMember_);
         }
         GROUP_MEMBER_ADDRESS = groupMember_;
     }

@@ -23,12 +23,16 @@ contract GroupAdmin is IGroupAdmin {
 
     constructor(address groupDelegate_, uint256 maxAdminIds_) {
         if (maxAdminIds_ == 0) {
-            revert MaxAdminIdsZero();
+            revert ZeroMaxAdminIds();
         }
-        _requireCode(groupDelegate_);
+        if (groupDelegate_.code.length == 0) {
+            revert GroupDelegateNotContract(groupDelegate_);
+        }
 
         address love20Group = IGroupChatDelegate(groupDelegate_).GROUP_ADDRESS();
-        _requireCode(love20Group);
+        if (love20Group.code.length == 0) {
+            revert GroupNotContract(love20Group);
+        }
 
         GROUP_DELEGATE_ADDRESS = groupDelegate_;
         GROUP_ADDRESS = love20Group;
@@ -40,12 +44,9 @@ contract GroupAdmin is IGroupAdmin {
         onlyOwnerOrDelegate(groupId, operatorId)
     {
         _validateAdminIds(adminIds_);
+        _requireAdminIdsLimit(_states[groupId], groupId, adminIds_);
 
         AdminState storage state = _states[groupId];
-        if (state.adminIds.count() + _newAdminIdsCount(state, adminIds_) > MAX_ADMIN_IDS) {
-            revert AdminIdsLimitExceeded();
-        }
-
         address groupOwnerSnapshot = _groupOwnerOfOrRevert(groupId);
         for (uint256 i = 0; i < adminIds_.length; i++) {
             uint256 adminId = adminIds_[i];
@@ -124,6 +125,16 @@ contract GroupAdmin is IGroupAdmin {
         }
     }
 
+    function _requireAdminIdsLimit(AdminState storage state, uint256 groupId, uint256[] calldata adminIds_)
+        internal
+        view
+    {
+        uint256 count = state.adminIds.count() + _newAdminIdsCount(state, adminIds_);
+        if (count > MAX_ADMIN_IDS) {
+            revert AdminIdsLimitExceeded(groupId, count, MAX_ADMIN_IDS);
+        }
+    }
+
     function _isEffectiveAdminId(AdminState storage state, uint256 groupId, uint256 adminId)
         internal
         view
@@ -146,12 +157,6 @@ contract GroupAdmin is IGroupAdmin {
             revert NotGroupOperator(groupId, operatorId);
         }
         _;
-    }
-
-    function _requireCode(address target) internal view {
-        if (target.code.length == 0) {
-            revert GroupAdminAddressHasNoCode();
-        }
     }
 
     function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {

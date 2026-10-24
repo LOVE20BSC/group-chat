@@ -5,12 +5,15 @@ import {IGroupChat} from "../interfaces/IGroupChat.sol";
 import {IBaseManager} from "../interfaces/managers/IBaseManager.sol";
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseManager is IBaseManager {
+    using SafeERC20 for IERC20;
+
     address public immutable GROUP_CHAT_ADDRESS;
     address public immutable GROUP_ADDRESS;
     uint256 internal immutable MAX_NAME_LENGTH;
@@ -54,9 +57,10 @@ abstract contract BaseManager is IBaseManager {
         GROUP_CHAT_ADDRESS = groupChat_;
         GROUP_ADDRESS = memberNFT;
         MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();
-        if (MAX_NAME_LENGTH < GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH + GROUP_NAME_TEST_PREFIX_BYTES)
-        {
-            revert ManagerGroupNameSpaceTooSmall();
+        uint256 requiredNameLength = GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH
+            + GROUP_NAME_TEST_PREFIX_BYTES;
+        if (MAX_NAME_LENGTH < requiredNameLength) {
+            revert ManagerGroupNameSpaceTooSmall(MAX_NAME_LENGTH, requiredNameLength);
         }
         BAN_SOURCE_ADDRESS = banSource_;
         BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
@@ -66,9 +70,13 @@ abstract contract BaseManager is IBaseManager {
         VOTE_ADDRESS = vote;
     }
 
-    function _onERC721ReceivedFromMint(address from) internal view returns (bytes4) {
+    function _onERC721ReceivedFromMint(address operator, address from, uint256 tokenId)
+        internal
+        view
+        returns (bytes4)
+    {
         if (msg.sender != GROUP_ADDRESS || from != address(0)) {
-            revert UnexpectedManagerERC721Received();
+            revert UnexpectedManagerERC721Received(operator, from, tokenId);
         }
         return IERC721Receiver.onERC721Received.selector;
     }
@@ -80,18 +88,14 @@ abstract contract BaseManager is IBaseManager {
         uint256 expectedMintCost = memberNFT.calculateMintCost(groupName);
         if (expectedMintCost != 0) {
             address love20 = memberNFT.LOVE20_TOKEN_ADDRESS();
-            if (!IERC20(love20).transferFrom(msg.sender, address(this), expectedMintCost)) {
-                revert ManagerPaymentFailed();
-            }
-            if (!IERC20(love20).approve(GROUP_ADDRESS, expectedMintCost)) {
-                revert ManagerApprovalFailed();
-            }
+            IERC20(love20).safeTransferFrom(msg.sender, address(this), expectedMintCost);
+            IERC20(love20).forceApprove(GROUP_ADDRESS, expectedMintCost);
         }
 
         uint256 actualMintCost;
         (groupId, actualMintCost) = memberNFT.mint(groupName);
         if (actualMintCost != expectedMintCost) {
-            revert ManagerMintCostChanged();
+            revert ManagerMintCostChanged(expectedMintCost, actualMintCost);
         }
     }
 
@@ -103,7 +107,7 @@ abstract contract BaseManager is IBaseManager {
 
     function _requireCode(address target) internal view {
         if (target.code.length == 0) {
-            revert ManagerAddressHasNoCode();
+            revert ManagerDependencyNotContract(target);
         }
     }
 
@@ -113,15 +117,15 @@ abstract contract BaseManager is IBaseManager {
         }
     }
 
-    function _requireNotManaged(bool managed) internal pure {
-        if (managed) {
-            revert AlreadyManaged();
+    function _requireNotManaged(uint256 managedGroupId) internal pure {
+        if (managedGroupId != 0) {
+            revert AlreadyManaged(managedGroupId);
         }
     }
 
     function _requireRecentRounds(uint256 recentRounds) internal pure {
         if (recentRounds == 0) {
-            revert RecentRoundsZero();
+            revert ZeroRecentRounds();
         }
     }
 
@@ -158,17 +162,11 @@ abstract contract BaseManager is IBaseManager {
     }
 
     function _tokenSymbolLabel(address token) internal view returns (string memory) {
-        bytes memory sanitized = FALLBACK_TOKEN_SYMBOL;
-        if (token.code.length != 0) {
-            try IERC20Metadata(token).symbol() returns (string memory resolvedSymbol) {
-                bytes memory candidate = _sanitizeAsciiTokenSymbol(resolvedSymbol);
-                if (candidate.length != 0) {
-                    sanitized = candidate;
-                }
-            } catch {}
+        if (token.code.length == 0) {
+            return string(FALLBACK_TOKEN_SYMBOL);
         }
-
-        return string(sanitized);
+        bytes memory candidate = _sanitizeAsciiTokenSymbol(IERC20Metadata(token).symbol());
+        return candidate.length == 0 ? string(FALLBACK_TOKEN_SYMBOL) : string(candidate);
     }
 
     function _love20TokenRequiresTestPrefix() internal view returns (bool) {
@@ -176,11 +174,7 @@ abstract contract BaseManager is IBaseManager {
         if (love20.code.length == 0) {
             return false;
         }
-        try IERC20Metadata(love20).symbol() returns (string memory symbol) {
-            return bytes4(bytes(symbol)) == TEST_PREFIX;
-        } catch {
-            return false;
-        }
+        return bytes4(bytes(IERC20Metadata(love20).symbol())) == TEST_PREFIX;
     }
 
     function _sanitizeAsciiTokenSymbol(string memory rawSymbol) internal pure returns (bytes memory) {

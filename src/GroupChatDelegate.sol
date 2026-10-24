@@ -23,8 +23,8 @@ contract GroupChatDelegate is IGroupChatDelegate {
     mapping(uint256 => Uint256Set.Storage) internal _allowedDelegatorGroupIdsByDelegateId;
 
     constructor(address groupAddress_) {
-        if (groupAddress_ == address(0)) {
-            revert InvalidAddress();
+        if (groupAddress_.code.length == 0) {
+            revert GroupNotContract(groupAddress_);
         }
 
         GROUP_ADDRESS = groupAddress_;
@@ -47,6 +47,13 @@ contract GroupChatDelegate is IGroupChatDelegate {
     function setDelegateId(uint256 groupId, uint256 delegateId) external onlyGroupOwner(groupId) {
         address owner = _ownerOfOrRevertGroupNotExist(groupId);
 
+        if (delegateId == groupId) {
+            revert DelegateIsSelfGroup(groupId);
+        }
+        if (!_canDelegateTo(groupId, delegateId)) {
+            revert DelegatorGroupIdNotAllowed(groupId, delegateId);
+        }
+
         DelegateState storage state = _delegateStates[groupId];
         address targetOwnerSnapshot = delegateId == 0 ? address(0) : owner;
         address targetDelegateOwnerSnapshot =
@@ -56,13 +63,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
                 && state.delegateOwnerSnapshot == targetDelegateOwnerSnapshot
         ) {
             return;
-        }
-
-        if (delegateId == groupId) {
-            revert DelegateIsSelfGroup(groupId);
-        }
-        if (!_canDelegateTo(groupId, delegateId)) {
-            revert DelegatorGroupIdNotAllowed();
         }
 
         uint256 prevDelegateId = _delegateIdOf(groupId, state, owner);

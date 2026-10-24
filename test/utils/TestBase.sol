@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
+import {IGroupChat} from "../../src/interfaces/IGroupChat.sol";
+
 interface Vm {
     struct Log {
         bytes32[] topics;
@@ -45,5 +47,9 @@ contract TestBase {
 
     function assertEq(string memory left, string memory right) internal pure {
         require(keccak256(bytes(left)) == keccak256(bytes(right)), "ASSERT_EQ_STRING");
+    }
+
+    function assertEq(IGroupChat.PostRejectionReason left, IGroupChat.PostRejectionReason right) internal pure {
+        require(left == right, "ASSERT_EQ_REASON");
     }
 }

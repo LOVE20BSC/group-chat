@@ -2,11 +2,17 @@
 pragma solidity =0.8.37;
 
 import {GroupAdmin} from "../src/GroupAdmin.sol";
-import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
+import {IGroupAdminErrors} from "../src/interfaces/IGroupAdmin.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
+
+contract ZeroGroupDelegate {
+    function GROUP_ADDRESS() external pure returns (address) {
+        return address(0);
+    }
+}
 
 contract GroupAdminTest is GroupChatFixture {
     uint256 internal constant MAX_ADMIN_IDS = 20;
@@ -33,11 +39,17 @@ contract GroupAdminTest is GroupChatFixture {
         assertEq(groupAdmin.GROUP_ADDRESS(), address(groupNft));
         assertEq(groupAdmin.MAX_ADMIN_IDS(), MAX_ADMIN_IDS);
 
-        vm.expectRevert(IGroupAdmin.GroupAdminAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.GroupDelegateNotContract.selector, address(0x1234)));
         new GroupAdmin(address(0x1234), MAX_ADMIN_IDS);
 
-        vm.expectRevert(IGroupAdmin.MaxAdminIdsZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.ZeroMaxAdminIds.selector));
         new GroupAdmin(address(groupDelegate), 0);
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.GroupDelegateNotContract.selector, address(0)));
+        new GroupAdmin(address(0), MAX_ADMIN_IDS);
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.GroupNotContract.selector, address(0)));
+        new GroupAdmin(address(new ZeroGroupDelegate()), MAX_ADMIN_IDS);
     }
 
     function testT129B_ownerAndDelegateCanAddAndRemoveAdmins() public {
@@ -77,11 +89,11 @@ contract GroupAdminTest is GroupChatFixture {
         assertTrue(groupAdmin.isAdminId(groupId, secondAdminId));
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, groupId, groupId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, groupId, groupId));
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
 
         vm.prank(stranger);
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, groupId, groupId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, groupId, groupId));
         groupAdmin.removeAdmins(groupId, groupId, _uints(secondAdminId));
     }
 
@@ -151,7 +163,7 @@ contract GroupAdminTest is GroupChatFixture {
 
     function testT129D_addRemoveAdminsValidateInputLimitsAndList() public {
         vm.prank(chatOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.DuplicateMemberId.selector, adminId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.DuplicateMemberId.selector, adminId));
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId, adminId));
 
         vm.prank(chatOwner);
@@ -168,7 +180,9 @@ contract GroupAdminTest is GroupChatFixture {
         }
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupAdmin.AdminIdsLimitExceeded.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupAdminErrors.AdminIdsLimitExceeded.selector, groupId, MAX_ADMIN_IDS + 1, MAX_ADMIN_IDS)
+        );
         groupAdmin.addAdmins(groupId, groupId, admins);
 
         vm.prank(chatOwner);

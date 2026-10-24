@@ -30,7 +30,7 @@ abstract contract BaseTokenManager is BaseManager {
     function _requireLOVE20Token(address token) internal view {
         _requireCode(token);
         if (!ILaunch(LAUNCH_ADDRESS).isLOVE20Token(token)) {
-            revert TokenNotLOVE20();
+            revert TokenNotLOVE20(token);
         }
     }
 }

@@ -23,7 +23,7 @@ contract GroupMember is IGroupMember {
 
     constructor(address groupAdmin_) {
         if (groupAdmin_.code.length == 0) {
-            revert GroupMemberAddressHasNoCode();
+            revert GroupAdminNotContract(groupAdmin_);
         }
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         GROUP_ADDRESS = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
@@ -76,6 +76,11 @@ contract GroupMember is IGroupMember {
         for (uint256 i = 0; i < memberIds_.length; i++) {
             uint256 memberId = memberIds_[i];
             MemberOwner.ownerOf(GROUP_ADDRESS, memberId);
+            for (uint256 j = 0; j < i; j++) {
+                if (memberIds_[j] == memberId) {
+                    revert DuplicateMemberId(memberId);
+                }
+            }
             bool changed = listed ? state.memberIds.add(memberId) : state.memberIds.remove(memberId);
             if (changed) {
                 emit SetMemberId(groupId, msg.sender, memberId, operatorId, listed);

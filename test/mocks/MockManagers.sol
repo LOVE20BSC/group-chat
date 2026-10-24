@@ -15,8 +15,12 @@ contract MockManager is BaseManager {
         address actionTarget_
     ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
 
-    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
-        return _onERC721ReceivedFromMint(from);
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
+        external
+        view
+        returns (bytes4)
+    {
+        return _onERC721ReceivedFromMint(operator, from, tokenId);
     }
 
     function activateMockManagedGroup() external returns (uint256 groupId) {

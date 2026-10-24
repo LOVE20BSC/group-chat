@@ -3,10 +3,10 @@ pragma solidity =0.8.37;
 
 import {GroupAdmin} from "../src/GroupAdmin.sol";
 import {GroupMember} from "../src/GroupMember.sol";
-import {IGroupAdmin} from "../src/interfaces/IGroupAdmin.sol";
-import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
-import {IGroupMember} from "../src/interfaces/IGroupMember.sol";
-import {IGroupMemberScope} from "../src/interfaces/sources/scope/IGroupMemberScope.sol";
+import {IGroupAdminErrors} from "../src/interfaces/IGroupAdmin.sol";
+import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {IGroupMemberErrors} from "../src/interfaces/IGroupMember.sol";
+import {IGroupMemberScopeErrors} from "../src/interfaces/sources/scope/IGroupMemberScope.sol";
 import {GroupMemberScope} from "../src/sources/scope/GroupMemberScope.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
@@ -31,11 +31,17 @@ contract GroupMemberScopeTest is GroupChatFixture {
         assertEq(member.GROUP_ADDRESS(), address(groupNft));
         assertEq(scope.GROUP_MEMBER_ADDRESS(), address(member));
 
-        vm.expectRevert(IGroupMember.GroupMemberAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupAdminNotContract.selector, address(0x1234)));
         new GroupMember(address(0x1234));
 
-        vm.expectRevert(IGroupMemberScope.GroupMemberScopeAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberScopeErrors.GroupMemberNotContract.selector, address(0x1234)));
         new GroupMemberScope(address(0x1234));
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupAdminNotContract.selector, address(0)));
+        new GroupMember(address(0));
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberScopeErrors.GroupMemberNotContract.selector, address(0)));
+        new GroupMemberScope(address(0));
     }
 
     function testT133B_adminCanAddAndRemoveMemberIds() public {
@@ -87,9 +93,9 @@ contract GroupMemberScopeTest is GroupChatFixture {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(scope), address(0), address(0), address(0));
 
-        (bool allowed, bytes4 reasonCode) = _canPost(groupId, senderId);
+        (bool allowed, IGroupChat.PostRejectionReason reason) = _canPost(groupId, senderId);
         assertTrue(!allowed);
-        assertEq(reasonCode, IGroupChatErrors.ScopeRejected.selector);
+        assertEq(reason, IGroupChat.PostRejectionReason.ScopeRejected);
 
         vm.prank(adminOwner);
         member.addMemberIds(groupId, adminId, _uints(senderId));
@@ -110,7 +116,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
 
     function testT133D_permissionsTargetsAndGroupIsolation() public {
         vm.prank(adminOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupMember.NotGroupOperator.selector, groupId, adminId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.NotGroupOperator.selector, groupId, adminId));
         member.addMemberIds(groupId, adminId, _uints(senderId));
 
         vm.prank(chatOwner);
@@ -131,11 +137,11 @@ contract GroupMemberScopeTest is GroupChatFixture {
         assertTrue(!member.isMemberId(otherGroupId, senderId));
 
         vm.prank(adminOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupMember.NotGroupOperator.selector, otherGroupId, adminId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.NotGroupOperator.selector, otherGroupId, adminId));
         member.addMemberIds(otherGroupId, adminId, _uints(senderId));
 
         vm.prank(chatOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdmin.NotGroupOperator.selector, otherGroupId, groupId));
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, otherGroupId, groupId));
         groupAdmin.addAdmins(otherGroupId, groupId, _uints(adminId));
     }
 

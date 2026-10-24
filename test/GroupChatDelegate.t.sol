@@ -76,7 +76,9 @@ contract GroupChatDelegateTest is TestBase {
         groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
 
         vm.prank(chatOwner);
-        vm.expectRevert(IGroupChatDelegateErrors.DelegatorGroupIdNotAllowed.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegatorGroupIdNotAllowed.selector, groupId, delegateId)
+        );
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.prank(delegateOwner);
@@ -87,7 +89,7 @@ contract GroupChatDelegateTest is TestBase {
         assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
     }
 
-    function testT144_whitelistRemovalMakesResetOfSameIdNoOp() public {
+    function testT144_whitelistRemovalRejectsSameIdResetInsteadOfSilentNoOp() public {
         vm.prank(delegateOwner);
         groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
         vm.prank(delegateOwner);
@@ -101,6 +103,9 @@ contract GroupChatDelegateTest is TestBase {
 
         vm.recordLogs();
         vm.prank(chatOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegatorGroupIdNotAllowed.selector, groupId, delegateId)
+        );
         groupDelegate.setDelegateId(groupId, delegateId);
         assertEq(groupDelegate.delegateIdOf(groupId), 0);
         assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 1);
@@ -345,11 +350,15 @@ contract GroupChatDelegateTest is TestBase {
         assertTrue(_canPost(chat, groupId, delegateId));
 
         vm.prank(strangerOwner);
-        vm.expectRevert(IGroupChatErrors.MentionAllUnauthorized.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatErrors.MentionAllUnauthorized.selector, groupId, strangerGroupId)
+        );
         chat.post(groupId, strangerGroupId, "stranger", _emptyMentions(), true, 0);
 
         vm.prank(strangerOwner);
-        vm.expectRevert(IGroupChatErrors.BanRejected.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, strangerGroupId)
+        );
         chat.post(groupId, strangerGroupId, "stranger", _emptyMentions(), false, 0);
 
         vm.prank(delegateOwner);
@@ -362,7 +371,7 @@ contract GroupChatDelegateTest is TestBase {
     }
 
     function testT154_constructorAndMissingGroupReject() public {
-        vm.expectRevert(IGroupChatDelegateErrors.InvalidAddress.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotContract.selector, address(0)));
         new GroupChatDelegate(address(0));
 
         vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotExist.selector, uint256(999)));

@@ -11,8 +11,12 @@ import {Pagination} from "@libs/Pagination.sol";
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
     uint256 public immutable RECENT_ROUNDS;
 
-    function onERC721Received(address, address from, uint256, bytes calldata) external view returns (bytes4) {
-        return _onERC721ReceivedFromMint(from);
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
+        external
+        view
+        returns (bytes4)
+    {
+        return _onERC721ReceivedFromMint(operator, from, tokenId);
     }
 
     struct ManagedAction {
@@ -115,7 +119,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
     {
         _requireLOVE20Token(token);
         _requireExistingAction(token, actionId);
-        _requireNotManaged(_groupIdOfAction[token][actionId] != 0);
+        _requireNotManaged(_groupIdOfAction[token][actionId]);
 
         groupId = _mintManagedGroup(_tokenActionGroupNameStem(managerPrefix, token, actionId));
         // forge-lint: disable-next-item(missing-events-access-control)
@@ -130,7 +134,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
     function _requireExistingAction(address token, uint256 actionId) internal view {
         (, uint256 proposalCount) = ISubmit(SUBMIT_ADDRESS).proposalIds(token, 0, 0, false);
         if (actionId == 0 || actionId > proposalCount) {
-            revert ActionIdNotExist();
+            revert ActionNotExist(token, actionId);
         }
     }
 

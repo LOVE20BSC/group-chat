@@ -3,7 +3,11 @@ pragma solidity =0.8.37;
 
 import {IBaseManager} from "./IBaseManager.sol";
 
-interface IBaseTokenActionScopeManager is IBaseManager {
+interface IBaseTokenActionScopeManagerErrors {
+    error ActionNotExist(address tokenAddress, uint256 actionId);
+}
+
+interface IBaseTokenActionScopeManager is IBaseManager, IBaseTokenActionScopeManagerErrors {
     event Activate(address indexed token, uint256 indexed actionId, uint256 indexed groupId, address operator);
 
     function RECENT_ROUNDS() external view returns (uint256);
@@ -30,6 +34,4 @@ interface IBaseTokenActionScopeManager is IBaseManager {
         external
         view
         returns (uint256[] memory actionIds, uint256[] memory groupIds);
-
-    error ActionIdNotExist();
 }

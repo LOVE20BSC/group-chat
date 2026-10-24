@@ -2,35 +2,35 @@
 pragma solidity =0.8.37;
 
 interface IGroupChatErrors {
+    error GroupAdminNotContract(address dependency);
+    error GroupDelegateNotContract(address dependency);
+    error PhaseNotContract(address dependency);
+    error SourceNotContract(address dependency);
+    error PluginNotContract(address dependency);
+    error GroupAddressMismatch(address expected, address actual);
     error GroupNotExist(uint256 groupId);
-    error ChatAlreadyActivated();
-    error ChatNotActivated();
-    error PostingNotAllowed();
+    error ChatAlreadyActivated(uint256 groupId);
+    error ChatNotActivated(uint256 groupId);
+    error PostingNotAllowed(uint256 groupId);
+    error RoundNotStarted(uint256 requiredRound, uint256 currentRound);
     error NotGroupOwner(uint256 groupId);
     error NotGroupOperator(uint256 groupId, uint256 operatorId);
     error NotMemberOwner(uint256 memberId);
-    error RoundNotStarted();
     error Reentrant();
-    error PhaseBlocksZero();
-    error MaxContentLengthZero();
-    error MaxMentionedSenderIdsZero();
-    error SourceAddressHasNoCode();
-    error PluginAddressHasNoCode();
+    error ZeroPhaseBlocks();
+    error ZeroMaxContentLength();
+    error ZeroMaxMentionedSenderIds();
     error ContentEmpty();
     error ContentTooLong(uint256 length, uint256 maxLength);
     error TooManyMentionedSenderIds(uint256 length, uint256 maxLength);
     error DuplicateMemberId(uint256 memberId);
-    error InvalidQuotedMessageId();
-    error InvalidMessageId();
-    error GroupAdminHasNoCode();
-    error GroupDelegateHasNoCode();
-    error GroupAddressMismatch(address expected, address actual);
-    error MentionAllUnauthorized();
-    error ScopeRejected();
-    error BanRejected();
-    error ScopeSourceFailed();
-    error BanSourceFailed();
-    error InvalidAddress();
+    error MessageNotFound(uint256 groupId, uint256 messageId);
+    error QuotedMessageNotFound(uint256 groupId, uint256 messageId);
+    error MentionAllUnauthorized(uint256 groupId, uint256 senderId);
+    error ScopeRejected(address source, uint256 groupId, uint256 senderId);
+    error BanRejected(address source, uint256 groupId, uint256 senderId);
+    error ScopeSourceFailed(address source);
+    error BanSourceFailed(address source);
 }
 
 interface IGroupChatEvents {
@@ -89,11 +89,25 @@ interface IGroupChatEvents {
         uint256 indexed messageId,
         address indexed pluginAddress,
         uint256 round,
-        bytes errorData
+        bytes32 errorHash,
+        uint256 errorLength,
+        bytes4 errorSelector
     );
 }
 
 interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
+    enum PostRejectionReason {
+        None,
+        GroupNotExist,
+        SenderNotExist,
+        ChatNotActivated,
+        PostingNotAllowed,
+        ScopeRejected,
+        BanRejected,
+        ScopeSourceFailed,
+        BanSourceFailed
+    }
+
     struct ChatInfo {
         uint256 groupId;
         address owner;
@@ -185,7 +199,7 @@ interface IGroupChat is IGroupChatErrors, IGroupChatEvents {
     function canPost(uint256 groupId, uint256 senderId)
         external
         view
-        returns (bool allowed, bytes4 reasonCode);
+        returns (bool allowed, PostRejectionReason reason);
 
     function messagesCount(uint256 groupId) external view returns (uint256);
 

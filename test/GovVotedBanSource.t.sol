@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
-import {IGovVotedBanSource} from "../src/interfaces/sources/ban/IGovVotedBanSource.sol";
+import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
+import {IGovVotedBanSourceErrors} from "../src/interfaces/sources/ban/IGovVotedBanSource.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 import {TokenActionGovManager} from "../src/managers/TokenActionGovManager.sol";
@@ -48,8 +48,24 @@ contract GovVotedBanSourceTest is GroupChatFixture {
     }
 
     function testT129_constructorRejectsInvalidMinSupportToOpposeMultiplier() public {
-        vm.expectRevert(IGovVotedBanSource.MinSupportToOpposeMultiplierZero.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.ZeroMinSupportToOpposeMultiplier.selector));
         new GovVotedBanSource(address(groupNft), 0, BAN_THRESHOLD_RATIO);
+    }
+
+    function testT129B_constructorRejectsBanThresholdTooHigh() public {
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.BanThresholdTooHigh.selector, 1e18 + 1));
+        new GovVotedBanSource(address(groupNft), MIN_SUPPORT_TO_OPPOSE_MULTIPLIER, 1e18 + 1);
+    }
+
+    function testT129C_constructorRejectsNonContractGroup() public {
+        address eoa = address(0x1234);
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.GroupNotContract.selector, eoa));
+        new GovVotedBanSource(eoa, MIN_SUPPORT_TO_OPPOSE_MULTIPLIER, BAN_THRESHOLD_RATIO);
+    }
+
+    function testT129D_constructorRejectsZeroGroupAddress() public {
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.GroupNotContract.selector, address(0)));
+        new GovVotedBanSource(address(0), MIN_SUPPORT_TO_OPPOSE_MULTIPLIER, BAN_THRESHOLD_RATIO);
     }
 
     function testT130_tokenGovVoteAndOpposeAffectIsBannedAndGroupChat() public {
@@ -68,9 +84,9 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(opposeWeight, 0);
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
 
-        (bool allowed, bytes4 reasonCode) = _canPost(managerGroupId, otherGroupId);
+        (bool allowed, IGroupChat.PostRejectionReason reason) = _canPost(managerGroupId, otherGroupId);
         assertTrue(!allowed);
-        assertEq(bytes32(reasonCode), bytes32(IGroupChatErrors.BanRejected.selector));
+        assertEq(reason, IGroupChat.PostRejectionReason.BanRejected);
 
         vm.prank(voter2Owner);
         banSource.voteBySenderId(managerGroupId, otherGroupId, voter2Id, false);
@@ -147,7 +163,11 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(afterVote, 1);
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGovVotedBanSource.VoteUnchanged.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovVotedBanSourceErrors.VoteUnchanged.selector, managerGroupId, otherGroupId, senderId
+            )
+        );
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
         assertEq(banSource.stateVersion(managerGroupId), afterVote);
 
@@ -164,24 +184,48 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         uint256 managerGroupId = _activateTokenGovManager();
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGovVotedBanSource.VoteWeightZero.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGovVotedBanSourceErrors.ZeroVoteWeight.selector, managerGroupId, senderId)
+        );
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
 
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        vm.expectRevert(IGovVotedBanSource.VoteNotFound.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovVotedBanSourceErrors.VoteNotFound.selector, managerGroupId, otherGroupId, senderId
+            )
+        );
         banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
 
         vm.prank(senderOwner);
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGovVotedBanSource.VoteUnchanged.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IGovVotedBanSourceErrors.VoteUnchanged.selector, managerGroupId, otherGroupId, senderId
+            )
+        );
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
 
         vm.prank(senderOwner);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999999)));
         banSource.voteBySenderId(managerGroupId, otherGroupId, 999999, true);
+    }
+
+    function testT132B_voteOnMissingGroupReportsGroupNotExist() public {
+        vm.prank(senderOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGovVotedBanSourceErrors.GroupNotExist.selector, uint256(999_999))
+        );
+        banSource.voteBySenderId(999_999, otherGroupId, senderId, true);
+    }
+
+    function testT132C_zeroTargetSenderIdRejected() public {
+        vm.prank(senderOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.ZeroTargetSenderId.selector));
+        banSource.voteBySenderId(groupId, 0, senderId, true);
     }
 
     function testT133_readerDegradesWhenSourceUnavailable() public {
@@ -198,6 +242,21 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(!banned);
         assertEq(supportWeight, 0);
         assertEq(opposeWeight, 0);
+    }
+
+    function testT133B_voteWithUnavailableSourceReverts() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 7);
+        vm.prank(senderOwner);
+        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+
+        groupNft.transferFrom(address(tokenGovManager), other, managerGroupId);
+
+        vm.prank(senderOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGovVotedBanSourceErrors.BanVoteWeightSourceUnavailable.selector, other)
+        );
+        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
     }
 
     function testT134_actionGovManagerActsAsWeightSource() public {
@@ -264,7 +323,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(supportWeight, 7);
 
         vm.prank(senderOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSource.NotMemberOwner.selector, senderId));
+        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.NotMemberOwner.selector, senderId));
         banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
 
         vm.prank(other);

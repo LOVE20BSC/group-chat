@@ -29,7 +29,7 @@ contract GroupChatBanList is IGroupChatBanList {
 
     constructor(address groupAdmin_) {
         if (groupAdmin_.code.length == 0) {
-            revert GroupBanListAddressHasNoCode();
+            revert GroupAdminNotContract(groupAdmin_);
         }
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         _groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
@@ -110,6 +110,11 @@ contract GroupChatBanList is IGroupChatBanList {
         for (uint256 i = 0; i < senderIds.length; i++) {
             uint256 senderId = senderIds[i];
             _requireSenderIdTarget(senderId);
+            for (uint256 j = 0; j < i; j++) {
+                if (senderIds[j] == senderId) {
+                    revert DuplicateMemberId(senderId);
+                }
+            }
             bool changed = listed ? state.senderIdBanList.add(senderId) : state.senderIdBanList.remove(senderId);
             if (changed) {
                 _setSenderIdBanOperatorState(state, senderId, operatorId, listed);
@@ -130,7 +135,7 @@ contract GroupChatBanList is IGroupChatBanList {
 
     function _requireSenderIdTarget(uint256 senderId) internal pure {
         if (senderId == 0) {
-            revert TargetSenderIdZero();
+            revert ZeroTargetSenderId();
         }
     }
 

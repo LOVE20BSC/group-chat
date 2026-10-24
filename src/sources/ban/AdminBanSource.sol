@@ -9,7 +9,7 @@ contract AdminBanSource is IAdminBanSource {
 
     constructor(address groupBanList_) {
         if (groupBanList_.code.length == 0) {
-            revert AdminBanSourceAddressHasNoCode();
+            revert GroupBanListNotContract(groupBanList_);
         }
         GROUP_BAN_LIST_ADDRESS = groupBanList_;
     }

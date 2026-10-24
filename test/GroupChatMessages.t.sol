@@ -82,14 +82,14 @@ contract GroupChatMessagesTest is GroupChatFixture {
         chat.setPostingAllowed(groupId, groupId, false);
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.PostingNotAllowed.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PostingNotAllowed.selector, groupId));
         _post(groupId, senderId, "stopped");
 
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, true);
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.ContentEmpty.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ContentEmpty.selector));
         _post(groupId, senderId, "");
 
         uint256 maxContentLength = chat.MAX_CONTENT_LENGTH();
@@ -108,7 +108,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         futureChat.activateChat(groupId, address(0), address(0), address(0), address(0));
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.RoundNotStarted.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.RoundNotStarted.selector, 1, 0));
         futureChat.post(groupId, senderId, "early", _emptyMentionedSenderIds(), false, 0);
     }
 
@@ -182,7 +182,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         _postWithMentionedSenderIds(groupId, senderId, "dup", duplicateMentionedSenderIds, false);
 
         vm.prank(senderOwner);
-        vm.expectRevert(IGroupChatErrors.MentionAllUnauthorized.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.MentionAllUnauthorized.selector, groupId, senderId));
         _postWithMentionedSenderIds(groupId, senderId, "@all-sender", _emptyMentionedSenderIds(), true);
 
         vm.prank(chatOwner);
@@ -500,10 +500,10 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(fetched.messageId, 1);
         assertEq(fetched.quotedMessageId, 0);
 
-        vm.expectRevert(IGroupChatErrors.InvalidMessageId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.MessageNotFound.selector, groupId, uint256(0)));
         chat.message(groupId, 0);
 
-        vm.expectRevert(IGroupChatErrors.InvalidMessageId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.MessageNotFound.selector, groupId, uint256(2)));
         chat.message(groupId, 2);
     }
 
@@ -525,7 +525,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(fetched.quotedMessageId, 1);
 
         vm.prank(other);
-        vm.expectRevert(IGroupChatErrors.InvalidQuotedMessageId.selector);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.QuotedMessageNotFound.selector, groupId, uint256(4)));
         _postWithQuote(groupId, otherGroupId, "future", 4);
     }
 

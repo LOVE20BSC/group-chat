@@ -6,7 +6,7 @@ import {GroupAdmin} from "../src/GroupAdmin.sol";
 import {GroupChat} from "../src/GroupChat.sol";
 import {GroupChatDelegate} from "../src/GroupChatDelegate.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
+import {IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
 
 import {MockERC20Payment, MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
@@ -88,22 +88,28 @@ contract ManagerTest is GroupChatFixture {
     }
 
     function testT104_managerConstructorRejectsNoCodeAddressesAndReceivesErc721() public {
-        vm.expectRevert(IBaseManager.ManagerAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
         new MockManager(other, address(0), address(0), address(0), address(managerCenter));
 
-        vm.expectRevert(IBaseManager.ManagerAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
         new MockManager(address(chat), other, address(0), address(0), address(managerCenter));
 
-        vm.expectRevert(IBaseManager.ManagerAddressHasNoCode.selector);
+        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
         new MockManager(address(chat), address(0), address(0), address(0), other);
 
         MockManager manager = new MockManager(address(chat), address(0), address(0), address(0), address(managerCenter));
 
-        vm.expectRevert(IBaseManager.UnexpectedManagerERC721Received.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IBaseManagerErrors.UnexpectedManagerERC721Received.selector, chatOwner, address(0), groupId)
+        );
         manager.onERC721Received(chatOwner, address(0), groupId, "");
 
         vm.prank(address(groupNft));
-        vm.expectRevert(IBaseManager.UnexpectedManagerERC721Received.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IBaseManagerErrors.UnexpectedManagerERC721Received.selector, chatOwner, chatOwner, groupId
+            )
+        );
         manager.onERC721Received(chatOwner, chatOwner, groupId, "");
 
         vm.prank(address(groupNft));
@@ -135,7 +141,9 @@ contract ManagerTest is GroupChatFixture {
         GroupChat smallChat =
             new GroupChat(address(smallGroupAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
 
-        vm.expectRevert(IBaseManager.ManagerGroupNameSpaceTooSmall.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(IBaseManagerErrors.ManagerGroupNameSpaceTooSmall.selector, uint256(16), uint256(17))
+        );
         new MockManager(address(smallChat), address(0), address(0), address(0), address(managerCenter));
 
         smallGroupNft.setMaxGroupNameLength(17);
