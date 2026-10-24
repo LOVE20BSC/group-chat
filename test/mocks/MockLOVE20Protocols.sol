@@ -2,7 +2,7 @@
 pragma solidity =0.8.37;
 
 contract MockLOVE20Protocols {
-    string public symbol = "LOVE20";
+    string public symbol = "TestLOVE20";
     uint256 internal _currentRound = 1;
 
     mapping(address => uint256) public balances;

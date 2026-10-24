@@ -15,6 +15,10 @@ contract MockLOVE20Group {
     mapping(uint256 => string) internal _groupNames;
     mapping(string => uint256) internal _nameToTokenId;
 
+    constructor() {
+        LOVE20_TOKEN_ADDRESS = address(new MockERC20Payment());
+    }
+
     function setMintPayment(address love20TokenAddress, uint256 mintCost_) external {
         LOVE20_TOKEN_ADDRESS = love20TokenAddress;
         mintCost = mintCost_;
@@ -81,9 +85,6 @@ contract MockLOVE20Group {
 
     function _canonicalizeGroupName(string memory groupName) internal view returns (string memory) {
         address love20 = LOVE20_TOKEN_ADDRESS;
-        if (love20.code.length == 0) {
-            return groupName;
-        }
         if (bytes4(bytes(IERC20Metadata(love20).symbol())) != TEST_PREFIX || _hasTestPrefix(groupName)) {
             return groupName;
         }
@@ -98,7 +99,7 @@ contract MockLOVE20Group {
 }
 
 contract MockERC20Payment {
-    string public symbol = "LOVE";
+    string public symbol = "LOVE20";
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 

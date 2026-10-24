@@ -2,18 +2,20 @@
 pragma solidity =0.8.37;
 
 import {IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
+import {MockERC20Payment} from "./mocks/MockLOVE20Group.sol";
 import {MockManager} from "./mocks/MockManagers.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {TestBase} from "./utils/TestBase.sol";
 
 contract MockManagerMemberNFT {
-    address public constant LOVE20_TOKEN_ADDRESS = address(0);
+    address public immutable LOVE20_TOKEN_ADDRESS;
     uint256 public constant MAX_NAME_LENGTH = 64;
 
     bool internal immutable _nameUsed;
     uint256 internal immutable _actualCost;
 
     constructor(bool nameUsed_, uint256 actualCost_) {
+        LOVE20_TOKEN_ADDRESS = address(new MockERC20Payment());
         _nameUsed = nameUsed_;
         _actualCost = actualCost_;
     }

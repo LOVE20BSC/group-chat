@@ -162,18 +162,12 @@ abstract contract BaseManager is IBaseManager {
     }
 
     function _tokenSymbolLabel(address token) internal view returns (string memory) {
-        if (token.code.length == 0) {
-            return string(FALLBACK_TOKEN_SYMBOL);
-        }
         bytes memory candidate = _sanitizeAsciiTokenSymbol(IERC20Metadata(token).symbol());
         return candidate.length == 0 ? string(FALLBACK_TOKEN_SYMBOL) : string(candidate);
     }
 
     function _love20TokenRequiresTestPrefix() internal view returns (bool) {
         address love20 = IMemberNFT(GROUP_ADDRESS).LOVE20_TOKEN_ADDRESS();
-        if (love20.code.length == 0) {
-            return false;
-        }
         return bytes4(bytes(IERC20Metadata(love20).symbol())) == TEST_PREFIX;
     }
 

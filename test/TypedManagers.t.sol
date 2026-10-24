@@ -33,7 +33,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokens[0], token);
         assertEq(tokenGroupIds.length, 1);
         assertEq(tokenGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_main_LOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_main_TestLOVE20_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setBalance(senderOwner, 1);
@@ -72,7 +72,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokens[0], token);
         assertEq(tokenGroupIds.length, 1);
         assertEq(tokenGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_gov_LOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_gov_TestLOVE20_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setGovVotes(token, senderId, 7);
@@ -111,7 +111,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionIds[0], 42);
         assertEq(actionGroupIds.length, 1);
         assertEq(actionGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_gov_LOVE20_42_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_gov_TestLOVE20_42_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setActionVotes(token, 5, senderId, 42, 1);
@@ -168,7 +168,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionIds[0], 88);
         assertEq(actionGroupIds.length, 1);
         assertEq(actionGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_main_LOVE20_88_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_main_TestLOVE20_88_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setActionVotes(token, 9, senderId, 88, 1);
@@ -285,7 +285,7 @@ contract TypedManagersTest is GroupChatFixture {
     function testT115_tokenMainManagerMintSurvivesTestPrefixNormalization() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         MockERC20Payment payment = new MockERC20Payment();
-        payment.setSymbol("TestLOVE");
+        payment.setSymbol("TestLOVE20");
         groupNft.setMintPayment(address(payment), 10);
         payment.mint(address(this), 10);
 
@@ -296,7 +296,19 @@ contract TypedManagersTest is GroupChatFixture {
         groupId = manager.activate(address(protocol));
 
         assertEq(chat.chatInfo(groupId).owner, address(manager));
-        _assertStartsWith(groupNft.groupNameOf(groupId), "Testmgr_token_main_LOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "Testmgr_token_main_TestLOVE20_");
+    }
+
+    function testT117_tokenMainManagerFallsBackToFixedLabelForNonAsciiSymbol() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol(unicode"测试");
+
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+        groupId = _activateToken(manager, address(token));
+
+        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_main_TOKEN_");
     }
 
     function _activateToken(TokenMainManager manager, address token) internal returns (uint256) {
