@@ -2,7 +2,6 @@
 pragma solidity =0.8.37;
 
 interface IGroupMemberErrors {
-    error GroupAdminNotContract(address dependency);
     error NotGroupOperator(uint256 groupId, uint256 operatorId);
     error DuplicateMemberId(uint256 memberId);
 }

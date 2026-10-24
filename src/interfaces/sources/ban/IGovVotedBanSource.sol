@@ -4,15 +4,12 @@ pragma solidity =0.8.37;
 import {IPostBanSource} from "../IPostBanSource.sol";
 
 interface IGovVotedBanSourceErrors {
-    error GroupNotContract(address dependency);
     error GroupNotExist(uint256 groupId);
     error BanVoteWeightSourceUnavailable(address source);
     error ZeroTargetSenderId();
     error ZeroVoteWeight(uint256 groupId, uint256 voterId);
     error VoteUnchanged(uint256 groupId, uint256 targetSenderId, uint256 voterId);
     error VoteNotFound(uint256 groupId, uint256 targetSenderId, uint256 voterId);
-    error BanThresholdTooHigh(uint256 value);
-    error ZeroMinSupportToOpposeMultiplier();
     error NotMemberOwner(uint256 memberId);
 }
 

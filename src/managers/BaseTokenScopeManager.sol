@@ -71,11 +71,14 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         return IStake(STAKE_ADDRESS).globalGovVotes(token);
     }
 
-    function _activateToken(address token, string memory managerPrefix) internal returns (uint256 groupId) {
+    function _activateToken(address token) internal returns (uint256 groupId) {
         _requireLOVE20Token(token);
         _requireNotManaged(_groupIdOfToken[token]);
 
-        groupId = _mintManagedGroup(_tokenGroupNameStem(managerPrefix, token));
+        bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
+        (string memory stem, uint256 randomHexLength) =
+            _managedGroupNameStem(_tokenNamePayload(token), requiresTestPrefix);
+        groupId = _mintManagedGroup(stem, randomHexLength, requiresTestPrefix);
         // forge-lint: disable-next-item(missing-events-access-control)
         _tokenOfGroup[groupId] = token;
         // forge-lint: disable-next-item(missing-events-access-control)

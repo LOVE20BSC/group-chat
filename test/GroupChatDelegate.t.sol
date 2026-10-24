@@ -370,10 +370,7 @@ contract GroupChatDelegateTest is TestBase {
         assertEq(chat.messagesCount(groupId), 2);
     }
 
-    function testT154_constructorAndMissingGroupReject() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotContract.selector, address(0)));
-        new GroupChatDelegate(address(0));
-
+    function testT154_missingGroupRejects() public {
         vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotExist.selector, uint256(999)));
         groupDelegate.delegateIdOf(999);
     }

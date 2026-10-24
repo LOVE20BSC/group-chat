@@ -22,18 +22,7 @@ contract GroupAdmin is IGroupAdmin {
     mapping(uint256 => AdminState) internal _states;
 
     constructor(address groupDelegate_, uint256 maxAdminIds_) {
-        if (maxAdminIds_ == 0) {
-            revert ZeroMaxAdminIds();
-        }
-        if (groupDelegate_.code.length == 0) {
-            revert GroupDelegateNotContract(groupDelegate_);
-        }
-
         address love20Group = IGroupChatDelegate(groupDelegate_).GROUP_ADDRESS();
-        if (love20Group.code.length == 0) {
-            revert GroupNotContract(love20Group);
-        }
-
         GROUP_DELEGATE_ADDRESS = groupDelegate_;
         GROUP_ADDRESS = love20Group;
         MAX_ADMIN_IDS = maxAdminIds_;

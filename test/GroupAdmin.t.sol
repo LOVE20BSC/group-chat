@@ -8,12 +8,6 @@ import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.s
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
 
-contract ZeroGroupDelegate {
-    function GROUP_ADDRESS() external pure returns (address) {
-        return address(0);
-    }
-}
-
 contract GroupAdminTest is GroupChatFixture {
     uint256 internal constant MAX_ADMIN_IDS = 20;
 
@@ -34,22 +28,10 @@ contract GroupAdminTest is GroupChatFixture {
         groupAdmin = new GroupAdmin(address(groupDelegate), MAX_ADMIN_IDS);
     }
 
-    function testT129A_constructorStoresDependenciesAndRejectsInvalidConfig() public {
+    function testT129A_constructorStoresDependencies() public view {
         assertEq(groupAdmin.GROUP_DELEGATE_ADDRESS(), address(groupDelegate));
         assertEq(groupAdmin.GROUP_ADDRESS(), address(groupNft));
         assertEq(groupAdmin.MAX_ADMIN_IDS(), MAX_ADMIN_IDS);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.GroupDelegateNotContract.selector, address(0x1234)));
-        new GroupAdmin(address(0x1234), MAX_ADMIN_IDS);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.ZeroMaxAdminIds.selector));
-        new GroupAdmin(address(groupDelegate), 0);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.GroupDelegateNotContract.selector, address(0)));
-        new GroupAdmin(address(0), MAX_ADMIN_IDS);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.GroupNotContract.selector, address(0)));
-        new GroupAdmin(address(new ZeroGroupDelegate()), MAX_ADMIN_IDS);
     }
 
     function testT129B_ownerAndDelegateCanAddAndRemoveAdmins() public {

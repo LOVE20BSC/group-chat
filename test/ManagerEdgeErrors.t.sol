@@ -9,7 +9,7 @@ import {TestBase} from "./utils/TestBase.sol";
 
 contract MockManagerMemberNFT {
     address public immutable LOVE20_TOKEN_ADDRESS;
-    uint256 public constant MAX_NAME_LENGTH = 64;
+    uint256 public constant MAX_NAME_LENGTH = 32;
 
     bool internal immutable _nameUsed;
     uint256 internal immutable _actualCost;
@@ -41,16 +41,6 @@ contract MockManagerGroupChat {
     }
 }
 
-contract MockManagerActionTarget {
-    address public immutable submitAddress;
-    address public immutable voteAddress;
-
-    constructor(address submitAddress_, address voteAddress_) {
-        submitAddress = submitAddress_;
-        voteAddress = voteAddress_;
-    }
-}
-
 contract ManagerEdgeErrorsTest is TestBase {
     function testT160_managerReportsGroupNameUnavailable() public {
         MockManagerMemberNFT memberNFT = new MockManagerMemberNFT(true, 0);
@@ -72,39 +62,5 @@ contract ManagerEdgeErrorsTest is TestBase {
 
         vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerMintCostChanged.selector, 0, 1));
         manager.activateMockManagedGroup();
-    }
-
-    function testT162_managerRejectsZeroRequiredDependencies() public {
-        MockManagerMemberNFT memberNFT = new MockManagerMemberNFT(false, 0);
-        MockManagerGroupChat groupChat = new MockManagerGroupChat(address(memberNFT));
-        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, address(0))
-        );
-        new MockManager(address(0), address(0), address(0), address(0), address(protocol));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, address(0))
-        );
-        new MockManager(address(groupChat), address(0), address(0), address(0), address(0));
-
-        MockManagerGroupChat zeroMemberNFTGroupChat = new MockManagerGroupChat(address(0));
-        vm.expectRevert(
-            abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, address(0))
-        );
-        new MockManager(address(zeroMemberNFTGroupChat), address(0), address(0), address(0), address(protocol));
-
-        MockManagerActionTarget zeroSubmit = new MockManagerActionTarget(address(0), address(protocol));
-        vm.expectRevert(
-            abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, address(0))
-        );
-        new MockManager(address(groupChat), address(0), address(0), address(0), address(zeroSubmit));
-
-        MockManagerActionTarget zeroVote = new MockManagerActionTarget(address(protocol), address(0));
-        vm.expectRevert(
-            abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, address(0))
-        );
-        new MockManager(address(groupChat), address(0), address(0), address(0), address(zeroVote));
     }
 }

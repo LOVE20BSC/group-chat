@@ -10,7 +10,7 @@ contract MockLOVE20Group {
     uint256 internal _nextTokenId = 1;
     address public LOVE20_TOKEN_ADDRESS;
     uint256 public mintCost;
-    uint256 public MAX_GROUP_NAME_LENGTH = 64;
+    uint256 public MAX_GROUP_NAME_LENGTH = 32;
     mapping(uint256 => address) internal _owners;
     mapping(uint256 => string) internal _groupNames;
     mapping(string => uint256) internal _nameToTokenId;

@@ -37,15 +37,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
     mapping(uint256 => ChatState) internal _states;
 
     constructor(address groupAddress_, uint256 minSupportToOpposeMultiplier_, uint256 banThresholdRatio_) {
-        if (groupAddress_.code.length == 0) {
-            revert GroupNotContract(groupAddress_);
-        }
-        if (minSupportToOpposeMultiplier_ == 0) {
-            revert ZeroMinSupportToOpposeMultiplier();
-        }
-        if (banThresholdRatio_ > PRECISION) {
-            revert BanThresholdTooHigh(banThresholdRatio_);
-        }
         GROUP_ADDRESS = groupAddress_;
         MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = minSupportToOpposeMultiplier_;
         BAN_THRESHOLD_RATIO = banThresholdRatio_;

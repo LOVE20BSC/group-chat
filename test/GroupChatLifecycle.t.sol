@@ -1,23 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {GroupChat} from "../src/GroupChat.sol";
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
-import {MockGroupDelegate} from "./mocks/MockGroupDelegate.sol";
-import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
-import {MockPhase} from "./mocks/MockPhase.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
-
-contract MockGroupChatAdminConfig {
-    address public immutable GROUP_DELEGATE_ADDRESS;
-    address public immutable GROUP_ADDRESS;
-
-    constructor(address groupDelegate_, address groupAddress_) {
-        GROUP_DELEGATE_ADDRESS = groupDelegate_;
-        GROUP_ADDRESS = groupAddress_;
-    }
-}
 
 contract GroupChatLifecycleTest is GroupChatFixture {
     function testT001_constructorStoresConfigAndRoundNotStarted() public {
@@ -30,60 +16,6 @@ contract GroupChatLifecycleTest is GroupChatFixture {
 
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.RoundNotStarted.selector, 1, 0));
         chat.currentRound();
-    }
-
-    function testT002_constructorRejectsAdminWithoutCode() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupAdminNotContract.selector, other));
-        new GroupChat(other, address(phase), maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT002A_constructorRejectsZeroDependencies() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupAdminNotContract.selector, address(0)));
-        new GroupChat(address(0), address(phase), maxContentLength, maxMentionedSenderIds);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PhaseNotContract.selector, address(0)));
-        new GroupChat(address(baseGroupAdmin), address(0), maxContentLength, maxMentionedSenderIds);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PhaseNotContract.selector, other));
-        new GroupChat(address(baseGroupAdmin), other, maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT002C_constructorRejectsDelegateWithoutCode() public {
-        MockGroupChatAdminConfig badAdmin = new MockGroupChatAdminConfig(other, address(groupNft));
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupDelegateNotContract.selector, other));
-        new GroupChat(address(badAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT002E_constructorRejectsDelegateForDifferentGroup() public {
-        MockLOVE20Group otherGroupNft = new MockLOVE20Group();
-        MockGroupDelegate otherGroupDelegate = new MockGroupDelegate(address(otherGroupNft));
-        MockGroupChatAdminConfig badAdmin =
-            new MockGroupChatAdminConfig(address(otherGroupDelegate), address(groupNft));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IGroupChatErrors.GroupAddressMismatch.selector, address(groupNft), address(otherGroupNft)
-            )
-        );
-        new GroupChat(address(badAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT003_constructorRejectsZeroPhaseBlocks() public {
-        MockPhase zeroPhase = new MockPhase(originBlocks, 0);
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ZeroPhaseBlocks.selector));
-        new GroupChat(address(baseGroupAdmin), address(zeroPhase), maxContentLength, maxMentionedSenderIds);
-    }
-
-    function testT003B_constructorRejectsZeroMaxContentLength() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ZeroMaxContentLength.selector));
-        new GroupChat(address(baseGroupAdmin), address(phase), 0, maxMentionedSenderIds);
-    }
-
-    function testT003C_constructorRejectsZeroMaxMentionedSenderIds() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ZeroMaxMentionedSenderIds.selector));
-        new GroupChat(address(baseGroupAdmin), address(phase), maxContentLength, 0);
     }
 
     function testT010_activateChat_requiresCurrentOwner() public {

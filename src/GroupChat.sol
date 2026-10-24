@@ -68,31 +68,8 @@ contract GroupChat is IGroupChat {
         uint256 maxContentLength_,
         uint256 maxMentionedSenderIds_
     ) {
-        if (groupAdmin_.code.length == 0) {
-            revert GroupAdminNotContract(groupAdmin_);
-        }
-        if (phaseAddress_.code.length == 0) {
-            revert PhaseNotContract(phaseAddress_);
-        }
-        if (IPhase(phaseAddress_).ORIGIN_PHASE_BLOCKS() == 0) {
-            revert ZeroPhaseBlocks();
-        }
-        if (maxContentLength_ == 0) {
-            revert ZeroMaxContentLength();
-        }
-        if (maxMentionedSenderIds_ == 0) {
-            revert ZeroMaxMentionedSenderIds();
-        }
-
         address groupDelegate = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
         address groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
-        if (groupDelegate.code.length == 0) {
-            revert GroupDelegateNotContract(groupDelegate);
-        }
-        address delegateGroupAddress = IGroupChatDelegate(groupDelegate).GROUP_ADDRESS();
-        if (delegateGroupAddress != groupAddress) {
-            revert GroupAddressMismatch(groupAddress, delegateGroupAddress);
-        }
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         GROUP_DELEGATE_ADDRESS = groupDelegate;
         GROUP_ADDRESS = groupAddress;

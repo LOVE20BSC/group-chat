@@ -21,8 +21,12 @@ contract TokenMainManager is BaseTokenScopeManager {
         actionTarget_
     ) {}
 
+    function _typeCode() internal pure override returns (string memory) {
+        return "tm";
+    }
+
     function activate(address token) external returns (uint256 groupId) {
-        return _activateToken(token, "mgr_token_main_");
+        return _activateToken(token);
     }
 
     function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {

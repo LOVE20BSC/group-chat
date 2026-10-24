@@ -3,7 +3,6 @@ pragma solidity =0.8.37;
 
 interface IGroupChatDelegateErrors {
     error GroupNotExist(uint256 groupId);
-    error GroupNotContract(address dependency);
     error NotGroupOwner(uint256 groupId);
     error NotMemberOwner(uint256 memberId);
     error DelegatorGroupIdNotAllowed(uint256 groupId, uint256 delegateId);

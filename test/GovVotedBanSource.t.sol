@@ -47,27 +47,6 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         voter2Id = groupNft.mint(voter2Owner);
     }
 
-    function testT129_constructorRejectsInvalidMinSupportToOpposeMultiplier() public {
-        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.ZeroMinSupportToOpposeMultiplier.selector));
-        new GovVotedBanSource(address(groupNft), 0, BAN_THRESHOLD_RATIO);
-    }
-
-    function testT129B_constructorRejectsBanThresholdTooHigh() public {
-        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.BanThresholdTooHigh.selector, 1e18 + 1));
-        new GovVotedBanSource(address(groupNft), MIN_SUPPORT_TO_OPPOSE_MULTIPLIER, 1e18 + 1);
-    }
-
-    function testT129C_constructorRejectsNonContractGroup() public {
-        address eoa = address(0x1234);
-        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.GroupNotContract.selector, eoa));
-        new GovVotedBanSource(eoa, MIN_SUPPORT_TO_OPPOSE_MULTIPLIER, BAN_THRESHOLD_RATIO);
-    }
-
-    function testT129D_constructorRejectsZeroGroupAddress() public {
-        vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.GroupNotContract.selector, address(0)));
-        new GovVotedBanSource(address(0), MIN_SUPPORT_TO_OPPOSE_MULTIPLIER, BAN_THRESHOLD_RATIO);
-    }
-
     function testT130_tokenGovVoteAndOpposeAffectIsBannedAndGroupChat() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);

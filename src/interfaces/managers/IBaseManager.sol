@@ -7,14 +7,11 @@ import {IPostScopeSource} from "../sources/IPostScopeSource.sol";
 import {IBanVoteWeightSource} from "../sources/ban/IBanVoteWeightSource.sol";
 
 interface IBaseManagerErrors {
-    error ManagerDependencyNotContract(address dependency);
     error AlreadyManaged(uint256 groupId);
-    error ZeroRecentRounds();
     error ManagerGroupNameUnavailable();
     error ManagerMintCostChanged(uint256 expected, uint256 actual);
     error TokenNotLOVE20(address token);
     error UnexpectedManagerERC721Received(address operator, address from, uint256 tokenId);
-    error ManagerGroupNameSpaceTooSmall(uint256 maxNameLength, uint256 required);
 }
 
 interface IBaseManager is IPostScopeSource, IBanVoteWeightSource, IERC721Receiver, IBaseManagerErrors {

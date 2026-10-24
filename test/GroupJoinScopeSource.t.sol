@@ -6,7 +6,6 @@ import {GroupAdmin} from "../src/GroupAdmin.sol";
 import {GroupChatBanList} from "../src/GroupChatBanList.sol";
 import {GroupMember} from "../src/GroupMember.sol";
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
-import {IGroupJoinScopeSourceErrors} from "../src/interfaces/sources/scope/IGroupJoinScopeSource.sol";
 import {AdminBanSource} from "../src/sources/ban/AdminBanSource.sol";
 import {GroupJoinScopeSource} from "../src/sources/scope/GroupJoinScopeSource.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
@@ -35,28 +34,6 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
         member = new GroupMember(address(groupAdmin));
         groupActionExecutor = new MockGroupActionIndexes();
         scope = new GroupJoinScopeSource(address(member), address(groupActionExecutor));
-    }
-
-    function testT130_constructorRequiresGroupActionExecutorCode() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupActionExecutorNotContract.selector, address(0x1234))
-        );
-        new GroupJoinScopeSource(address(member), address(0x1234));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupMemberNotContract.selector, address(0x1234))
-        );
-        new GroupJoinScopeSource(address(0x1234), address(groupActionExecutor));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupMemberNotContract.selector, address(0))
-        );
-        new GroupJoinScopeSource(address(0), address(groupActionExecutor));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IGroupJoinScopeSourceErrors.GroupActionExecutorNotContract.selector, address(0))
-        );
-        new GroupJoinScopeSource(address(member), address(0));
     }
 
     function testT131_groupJoinParticipationControlsPost() public {

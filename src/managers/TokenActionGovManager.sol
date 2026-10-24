@@ -22,8 +22,12 @@ contract TokenActionGovManager is BaseTokenActionScopeManager {
         )
     {}
 
+    function _typeCode() internal pure override returns (string memory) {
+        return "ag";
+    }
+
     function activate(address token, uint256 actionId) external returns (uint256 groupId) {
-        return _activateManagedAction(token, actionId, "mgr_action_gov_");
+        return _activateManagedAction(token, actionId);
     }
 
     function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {

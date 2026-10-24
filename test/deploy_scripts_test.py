@@ -33,6 +33,21 @@ ADDRESS_FIELDS = [
     "TOKEN_ACTION_MAIN_MANAGER_ADDRESS",
 ]
 
+CORE_ADDRESSES = {
+    "LOVE20_TOKEN_ADDRESS": "0x" + "55" * 20,
+    "MEMBER_NFT_ADDRESS": "0x" + "11" * 20,
+    "PHASE_ADDRESS": "0x" + "22" * 20,
+    "SUBMIT_ADDRESS": "0x" + "66" * 20,
+    "VOTE_ADDRESS": "0x" + "77" * 20,
+    "STAKE_ADDRESS": "0x" + "88" * 20,
+    "LAUNCH_ADDRESS": "0x" + "99" * 20,
+}
+
+ACTION_ADDRESSES = {
+    "ACTION_TARGET_ADDRESS": "0x" + "33" * 20,
+    "GROUP_ACTION_EXECUTOR_ADDRESS": "0x" + "44" * 20,
+}
+
 
 def fake_tool(tool, args):
     data = json.loads(Path(os.environ["MOCK_DATA"]).read_text())
@@ -47,6 +62,26 @@ def fake_tool(tool, args):
             if os.environ.get("RPC_CODE_ERROR"):
                 return 1
             print("0x01")
+        elif args[0] == "call":
+            signature = args[2]
+            call_values = {
+                "LOVE20_TOKEN_ADDRESS()(address)": data["core"]["LOVE20_TOKEN_ADDRESS"],
+                "ORIGIN_PHASE_BLOCKS()(uint256)": "100",
+                "submitAddress()(address)": data["core"]["SUBMIT_ADDRESS"],
+                "voteAddress()(address)": data["core"]["VOTE_ADDRESS"],
+                "stakeAddress()(address)": data["core"]["STAKE_ADDRESS"],
+                "launchAddress()(address)": data["core"]["LAUNCH_ADDRESS"],
+                "memberNFTAddress()(address)": data["core"]["MEMBER_NFT_ADDRESS"],
+                "phaseAddress()(address)": data["core"]["PHASE_ADDRESS"],
+                "MAX_NAME_LENGTH()(uint256)": "32",
+            }
+            if signature in call_values:
+                print(call_values[signature])
+            elif '"forge", "script"' in Path(os.environ["MOCK_LOG"]).read_text():
+                # 21_check 的其余 getter：返回零值让校验失败，触发一键部署的回滚分支。
+                print("0x" + "00" * 20 if signature.endswith("(address)") else "0")
+            else:
+                raise AssertionError(args)
         else:
             raise AssertionError(args)
     elif tool == "mktemp":
@@ -98,12 +133,13 @@ def main():
         data_path, log_path = root / "rpc.json", root / "calls.log"
         tmp_dir = root / "tmp"
         tmp_dir.mkdir()
-        data_path.write_text(json.dumps({"chain_id": "31337", "addresses": addresses}))
+        data_path.write_text(
+            json.dumps({"chain_id": "31337", "addresses": addresses, "core": CORE_ADDRESSES}))
         network.joinpath("network.params").write_text("CHAIN_ID=31337\nRPC_URL=http://invalid.local\n")
         network.joinpath("addresses.core.params").write_text(
-            "MEMBER_NFT_ADDRESS=0x" + "11" * 20 + "\nPHASE_ADDRESS=0x" + "22" * 20 + "\n")
+            "".join(f"{field}={value}\n" for field, value in CORE_ADDRESSES.items()))
         network.joinpath("addresses.action.params").write_text(
-            "ACTION_TARGET_ADDRESS=0x" + "33" * 20 + "\nGROUP_ACTION_EXECUTOR_ADDRESS=0x" + "44" * 20 + "\n")
+            "".join(f"{field}={value}\n" for field, value in ACTION_ADDRESSES.items()))
         network.joinpath("group-chat.params").write_text(
             "GROUP_CHAT_ACTION_RECENT_ROUNDS=1\n"
             "GROUP_CHAT_MAX_CONTENT_LENGTH=1\n"
@@ -140,6 +176,11 @@ def main():
         def forge_script_call(log):
             return next(call for call in log if call[:2] == ["forge", "script"])
 
+        def assert_cast_call(log, address, signature):
+            assert any(
+                call[:3] == ["cast", "call", address] and call[3] == signature for call in log
+            ), (address, signature, log)
+
         def kept_log_from(output):
             assert "Deployment log:" in output, output
             path = Path(output.split("Deployment log:", 1)[1].splitlines()[0].strip())
@@ -155,6 +196,18 @@ def main():
             assert "PASSWORD_MODE=600" in output, output
             assert "PASSWORD_SHA=" + hashlib.sha256(b"test-password").hexdigest() in output, output
             assert len([call for call in log if call[0] == "osascript"]) == 1, log
+            for address, signature in (
+                (CORE_ADDRESSES["MEMBER_NFT_ADDRESS"], "LOVE20_TOKEN_ADDRESS()(address)"),
+                (CORE_ADDRESSES["MEMBER_NFT_ADDRESS"], "MAX_NAME_LENGTH()(uint256)"),
+                (CORE_ADDRESSES["PHASE_ADDRESS"], "ORIGIN_PHASE_BLOCKS()(uint256)"),
+                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "memberNFTAddress()(address)"),
+                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "phaseAddress()(address)"),
+                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "submitAddress()(address)"),
+                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "voteAddress()(address)"),
+                (CORE_ADDRESSES["VOTE_ADDRESS"], "stakeAddress()(address)"),
+                (CORE_ADDRESSES["STAKE_ADDRESS"], "launchAddress()(address)"),
+            ):
+                assert_cast_call(log, address, signature)
             text = saved.read_text()
             assert all(field + "=" + value in text for field, value in addresses.items()), text
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
@@ -246,7 +299,7 @@ def main():
 
         def assert_one_click_check_failure_recovery():
             saved.write_text("# previous deployment\n")
-            # 21_check 的 cast call 未在假工具里实现：11 成功后 21 失败，触发回滚分支。
+            # 21_check 的其余 getter 在假工具里返回零值，制造校验失败以触发回滚分支。
             result, _ = run("one_click_deploy.sh", False)
             output = result.stdout + result.stderr
             assert "New deployment addresses" in output, output

@@ -7,6 +7,7 @@ import {ISubmit} from "@core/interfaces/ISubmit.sol";
 import {IStake} from "@core/interfaces/IStake.sol";
 import {IVote} from "@core/interfaces/IVote.sol";
 import {Pagination} from "@libs/Pagination.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
     uint256 public immutable RECENT_ROUNDS;
@@ -45,7 +46,6 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         address actionTarget_,
         uint256 recentRounds_
     ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
-        _requireRecentRounds(recentRounds_);
         RECENT_ROUNDS = recentRounds_;
     }
 
@@ -113,15 +113,17 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         return IStake(STAKE_ADDRESS).globalGovVotes(token);
     }
 
-    function _activateManagedAction(address token, uint256 actionId, string memory managerPrefix)
-        internal
-        returns (uint256 groupId)
-    {
+    function _activateManagedAction(address token, uint256 actionId) internal returns (uint256 groupId) {
         _requireLOVE20Token(token);
         _requireExistingAction(token, actionId);
         _requireNotManaged(_groupIdOfAction[token][actionId]);
 
-        groupId = _mintManagedGroup(_tokenActionGroupNameStem(managerPrefix, token, actionId));
+        bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
+        string memory symbol = _tokenNamePayload(token);
+        string memory action = Strings.toString(actionId);
+        string memory payload = bytes(symbol).length == 0 ? action : string(abi.encodePacked(symbol, "_", action));
+        (string memory stem, uint256 randomHexLength) = _managedGroupNameStem(payload, requiresTestPrefix);
+        groupId = _mintManagedGroup(stem, randomHexLength, requiresTestPrefix);
         // forge-lint: disable-next-item(missing-events-access-control)
         _actionOfGroup[groupId] = ManagedAction({token: token, actionId: actionId});
         // forge-lint: disable-next-item(missing-events-access-control)

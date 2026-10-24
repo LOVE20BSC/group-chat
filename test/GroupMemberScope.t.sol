@@ -6,7 +6,6 @@ import {GroupMember} from "../src/GroupMember.sol";
 import {IGroupAdminErrors} from "../src/interfaces/IGroupAdmin.sol";
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {IGroupMemberErrors} from "../src/interfaces/IGroupMember.sol";
-import {IGroupMemberScopeErrors} from "../src/interfaces/sources/scope/IGroupMemberScope.sol";
 import {GroupMemberScope} from "../src/sources/scope/GroupMemberScope.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
@@ -26,22 +25,10 @@ contract GroupMemberScopeTest is GroupChatFixture {
         scope = new GroupMemberScope(address(member));
     }
 
-    function testT133A_constructorsStoreDependenciesAndRejectNoCodeDependencies() public {
+    function testT133A_constructorsStoreDependencies() public view {
         assertEq(member.GROUP_ADMIN_ADDRESS(), address(groupAdmin));
         assertEq(member.GROUP_ADDRESS(), address(groupNft));
         assertEq(scope.GROUP_MEMBER_ADDRESS(), address(member));
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupAdminNotContract.selector, address(0x1234)));
-        new GroupMember(address(0x1234));
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupMemberScopeErrors.GroupMemberNotContract.selector, address(0x1234)));
-        new GroupMemberScope(address(0x1234));
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupAdminNotContract.selector, address(0)));
-        new GroupMember(address(0));
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupMemberScopeErrors.GroupMemberNotContract.selector, address(0)));
-        new GroupMemberScope(address(0));
     }
 
     function testT133B_adminCanAddAndRemoveMemberIds() public {

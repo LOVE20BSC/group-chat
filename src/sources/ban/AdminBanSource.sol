@@ -8,9 +8,6 @@ contract AdminBanSource is IAdminBanSource {
     address public immutable GROUP_BAN_LIST_ADDRESS;
 
     constructor(address groupBanList_) {
-        if (groupBanList_.code.length == 0) {
-            revert GroupBanListNotContract(groupBanList_);
-        }
         GROUP_BAN_LIST_ADDRESS = groupBanList_;
     }
 

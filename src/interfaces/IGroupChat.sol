@@ -2,12 +2,8 @@
 pragma solidity =0.8.37;
 
 interface IGroupChatErrors {
-    error GroupAdminNotContract(address dependency);
-    error GroupDelegateNotContract(address dependency);
-    error PhaseNotContract(address dependency);
     error SourceNotContract(address dependency);
     error PluginNotContract(address dependency);
-    error GroupAddressMismatch(address expected, address actual);
     error GroupNotExist(uint256 groupId);
     error ChatAlreadyActivated(uint256 groupId);
     error ChatNotActivated(uint256 groupId);
@@ -17,9 +13,6 @@ interface IGroupChatErrors {
     error NotGroupOperator(uint256 groupId, uint256 operatorId);
     error NotMemberOwner(uint256 memberId);
     error Reentrant();
-    error ZeroPhaseBlocks();
-    error ZeroMaxContentLength();
-    error ZeroMaxMentionedSenderIds();
     error ContentEmpty();
     error ContentTooLong(uint256 length, uint256 maxLength);
     error TooManyMentionedSenderIds(uint256 length, uint256 maxLength);

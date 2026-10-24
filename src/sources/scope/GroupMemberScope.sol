@@ -8,9 +8,6 @@ contract GroupMemberScope is IGroupMemberScope {
     address public immutable GROUP_MEMBER_ADDRESS;
 
     constructor(address groupMember_) {
-        if (groupMember_.code.length == 0) {
-            revert GroupMemberNotContract(groupMember_);
-        }
         GROUP_MEMBER_ADDRESS = groupMember_;
     }
 

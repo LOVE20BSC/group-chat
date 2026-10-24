@@ -87,14 +87,6 @@ contract OperatorAuthTest is GroupChatFixture {
         banList.banBySenderIds(groupId, groupId, _uints(0));
     }
 
-    function testT209_zeroGroupAdminRejectedByMemberAndBanList() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.GroupAdminNotContract.selector, address(0)));
-        new GroupChatBanList(address(0));
-
-        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupAdminNotContract.selector, address(0)));
-        new GroupMember(address(0));
-    }
-
     function _uints(uint256 value) internal pure returns (uint256[] memory values) {
         values = new uint256[](1);
         values[0] = value;

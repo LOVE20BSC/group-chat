@@ -33,7 +33,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokens[0], token);
         assertEq(tokenGroupIds.length, 1);
         assertEq(tokenGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_main_TestLOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "tm_TestLOVE20_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setBalance(senderOwner, 1);
@@ -72,7 +72,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokens[0], token);
         assertEq(tokenGroupIds.length, 1);
         assertEq(tokenGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_gov_TestLOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "tg_TestLOVE20_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setGovVotes(token, senderId, 7);
@@ -86,9 +86,6 @@ contract TypedManagersTest is GroupChatFixture {
         address token = address(protocol);
         TokenActionGovManager manager =
             new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
-
-        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ZeroRecentRounds.selector));
-        new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(IBaseTokenActionScopeManagerErrors.ActionNotExist.selector, token, uint256(42))
@@ -111,7 +108,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionIds[0], 42);
         assertEq(actionGroupIds.length, 1);
         assertEq(actionGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_gov_TestLOVE20_42_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "ag_TestLOVE20_42_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setActionVotes(token, 5, senderId, 42, 1);
@@ -168,7 +165,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(actionIds[0], 88);
         assertEq(actionGroupIds.length, 1);
         assertEq(actionGroupIds[0], groupId);
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_action_main_TestLOVE20_88_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "am_TestLOVE20_88_");
 
         assertTrue(!_canPostAllowed(groupId, senderId));
         protocol.setActionVotes(token, 9, senderId, 88, 1);
@@ -265,13 +262,7 @@ contract TypedManagersTest is GroupChatFixture {
         assertEq(tokenGroupIds[0], secondGroupId);
     }
 
-    function testT114_typedManagerProtocolDependenciesRequireCode() public {
-        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
-        new TokenGovManager(address(chat), address(0), address(0), address(0), other);
-
-        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerDependencyNotContract.selector, other));
-        new TokenMainManager(address(chat), address(0), address(0), address(0), other);
-
+    function testT114_typedManagerRejectsNonLOVE20Token() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         address token = address(protocol);
         protocol.setLOVE20Token(token, false);
@@ -296,10 +287,10 @@ contract TypedManagersTest is GroupChatFixture {
         groupId = manager.activate(address(protocol));
 
         assertEq(chat.chatInfo(groupId).owner, address(manager));
-        _assertStartsWith(groupNft.groupNameOf(groupId), "Testmgr_token_main_TestLOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "Testtm_TestLOVE20_");
     }
 
-    function testT117_tokenMainManagerFallsBackToFixedLabelForNonAsciiSymbol() public {
+    function testT117_tokenMainManagerKeepsChineseSymbol() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         MockERC20Payment token = new MockERC20Payment();
         token.setSymbol(unicode"测试");
@@ -308,7 +299,222 @@ contract TypedManagersTest is GroupChatFixture {
             new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
         groupId = _activateToken(manager, address(token));
 
-        _assertStartsWith(groupNft.groupNameOf(groupId), "mgr_token_main_TOKEN_");
+        string memory name = groupNft.groupNameOf(groupId);
+        _assertStartsWith(name, unicode"tm_测试_");
+        assertEq(bytes(name).length, 14);
+    }
+
+    function testT118_tokenMainManagerDropsPayloadWhenSymbolTooLong() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol(_repeatAscii("A", 30));
+
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+        groupId = manager.activate(address(token));
+
+        string memory name = groupNft.groupNameOf(groupId);
+        assertEq(bytes(name).length, 32);
+        _assertStartsWith(name, "tm_");
+        _assertHexFrom(name, 3);
+    }
+
+    function testT119_actionManagerDropsPayloadWhenSymbolTooLong() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol(_repeatAscii("A", 30));
+        protocol.setActionsCount(address(token), 42);
+
+        TokenActionMainManager manager =
+            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
+        groupId = manager.activate(address(token), 42);
+
+        string memory name = groupNft.groupNameOf(groupId);
+        assertEq(bytes(name).length, 32);
+        _assertStartsWith(name, "am_");
+        _assertHexFrom(name, 3);
+    }
+
+    function testT120_testPrefixBudgetDropsAtTwentyOneBytes() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment love20Payment = MockERC20Payment(groupNft.LOVE20_TOKEN_ADDRESS());
+        love20Payment.setSymbol("TestLOVE20");
+
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+
+        MockERC20Payment fits = new MockERC20Payment();
+        fits.setSymbol(_repeatAscii("A", 20));
+        string memory fitsName = groupNft.groupNameOf(manager.activate(address(fits)));
+        _assertStartsWith(fitsName, string(abi.encodePacked("Testtm_", _repeatAscii("A", 20), "_")));
+        assertEq(bytes(fitsName).length, 32);
+
+        MockERC20Payment overflow = new MockERC20Payment();
+        overflow.setSymbol(_repeatAscii("A", 21));
+        string memory overflowName = groupNft.groupNameOf(manager.activate(address(overflow)));
+        _assertStartsWith(overflowName, "Testtm_");
+        assertEq(bytes(overflowName).length, 32);
+        _assertHexFrom(overflowName, 7);
+    }
+
+    function testT121_tokenMainManagerDropsSymbolWhenNoNameSafeChars() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol("!!!");
+
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+        groupId = manager.activate(address(token));
+
+        string memory name = groupNft.groupNameOf(groupId);
+        assertEq(bytes(name).length, 32);
+        _assertStartsWith(name, "tm_");
+        _assertHexFrom(name, 3);
+    }
+
+    function testT122_actionManagerKeepsSixDigitAction() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol("ABCD");
+        protocol.setActionsCount(address(token), 123456);
+
+        TokenActionMainManager manager =
+            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
+        groupId = manager.activate(address(token), 123456);
+
+        string memory name = groupNft.groupNameOf(groupId);
+        _assertStartsWith(name, "am_ABCD_123456_");
+        assertEq(bytes(name).length, 19);
+    }
+
+    function testT123_actionManagerDropsPayloadWhenSymbolPlusActionTooLong() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol(_repeatAscii("A", 20));
+        protocol.setActionsCount(address(token), 123456);
+
+        TokenActionMainManager manager =
+            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
+        groupId = manager.activate(address(token), 123456);
+
+        string memory name = groupNft.groupNameOf(groupId);
+        assertEq(bytes(name).length, 32);
+        _assertStartsWith(name, "am_");
+        _assertHexFrom(name, 3);
+    }
+
+    function testFuzz_T124_tokenMainManagerNameAlwaysFits(uint256 symbolLengthSeed) public {
+        uint256 symbolLength = symbolLengthSeed % 80 + 1;
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol(_repeatAscii("A", symbolLength));
+
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+        groupId = manager.activate(address(token));
+
+        string memory name = groupNft.groupNameOf(groupId);
+        bytes memory nameBytes = bytes(name);
+        _assertStartsWith(name, "tm_");
+
+        if (symbolLength <= 24) {
+            assertEq(nameBytes.length, symbolLength + 8);
+            assertTrue(nameBytes[3] == "A");
+        } else {
+            assertEq(nameBytes.length, 32);
+            _assertHexFrom(name, 3);
+        }
+    }
+
+    function testT125_actionPayloadBoundary() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        TokenActionMainManager manager =
+            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
+
+        MockERC20Payment normalFits = new MockERC20Payment();
+        normalFits.setSymbol(_repeatAscii("A", 17));
+        protocol.setActionsCount(address(normalFits), 123456);
+        string memory normalFitsName = groupNft.groupNameOf(manager.activate(address(normalFits), 123456));
+        _assertStartsWith(normalFitsName, string(abi.encodePacked("am_", _repeatAscii("A", 17), "_123456_")));
+        assertEq(bytes(normalFitsName).length, 32);
+
+        MockERC20Payment normalOverflow = new MockERC20Payment();
+        normalOverflow.setSymbol(_repeatAscii("A", 18));
+        protocol.setActionsCount(address(normalOverflow), 123456);
+        string memory normalOverflowName = groupNft.groupNameOf(manager.activate(address(normalOverflow), 123456));
+        assertEq(bytes(normalOverflowName).length, 32);
+        _assertStartsWith(normalOverflowName, "am_");
+        _assertHexFrom(normalOverflowName, 3);
+
+        MockERC20Payment love20Payment = MockERC20Payment(groupNft.LOVE20_TOKEN_ADDRESS());
+        love20Payment.setSymbol("TestLOVE20");
+
+        MockERC20Payment testFits = new MockERC20Payment();
+        testFits.setSymbol(_repeatAscii("A", 13));
+        protocol.setActionsCount(address(testFits), 123456);
+        string memory testFitsName = groupNft.groupNameOf(manager.activate(address(testFits), 123456));
+        _assertStartsWith(testFitsName, string(abi.encodePacked("Testam_", _repeatAscii("A", 13), "_123456_")));
+        assertEq(bytes(testFitsName).length, 32);
+
+        MockERC20Payment testOverflow = new MockERC20Payment();
+        testOverflow.setSymbol(_repeatAscii("A", 14));
+        protocol.setActionsCount(address(testOverflow), 123456);
+        string memory testOverflowName = groupNft.groupNameOf(manager.activate(address(testOverflow), 123456));
+        assertEq(bytes(testOverflowName).length, 32);
+        _assertStartsWith(testOverflowName, "Testam_");
+        _assertHexFrom(testOverflowName, 7);
+    }
+
+    function testT126_actionManagerUsesActionOnlyWhenSymbolIsEmpty() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol("!!!");
+        protocol.setActionsCount(address(token), 42);
+
+        TokenActionMainManager manager =
+            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
+        groupId = manager.activate(address(token), 42);
+
+        string memory name = groupNft.groupNameOf(groupId);
+        _assertStartsWith(name, "am_42_");
+        assertEq(bytes(name).length, 10);
+    }
+
+    function testT127_tokenManagerFitsAtMinimumNameLength() public {
+        groupNft.setMaxGroupNameLength(11);
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+
+        MockERC20Payment fits = new MockERC20Payment();
+        fits.setSymbol("AAA");
+        string memory fitsName = groupNft.groupNameOf(manager.activate(address(fits)));
+        _assertStartsWith(fitsName, "tm_AAA_");
+        assertEq(bytes(fitsName).length, 11);
+
+        MockERC20Payment overflow = new MockERC20Payment();
+        overflow.setSymbol("AAAA");
+        string memory overflowName = groupNft.groupNameOf(manager.activate(address(overflow)));
+        assertEq(bytes(overflowName).length, 11);
+        _assertStartsWith(overflowName, "tm_");
+        _assertHexFrom(overflowName, 3);
+    }
+
+    function testT128_tokenManagerTestPrefixAtMinimumNameLength() public {
+        groupNft.setMaxGroupNameLength(11);
+        MockERC20Payment love20Payment = MockERC20Payment(groupNft.LOVE20_TOKEN_ADDRESS());
+        love20Payment.setSymbol("TestLOVE20");
+
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        TokenMainManager manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol("A");
+
+        string memory name = groupNft.groupNameOf(manager.activate(address(token)));
+        _assertStartsWith(name, "Testtm_");
+        assertEq(bytes(name).length, 11);
+        _assertHexFrom(name, 7);
     }
 
     function _activateToken(TokenMainManager manager, address token) internal returns (uint256) {
@@ -321,6 +527,24 @@ contract TypedManagersTest is GroupChatFixture {
         assertTrue(valueBytes.length >= prefixBytes.length);
         for (uint256 i = 0; i < prefixBytes.length; i++) {
             assertEq(valueBytes[i], prefixBytes[i]);
+        }
+    }
+
+    function _repeatAscii(string memory value, uint256 count) internal pure returns (string memory) {
+        bytes memory valueBytes = bytes(value);
+        bytes memory result = new bytes(count * valueBytes.length);
+        for (uint256 i = 0; i < result.length; i++) {
+            result[i] = valueBytes[i % valueBytes.length];
+        }
+        return string(result);
+    }
+
+    function _assertHexFrom(string memory value, uint256 start) internal pure {
+        bytes memory valueBytes = bytes(value);
+        assertTrue(valueBytes.length > start);
+        for (uint256 i = start; i < valueBytes.length; i++) {
+            bytes1 char = valueBytes[i];
+            assertTrue((char >= "0" && char <= "9") || (char >= "a" && char <= "f"));
         }
     }
 

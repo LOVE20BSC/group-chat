@@ -28,9 +28,6 @@ contract GroupChatBanList is IGroupChatBanList {
     mapping(uint256 => ChatState) internal _states;
 
     constructor(address groupAdmin_) {
-        if (groupAdmin_.code.length == 0) {
-            revert GroupAdminNotContract(groupAdmin_);
-        }
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         _groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
         _groupDelegateAddress = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();

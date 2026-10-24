@@ -8,7 +8,6 @@ import {GroupChatBanList} from "../src/GroupChatBanList.sol";
 import {IGroupAdminErrors} from "../src/interfaces/IGroupAdmin.sol";
 
 import {IGroupChatBanList} from "../src/interfaces/IGroupChatBanList.sol";
-import {IAdminBanSourceErrors} from "../src/interfaces/sources/ban/IAdminBanSource.sol";
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {AdminBanSource} from "../src/sources/ban/AdminBanSource.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
@@ -33,17 +32,6 @@ contract AdminBanSourceTest is GroupChatFixture {
         groupAdmin = new GroupAdmin(address(groupDelegate), MAX_ADMIN_IDS);
         banList = new GroupChatBanList(address(groupAdmin));
         banSource = new AdminBanSource(address(banList));
-    }
-
-    function testT119_constructorRejectsNonContractBanList() public {
-        address eoa = address(0x1234);
-        vm.expectRevert(abi.encodeWithSelector(IAdminBanSourceErrors.GroupBanListNotContract.selector, eoa));
-        new AdminBanSource(eoa);
-    }
-
-    function testT119B_constructorRejectsZeroBanList() public {
-        vm.expectRevert(abi.encodeWithSelector(IAdminBanSourceErrors.GroupBanListNotContract.selector, address(0)));
-        new AdminBanSource(address(0));
     }
 
     function testT120_ownerAndDelegateCanManageBanLists() public {
@@ -224,9 +212,6 @@ contract AdminBanSourceTest is GroupChatFixture {
     }
 
     function testT124B_addAdminsRejectsAdminCountAboveLimit() public {
-        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.ZeroMaxAdminIds.selector));
-        new GroupAdmin(address(groupDelegate), 0);
-
         uint256[] memory admins = new uint256[](MAX_ADMIN_IDS + 1);
         for (uint256 i = 0; i < admins.length; i++) {
             admins[i] = groupNft.mint(address(uint160(0xA000 + i)));

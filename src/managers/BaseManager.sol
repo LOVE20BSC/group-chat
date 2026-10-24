@@ -9,7 +9,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
-import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseManager is IBaseManager {
     using SafeERC20 for IERC20;
@@ -22,9 +21,8 @@ abstract contract BaseManager is IBaseManager {
     address public immutable AFTER_POST_PLUGIN_ADDRESS;
 
     bytes4 internal constant TEST_PREFIX = bytes4("Test");
-    bytes internal constant FALLBACK_TOKEN_SYMBOL = "TOKEN";
     bytes16 internal constant HEX_SYMBOLS = "0123456789abcdef";
-    uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 12;
+    uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 4;
     uint256 internal constant GROUP_NAME_SEPARATOR_BYTES = 1;
     uint256 internal constant GROUP_NAME_TEST_PREFIX_BYTES = 4;
 
@@ -41,27 +39,12 @@ abstract contract BaseManager is IBaseManager {
         address afterPostPlugin_,
         address actionTarget_
     ) {
-        _requireCode(groupChat_);
-        _requireOptionalCode(banSource_);
-        _requireOptionalCode(beforePostPlugin_);
-        _requireOptionalCode(afterPostPlugin_);
-        _requireCode(actionTarget_);
-
         address memberNFT = IGroupChat(groupChat_).GROUP_ADDRESS();
-        _requireCode(memberNFT);
-
         address submit = IActionTarget(actionTarget_).submitAddress();
         address vote = IActionTarget(actionTarget_).voteAddress();
-        _requireCode(submit);
-        _requireCode(vote);
         GROUP_CHAT_ADDRESS = groupChat_;
         GROUP_ADDRESS = memberNFT;
         MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();
-        uint256 requiredNameLength = GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH
-            + GROUP_NAME_TEST_PREFIX_BYTES;
-        if (MAX_NAME_LENGTH < requiredNameLength) {
-            revert ManagerGroupNameSpaceTooSmall(MAX_NAME_LENGTH, requiredNameLength);
-        }
         BAN_SOURCE_ADDRESS = banSource_;
         BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
         AFTER_POST_PLUGIN_ADDRESS = afterPostPlugin_;
@@ -81,8 +64,12 @@ abstract contract BaseManager is IBaseManager {
         return IERC721Receiver.onERC721Received.selector;
     }
 
-    function _mintManagedGroup(string memory groupNameStem) internal returns (uint256 groupId) {
-        string memory groupName = _nextGroupName(groupNameStem);
+    function _mintManagedGroup(
+        string memory groupNameStem,
+        uint256 randomHexLength,
+        bool requiresTestPrefix
+    ) internal returns (uint256 groupId) {
+        string memory groupName = _nextGroupName(groupNameStem, randomHexLength, requiresTestPrefix);
         IMemberNFT memberNFT = IMemberNFT(GROUP_ADDRESS);
 
         uint256 expectedMintCost = memberNFT.calculateMintCost(groupName);
@@ -105,51 +92,41 @@ abstract contract BaseManager is IBaseManager {
         );
     }
 
-    function _requireCode(address target) internal view {
-        if (target.code.length == 0) {
-            revert ManagerDependencyNotContract(target);
-        }
-    }
-
-    function _requireOptionalCode(address target) internal view {
-        if (target != address(0)) {
-            _requireCode(target);
-        }
-    }
-
     function _requireNotManaged(uint256 managedGroupId) internal pure {
         if (managedGroupId != 0) {
             revert AlreadyManaged(managedGroupId);
         }
     }
 
-    function _requireRecentRounds(uint256 recentRounds) internal pure {
-        if (recentRounds == 0) {
-            revert ZeroRecentRounds();
-        }
-    }
+    function _typeCode() internal view virtual returns (string memory);
 
-    function _tokenGroupNameStem(string memory managerPrefix, address token) internal view returns (string memory) {
-        return string(abi.encodePacked(managerPrefix, _tokenSymbolLabel(token)));
-    }
-
-    function _tokenActionGroupNameStem(string memory managerPrefix, address token, uint256 actionId)
+    function _managedGroupNameStem(string memory payload, bool requiresTestPrefix)
         internal
         view
-        returns (string memory)
+        returns (string memory stem, uint256 randomHexLength)
     {
-        return string(abi.encodePacked(managerPrefix, _tokenSymbolLabel(token), "_", Strings.toString(actionId)));
+        string memory typeCode = _typeCode();
+        uint256 fixedBytes = bytes(typeCode).length + GROUP_NAME_SEPARATOR_BYTES * 2
+            + GROUP_NAME_RANDOM_HEX_LENGTH + (requiresTestPrefix ? GROUP_NAME_TEST_PREFIX_BYTES : 0);
+
+        if (bytes(payload).length != 0 && fixedBytes + bytes(payload).length <= MAX_NAME_LENGTH) {
+            return (string(abi.encodePacked(typeCode, "_", payload)), GROUP_NAME_RANDOM_HEX_LENGTH);
+        }
+
+        randomHexLength = MAX_NAME_LENGTH - bytes(typeCode).length - GROUP_NAME_SEPARATOR_BYTES
+            - (requiresTestPrefix ? GROUP_NAME_TEST_PREFIX_BYTES : 0);
+        return (typeCode, randomHexLength);
     }
 
-    function _nextGroupName(string memory groupNameStem) internal returns (string memory) {
-        bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
+    function _nextGroupName(
+        string memory groupNameStem,
+        uint256 randomHexLength,
+        bool requiresTestPrefix
+    ) internal returns (string memory) {
         for (uint256 i = 0; i < 8; i++) {
-            string memory randomHex = _hexString(
-                keccak256(abi.encodePacked(block.chainid, address(this), msg.sender, block.number, _mintNonce))
-            );
+            string memory randomHex = _randomHex(randomHexLength, _mintNonce);
             string memory groupName = _canonicalizeGroupName(
-                string(abi.encodePacked(_fitGroupNameStem(groupNameStem, requiresTestPrefix), "_", randomHex)),
-                requiresTestPrefix
+                string(abi.encodePacked(groupNameStem, "_", randomHex)), requiresTestPrefix
             );
             unchecked {
                 _mintNonce++;
@@ -161,60 +138,9 @@ abstract contract BaseManager is IBaseManager {
         revert ManagerGroupNameUnavailable();
     }
 
-    function _tokenSymbolLabel(address token) internal view returns (string memory) {
-        bytes memory candidate = _sanitizeAsciiTokenSymbol(IERC20Metadata(token).symbol());
-        return candidate.length == 0 ? string(FALLBACK_TOKEN_SYMBOL) : string(candidate);
-    }
-
     function _love20TokenRequiresTestPrefix() internal view returns (bool) {
         address love20 = IMemberNFT(GROUP_ADDRESS).LOVE20_TOKEN_ADDRESS();
         return bytes4(bytes(IERC20Metadata(love20).symbol())) == TEST_PREFIX;
-    }
-
-    function _sanitizeAsciiTokenSymbol(string memory rawSymbol) internal pure returns (bytes memory) {
-        bytes memory input = bytes(rawSymbol);
-        bytes memory output = new bytes(input.length);
-        uint256 outputLength = 0;
-
-        for (uint256 i = 0; i < input.length; i++) {
-            bytes1 char = input[i];
-            if ((char >= 0x30 && char <= 0x39) || (char >= 0x41 && char <= 0x5A) || (char >= 0x61 && char <= 0x7A)) {
-                output[outputLength] = char;
-                outputLength++;
-            }
-        }
-
-        bytes memory trimmed = new bytes(outputLength);
-        for (uint256 i = 0; i < outputLength; i++) {
-            trimmed[i] = output[i];
-        }
-        return trimmed;
-    }
-
-    function _truncateAscii(string memory value, uint256 maxBytes) internal pure returns (string memory) {
-        bytes memory input = bytes(value);
-        if (input.length <= maxBytes) {
-            return value;
-        }
-
-        bytes memory truncated = new bytes(maxBytes);
-        for (uint256 i = 0; i < maxBytes; i++) {
-            truncated[i] = input[i];
-        }
-        return string(truncated);
-    }
-
-    function _fitGroupNameStem(string memory groupNameStem, bool requiresTestPrefix)
-        internal
-        view
-        returns (string memory)
-    {
-        uint256 reservedBytes = GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH;
-        if (requiresTestPrefix && !_hasTestPrefix(groupNameStem)) {
-            reservedBytes += GROUP_NAME_TEST_PREFIX_BYTES;
-        }
-        uint256 maxStemBytes = MAX_NAME_LENGTH > reservedBytes ? MAX_NAME_LENGTH - reservedBytes : 0;
-        return _truncateAscii(groupNameStem, maxStemBytes);
     }
 
     function _canonicalizeGroupName(string memory groupName, bool requiresTestPrefix)
@@ -234,13 +160,24 @@ abstract contract BaseManager is IBaseManager {
             && nameBytes[3] == "t";
     }
 
-    function _hexString(bytes32 value) internal pure returns (string memory) {
-        bytes memory buffer = new bytes(GROUP_NAME_RANDOM_HEX_LENGTH);
-        for (uint256 i = 0; i < GROUP_NAME_RANDOM_HEX_LENGTH / 2; i++) {
-            uint8 b = uint8(value[i]);
-            buffer[2 * i] = HEX_SYMBOLS[b >> 4];
-            buffer[2 * i + 1] = HEX_SYMBOLS[b & 0x0f];
+    function _randomHex(uint256 hexLength, uint256 nonce) internal view returns (string memory) {
+        bytes memory buffer = new bytes(hexLength);
+        uint256 offset = 0;
+        uint256 chunkIndex = 0;
+
+        while (offset < hexLength) {
+            bytes32 randomHash = keccak256(
+                abi.encodePacked(block.chainid, address(this), msg.sender, block.number, nonce, chunkIndex)
+            );
+            uint256 chunkLength = hexLength - offset > 64 ? 64 : hexLength - offset;
+            for (uint256 i = 0; i < chunkLength; i++) {
+                uint8 value = uint8(randomHash[i / 2]);
+                buffer[offset + i] = i % 2 == 0 ? HEX_SYMBOLS[value >> 4] : HEX_SYMBOLS[value & 0x0f];
+            }
+            offset += chunkLength;
+            chunkIndex++;
         }
+
         return string(buffer);
     }
 }

@@ -4,6 +4,8 @@ pragma solidity =0.8.37;
 contract MockLOVE20Protocols {
     string public symbol = "TestLOVE20";
     uint256 internal _currentRound = 1;
+    address public memberNFTAddress;
+    address public phaseAddress;
 
     mapping(address => uint256) public balances;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -17,6 +19,14 @@ contract MockLOVE20Protocols {
 
     function setCurrentRound(uint256 round) external {
         _currentRound = round;
+    }
+
+    function setMemberNFTAddress(address memberNFTAddress_) external {
+        memberNFTAddress = memberNFTAddress_;
+    }
+
+    function setPhaseAddress(address phaseAddress_) external {
+        phaseAddress = phaseAddress_;
     }
 
     function setBalance(address account, uint256 balance) external {

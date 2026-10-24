@@ -23,10 +23,6 @@ contract GroupChatDelegate is IGroupChatDelegate {
     mapping(uint256 => Uint256Set.Storage) internal _allowedDelegatorGroupIdsByDelegateId;
 
     constructor(address groupAddress_) {
-        if (groupAddress_.code.length == 0) {
-            revert GroupNotContract(groupAddress_);
-        }
-
         GROUP_ADDRESS = groupAddress_;
     }
 

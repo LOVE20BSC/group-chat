@@ -69,7 +69,7 @@ cast_call() {
 # cast 对 uint 返回值会带科学计数法标注（形如 [1e18]），比对前先剥掉，
 # 否则 "1000000000000000000" 与 "1000000000000000000 [1e18]" 会被判为不一致。
 strip_sci_notation() {
-    echo "$1" | sed -E 's/\[[0-9]+e[0-9]+\]//g' | tr -d ' '
+    echo "$1" | sed -E 's/\[[0-9.]+e[0-9]+\]//g' | tr -d ' '
 }
 
 check_equal() {
@@ -128,6 +128,25 @@ check_equal "GroupMember: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GROUP_MEMBER_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GovVotedBanSource: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+
+# 当前四个 Manager 的 type code 都是 2 字节，typeCode.length + 9 = 11。
+# 新增更长类型码时同步调整本处、11_deploy.sh 与 DeployGroupChat.s.sol。
+member_love20_address=$(cast_call "$MEMBER_NFT_ADDRESS" "LOVE20_TOKEN_ADDRESS()(address)")
+check_contract_code "MemberNFT: LOVE20_TOKEN_ADDRESS" "$member_love20_address" || ((failed_checks += 1))
+check_equal "MemberNFT: LOVE20_TOKEN_ADDRESS == core" "$LOVE20_TOKEN_ADDRESS" \
+    "$member_love20_address" || ((failed_checks += 1))
+
+MEMBER_MAX_NAME_LENGTH=$(cast_call "$MEMBER_NFT_ADDRESS" "MAX_NAME_LENGTH()(uint256)" 2>/dev/null || echo "ERROR")
+member_max_name_length=$(strip_sci_notation "$MEMBER_MAX_NAME_LENGTH")
+if [ "$MEMBER_MAX_NAME_LENGTH" = "ERROR" ] || [[ ! "$member_max_name_length" =~ ^[0-9]+$ ]]; then
+    echo -e "${RED}✗${NC} MemberNFT: MAX_NAME_LENGTH query failed or invalid"
+    ((failed_checks += 1))
+elif [ "$member_max_name_length" -lt 11 ]; then
+    echo -e "${RED}✗${NC} MemberNFT: MAX_NAME_LENGTH >= 11 (actual: $MEMBER_MAX_NAME_LENGTH)"
+    ((failed_checks += 1))
+else
+    echo -e "${GREEN}✓${NC} MemberNFT: MAX_NAME_LENGTH >= 11 (actual: $MEMBER_MAX_NAME_LENGTH)"
+fi
 echo ""
 
 check_equal "GroupChat: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
@@ -136,6 +155,14 @@ check_equal "GroupChat: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
     "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupChat: PHASE_ADDRESS" "$PHASE_ADDRESS" \
     "$(cast_call "$GROUP_CHAT_ADDRESS" "PHASE_ADDRESS()(address)")" || ((failed_checks += 1))
+phase_origin_blocks=$(cast_call "$PHASE_ADDRESS" "ORIGIN_PHASE_BLOCKS()(uint256)")
+if [[ ! "$(strip_sci_notation "$phase_origin_blocks")" =~ ^[0-9]+$ ]] \
+    || [ "$(strip_sci_notation "$phase_origin_blocks")" -eq 0 ]; then
+    echo -e "${RED}✗${NC} Phase: ORIGIN_PHASE_BLOCKS > 0 (actual: $phase_origin_blocks)"
+    ((failed_checks += 1))
+else
+    echo -e "${GREEN}✓${NC} Phase: ORIGIN_PHASE_BLOCKS (actual: $phase_origin_blocks)"
+fi
 check_equal "GroupAdmin: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
     "$(cast_call "$GROUP_ADMIN_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: MAX_ADMIN_IDS" "$GROUP_CHAT_MAX_ADMIN_IDS" \
@@ -160,6 +187,24 @@ check_equal "GovVotedBanSource: MIN_SUPPORT_TO_OPPOSE_MULTIPLIER" "$GROUP_CHAT_M
     "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "MIN_SUPPORT_TO_OPPOSE_MULTIPLIER()(uint256)")" || ((failed_checks += 1))
 check_equal "GovVotedBanSource: BAN_THRESHOLD_RATIO" "$GROUP_CHAT_BAN_THRESHOLD_RATIO" \
     "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "BAN_THRESHOLD_RATIO()(uint256)")" || ((failed_checks += 1))
+if [[ ! "$GROUP_CHAT_BAN_THRESHOLD_RATIO" =~ ^[0-9]+$ ]] \
+    || [ "$GROUP_CHAT_BAN_THRESHOLD_RATIO" -gt 1000000000000000000 ]; then
+    echo -e "${RED}✗${NC} GovVotedBanSource: BAN_THRESHOLD_RATIO <= 1e18 (actual: $GROUP_CHAT_BAN_THRESHOLD_RATIO)"
+    ((failed_checks += 1))
+else
+    echo -e "${GREEN}✓${NC} GovVotedBanSource: BAN_THRESHOLD_RATIO <= 1e18"
+fi
+for field in GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH \
+    GROUP_CHAT_MAX_MENTIONED_SENDER_IDS GROUP_CHAT_MAX_ADMIN_IDS \
+    GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER; do
+    value="${!field}"
+    if [[ ! "$value" =~ ^[0-9]+$ ]] || [ "$value" -eq 0 ]; then
+        echo -e "${RED}✗${NC} $field must be positive (actual: $value)"
+        ((failed_checks += 1))
+    else
+        echo -e "${GREEN}✓${NC} $field is positive"
+    fi
+done
 echo ""
 
 check_equal "GroupMember: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
@@ -174,8 +219,9 @@ echo ""
 
 echo "Verifying ActionTarget bindings..."
 check_contract_code "ActionTarget" "$ACTION_TARGET_ADDRESS" || ((failed_checks += 1))
-# ActionTarget 暴露 memberNFT/phase/submit/vote 四个地址；前两个应与 core 地址文件一致，
-# 后两个是 action 库内依赖，只要求是已部署合约。
+check_contract_code "GroupActionExecutor" "$GROUP_ACTION_EXECUTOR_ADDRESS" || ((failed_checks += 1))
+# ActionTarget 暴露 memberNFT/phase/submit/vote 四个地址；四个都应与 core 地址文件一致，
+# 并继续校验 Vote.stakeAddress / Stake.launchAddress 的派生链。
 check_equal "ActionTarget: memberNFTAddress" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$ACTION_TARGET_ADDRESS" "memberNFTAddress()(address)")" || ((failed_checks += 1))
 check_equal "ActionTarget: phaseAddress" "$PHASE_ADDRESS" \
@@ -184,11 +230,28 @@ action_target_submit_address=$(cast_call "$ACTION_TARGET_ADDRESS" "submitAddress
 action_target_vote_address=$(cast_call "$ACTION_TARGET_ADDRESS" "voteAddress()(address)")
 check_contract_code "ActionTarget: submitAddress" "$action_target_submit_address" || ((failed_checks += 1))
 check_contract_code "ActionTarget: voteAddress" "$action_target_vote_address" || ((failed_checks += 1))
+check_equal "ActionTarget: submitAddress == SUBMIT_ADDRESS" "$SUBMIT_ADDRESS" \
+    "$action_target_submit_address" || ((failed_checks += 1))
+check_equal "ActionTarget: voteAddress == VOTE_ADDRESS" "$VOTE_ADDRESS" \
+    "$action_target_vote_address" || ((failed_checks += 1))
+vote_stake_address=$(cast_call "$VOTE_ADDRESS" "stakeAddress()(address)")
+check_equal "Vote: stakeAddress == STAKE_ADDRESS" "$STAKE_ADDRESS" "$vote_stake_address" || ((failed_checks += 1))
+stake_launch_address=$(cast_call "$STAKE_ADDRESS" "launchAddress()(address)")
+check_equal "Stake: launchAddress == LAUNCH_ADDRESS" "$LAUNCH_ADDRESS" \
+    "$stake_launch_address" || ((failed_checks += 1))
 echo -e "  SUBMIT_ADDRESS: $action_target_submit_address"
 echo -e "  VOTE_ADDRESS:   $action_target_vote_address"
+echo -e "  STAKE_ADDRESS:  $vote_stake_address"
+echo -e "  LAUNCH_ADDRESS: $stake_launch_address"
 echo ""
 
 echo "Verifying manager immutable configuration..."
+for plugin in GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS; do
+    plugin_address="${!plugin:-0x0000000000000000000000000000000000000000}"
+    if [ "$plugin_address" != "0x0000000000000000000000000000000000000000" ]; then
+        check_contract_code "$plugin" "$plugin_address" || ((failed_checks += 1))
+    fi
+done
 for manager in TOKEN_MAIN_MANAGER TOKEN_GOV_MANAGER TOKEN_ACTION_GOV_MANAGER TOKEN_ACTION_MAIN_MANAGER; do
     manager_address_field="${manager}_ADDRESS"
     manager_address="${!manager_address_field}"

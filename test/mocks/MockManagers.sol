@@ -15,6 +15,10 @@ contract MockManager is BaseManager {
         address actionTarget_
     ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
 
+    function _typeCode() internal pure override returns (string memory) {
+        return "mk";
+    }
+
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
         external
         view
@@ -24,7 +28,7 @@ contract MockManager is BaseManager {
     }
 
     function activateMockManagedGroup() external returns (uint256 groupId) {
-        groupId = _mintManagedGroup("mock_manager");
+        groupId = _mintManagedGroup("mock_manager", GROUP_NAME_RANDOM_HEX_LENGTH, _love20TokenRequiresTestPrefix());
         _activateManagedGroup(groupId);
     }
 
