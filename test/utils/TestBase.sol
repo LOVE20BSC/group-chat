@@ -16,6 +16,7 @@ interface Vm {
     function roll(uint256) external;
     function recordLogs() external;
     function getRecordedLogs() external returns (Log[] memory);
+    function toString(uint256 value) external pure returns (string memory);
 }
 
 contract TestBase {

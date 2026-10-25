@@ -27,7 +27,6 @@ abstract contract BaseManager is IBaseManager {
     uint256 internal constant GROUP_NAME_TEST_PREFIX_BYTES = 4;
 
     address internal immutable ACTION_TARGET_ADDRESS;
-    address internal immutable SUBMIT_ADDRESS;
     address internal immutable VOTE_ADDRESS;
 
     uint256 internal _mintNonce;
@@ -41,7 +40,6 @@ abstract contract BaseManager is IBaseManager {
         address actionTarget_
     ) {
         address memberNFT = IGroupChat(groupChat_).GROUP_ADDRESS();
-        address submit = IActionTarget(actionTarget_).submitAddress();
         address vote = IActionTarget(actionTarget_).voteAddress();
         GROUP_CHAT_ADDRESS = groupChat_;
         GROUP_ADDRESS = memberNFT;
@@ -50,12 +48,15 @@ abstract contract BaseManager is IBaseManager {
         BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
         AFTER_POST_PLUGIN_ADDRESS = afterPostPlugin_;
         ACTION_TARGET_ADDRESS = actionTarget_;
-        SUBMIT_ADDRESS = submit;
         VOTE_ADDRESS = vote;
     }
 
-    function _onERC721ReceivedFromMint(address operator, address from, uint256 tokenId)
-        internal
+    function TYPE_CODE() external view returns (string memory) {
+        return _typeCode();
+    }
+
+    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
+        external
         view
         returns (bytes4)
     {

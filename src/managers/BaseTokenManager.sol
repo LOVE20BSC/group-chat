@@ -22,10 +22,6 @@ abstract contract BaseTokenManager is BaseManager {
         LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).launchAddress();
     }
 
-    function _tokenGovVoteWeight(address token, uint256 memberId) internal view returns (uint256) {
-        return IStake(STAKE_ADDRESS).validGovVotes(token, memberId);
-    }
-
     function _requireLOVE20Token(address token) internal view {
         if (token.code.length == 0 || !ILaunch(LAUNCH_ADDRESS).isLOVE20Token(token)) {
             revert TokenNotLOVE20(token);

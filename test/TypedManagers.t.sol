@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
+import {IBaseManager, IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
 import {IBaseTokenActionScopeManagerErrors} from "../src/interfaces/managers/IBaseTokenActionScopeManager.sol";
 
 import {TokenActionGovManager} from "../src/managers/TokenActionGovManager.sol";
@@ -515,6 +515,32 @@ contract TypedManagersTest is GroupChatFixture {
         _assertStartsWith(name, "Testtm_");
         assertEq(bytes(name).length, 11);
         _assertHexFrom(name, 7);
+    }
+
+    function testT180_managerTypeCodesAreNonEmptyAndDistinct() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        address[4] memory managers = [
+            address(new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol))),
+            address(new TokenGovManager(address(chat), address(0), address(0), address(0), address(protocol))),
+            address(
+                new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3)
+            ),
+            address(
+                new TokenActionGovManager(address(chat), address(0), address(0), address(0), address(protocol), 3)
+            )
+        ];
+
+        bytes32[4] memory seen;
+        for (uint256 i = 0; i < managers.length; i++) {
+            string memory typeCode = IBaseManager(managers[i]).TYPE_CODE();
+            assertTrue(bytes(typeCode).length != 0);
+
+            bytes32 typeCodeHash = keccak256(bytes(typeCode));
+            for (uint256 j = 0; j < i; j++) {
+                assertTrue(typeCodeHash != seen[j]);
+            }
+            seen[i] = typeCodeHash;
+        }
     }
 
     function _activateToken(TokenMainManager manager, address token) internal returns (uint256) {

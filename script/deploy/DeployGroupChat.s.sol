@@ -37,9 +37,10 @@ import {GroupMemberScope} from "../../src/sources/scope/GroupMemberScope.sol";
 
 contract DeployGroupChat is Script {
     uint256 internal constant PRECISION = 1e18;
-    // 当前四类 Manager 的类型码均为 2 字节：2 + 1 分隔符 + 4 位 hex + 4 字节 Test 前缀。
-    // 新增更长类型码时同步调整本常量与 21_check.sh。
-    uint256 internal constant MIN_MANAGER_NAME_LENGTH = 11;
+    uint256 internal constant LONGEST_MANAGER_TYPE_CODE_BYTES = 2;
+    uint256 internal constant GROUP_NAME_SEPARATOR_BYTES = 1;
+    uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 4;
+    uint256 internal constant GROUP_NAME_TEST_PREFIX_BYTES = 4;
 
     struct Dependencies {
         address groupNft;
@@ -161,9 +162,11 @@ contract DeployGroupChat is Script {
             "GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER must be > 0"
         );
         require(config.banThresholdRatio <= PRECISION, "GROUP_CHAT_BAN_THRESHOLD_RATIO must be <= 1e18");
+        uint256 minNameLength = LONGEST_MANAGER_TYPE_CODE_BYTES + GROUP_NAME_SEPARATOR_BYTES
+            + GROUP_NAME_RANDOM_HEX_LENGTH + GROUP_NAME_TEST_PREFIX_BYTES;
         require(
-            IMemberNFT(deps.groupNft).MAX_NAME_LENGTH() >= MIN_MANAGER_NAME_LENGTH,
-            "MemberNFT MAX_NAME_LENGTH must be >= 11"
+            IMemberNFT(deps.groupNft).MAX_NAME_LENGTH() >= minNameLength,
+            string.concat("MemberNFT MAX_NAME_LENGTH must be >= ", vm.toString(minNameLength))
         );
         if (config.beforePostPlugin != address(0)) {
             require(config.beforePostPlugin.code.length != 0, "beforePostPlugin must be a contract");

@@ -2,6 +2,7 @@
 pragma solidity =0.8.37;
 
 import {DeployGroupChat} from "../script/deploy/DeployGroupChat.s.sol";
+import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
 import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {MockPhase} from "./mocks/MockPhase.sol";
@@ -20,6 +21,14 @@ contract DeployGroupChatHarness is DeployGroupChat {
 
     function validateDependenciesForTest(Dependencies memory deps, CoreAddresses memory core) external view {
         _validateDependencies(deps, core);
+    }
+
+    function longestTypeCodeBytesForTest() external pure returns (uint256) {
+        return LONGEST_MANAGER_TYPE_CODE_BYTES;
+    }
+
+    function nameReservedBytesForTest() external pure returns (uint256) {
+        return GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH + GROUP_NAME_TEST_PREFIX_BYTES;
     }
 }
 
@@ -86,15 +95,20 @@ contract DeployGroupChatTest is TestBase {
         harness.validateDependenciesForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), core);
     }
 
-    function testT174_deployScriptRejectsNameSpaceBelowMinimum() public {
+    function testT174_deployScriptRejectsNameSpaceBelowPreBroadcastBound() public {
         MockLOVE20Group memberNFT = new MockLOVE20Group();
-        memberNFT.setMaxGroupNameLength(10);
         MockPhase phase = new MockPhase(block.number + 50, 100);
         MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
         MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
-
         DeployGroupChatHarness harness = new DeployGroupChatHarness();
-        vm.expectRevert(abi.encodeWithSignature("Error(string)", "MemberNFT MAX_NAME_LENGTH must be >= 11"));
+        uint256 minNameLength = harness.longestTypeCodeBytesForTest() + harness.nameReservedBytesForTest();
+        memberNFT.setMaxGroupNameLength(minNameLength - 1);
+
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "Error(string)", string.concat("MemberNFT MAX_NAME_LENGTH must be >= ", vm.toString(minNameLength))
+            )
+        );
         harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), _config());
     }
 
@@ -165,6 +179,37 @@ contract DeployGroupChatTest is TestBase {
         DeployGroupChatHarness harness = new DeployGroupChatHarness();
         vm.expectRevert(abi.encodeWithSignature("Error(string)", "beforePostPlugin must be a contract"));
         harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
+    }
+
+    function testT181_deployScriptNameSpaceBoundMatchesTypeCodes() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.DeployedAddresses memory deployed =
+            harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), _config());
+
+        address[4] memory managers = [
+            deployed.tokenMainManager,
+            deployed.tokenGovManager,
+            deployed.tokenActionGovManager,
+            deployed.tokenActionMainManager
+        ];
+        uint256 longestTypeCode;
+        for (uint256 i = 0; i < managers.length; i++) {
+            uint256 typeCodeLength = bytes(IBaseManager(managers[i]).TYPE_CODE()).length;
+            if (typeCodeLength > longestTypeCode) {
+                longestTypeCode = typeCodeLength;
+            }
+        }
+        assertEq(harness.longestTypeCodeBytesForTest(), longestTypeCode);
+
+        memberNFT.setMaxGroupNameLength(harness.longestTypeCodeBytesForTest() + harness.nameReservedBytesForTest());
+        DeployGroupChat.DeployedAddresses memory redeployed =
+            harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), _config());
+        assertTrue(redeployed.tokenActionGovManager != address(0));
     }
 
     function _deps(

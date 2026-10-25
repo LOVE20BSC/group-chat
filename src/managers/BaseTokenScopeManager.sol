@@ -7,14 +7,6 @@ import {IStake} from "@core/interfaces/IStake.sol";
 import {Pagination} from "@libs/Pagination.sol";
 
 abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeManager {
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
-        external
-        view
-        returns (bytes4)
-    {
-        return _onERC721ReceivedFromMint(operator, from, tokenId);
-    }
-
     mapping(uint256 => address) internal _tokenOfGroup;
     mapping(address => uint256) internal _groupIdOfToken;
     address[] internal _tokens;
@@ -55,12 +47,8 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         }
     }
 
-    function voteWeightOf(uint256 groupId, uint256 voterId) external view returns (uint256) {
-        address token = _tokenOfGroup[groupId];
-        if (token == address(0)) {
-            return 0;
-        }
-        return _tokenGovVoteWeight(token, voterId);
+    function voteWeightOf(uint256 groupId, uint256 voterId) public view returns (uint256) {
+        return _voteWeightOf(_tokenOfGroup[groupId], voterId);
     }
 
     function totalVoteWeight(uint256 groupId) external view returns (uint256) {
@@ -69,6 +57,13 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
             return 0;
         }
         return IStake(STAKE_ADDRESS).globalGovVotes(token);
+    }
+
+    function _voteWeightOf(address token, uint256 voterId) internal view returns (uint256) {
+        if (token == address(0)) {
+            return 0;
+        }
+        return IStake(STAKE_ADDRESS).validGovVotes(token, voterId);
     }
 
     function _activateToken(address token) internal returns (uint256 groupId) {

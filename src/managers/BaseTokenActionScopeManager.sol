@@ -3,6 +3,7 @@ pragma solidity =0.8.37;
 
 import {BaseTokenManager} from "./BaseTokenManager.sol";
 import {IBaseTokenActionScopeManager} from "../interfaces/managers/IBaseTokenActionScopeManager.sol";
+import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {ISubmit} from "@core/interfaces/ISubmit.sol";
 import {IStake} from "@core/interfaces/IStake.sol";
 import {IVote} from "@core/interfaces/IVote.sol";
@@ -11,14 +12,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
     uint256 public immutable RECENT_ROUNDS;
-
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
-        external
-        view
-        returns (bytes4)
-    {
-        return _onERC721ReceivedFromMint(operator, from, tokenId);
-    }
+    address internal immutable SUBMIT_ADDRESS;
 
     struct ManagedAction {
         address token;
@@ -46,6 +40,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         address actionTarget_,
         uint256 recentRounds_
     ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
+        SUBMIT_ADDRESS = IActionTarget(ACTION_TARGET_ADDRESS).submitAddress();
         RECENT_ROUNDS = recentRounds_;
     }
 

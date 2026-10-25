@@ -48,15 +48,15 @@ keystore 密码不继承调用方环境变量，非交互场景请写进 `.accou
 `DeployGroupChat.s.sol` 在 `startBroadcast()` 前校验代码与派生绑定，避免白广播本库合约；`11_deploy.sh`
 只做文件、链、账户与密码编排。
 
-MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ `typeCode.length + 9`（当前四类 2 字节类型码即 11；默认 32 满足），由 `DeployGroupChat.s.sol` 在广播前校验、`21_check.sh` 部署后复核；合约不再检查。建议保持在 32–64，payload 丢弃时的随机串长度会随 MAX 线性增长。
+MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).length + 9`（1 字节分隔符 + 4 位 hex + 4 字节 Test 前缀；当前四类 2 字节类型码即 11；默认 32 满足）。类型码由各 Manager 自己定义，不设集中清单；广播前 Manager 尚未部署，脚本按「当前最长类型码 2 字节」预检 `MAX_NAME_LENGTH ≥ 11`（该假设由 `testT181` 对四个已部署 Manager 的实际 `TYPE_CODE()` 反向锁定），`21_check.sh` 部署后按各 Manager 的 `TYPE_CODE()` 独立复核；合约不再检查。建议保持在 32–64，payload 丢弃时的随机串长度会随 MAX 线性增长。
 
 `GROUP_CHAT_ACTION_RECENT_ROUNDS` 必须 >0，由 `DeployGroupChat.s.sol` 的 `_validateConfig` 广播前校验，`21_check.sh` 复核两个 action Manager 的 `RECENT_ROUNDS`。
 
 构造期静态校验已按 dev-standards §5.7 从合约移除，统一放在部署脚本：
 
-- `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.memberNFTAddress/phaseAddress` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Delegate/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。
+- `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.memberNFTAddress/phaseAddress` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 名称空间下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Delegate/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。
 - `11_deploy.sh` 只负责自包含加载、链/账户/密码、调用 forge 与地址文件原子写入，不重复上述校验。
-- `21_check.sh` 部署后独立复核绑定与参数；运行期输入/状态校验（token/action/member/auth/content）仍由合约执行。
+- `21_check.sh` 部署后独立复核绑定、参数与各 Manager 的 `TYPE_CODE()` 名称空间；运行期输入/状态校验（token/action/member/auth/content）仍由合约执行。
 
 ## 新增网络
 

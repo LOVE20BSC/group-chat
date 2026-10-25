@@ -27,7 +27,6 @@ contract TokenGovManager is BaseTokenScopeManager {
     }
 
     function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
-        address token = _tokenOfGroup[groupId];
-        return token != address(0) && _tokenGovVoteWeight(token, senderId) != 0;
+        return voteWeightOf(groupId, senderId) != 0;
     }
 }

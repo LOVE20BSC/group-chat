@@ -49,6 +49,13 @@ ACTION_ADDRESSES = {
     "GROUP_ACTION_EXECUTOR_ADDRESS": "0x" + "44" * 20,
 }
 
+MANAGER_TYPE_CODES = {
+    "TOKEN_MAIN_MANAGER_ADDRESS": "tm",
+    "TOKEN_GOV_MANAGER_ADDRESS": "tg",
+    "TOKEN_ACTION_GOV_MANAGER_ADDRESS": "ag",
+    "TOKEN_ACTION_MAIN_MANAGER_ADDRESS": "am",
+}
+
 
 def fake_tool(tool, args):
     data = json.loads(Path(os.environ["MOCK_DATA"]).read_text())
@@ -74,7 +81,9 @@ def fake_tool(tool, args):
                 "phaseAddress()(address)": data["core"]["PHASE_ADDRESS"],
                 "MAX_NAME_LENGTH()(uint256)": "32",
             }
-            if signature in call_values:
+            if signature == "TYPE_CODE()(string)":
+                print('"' + data["type_codes"][args[1]] + '"')
+            elif signature in call_values:
                 print(call_values[signature])
             elif '"forge", "script"' in Path(os.environ["MOCK_LOG"]).read_text():
                 # 21_check 的其余 getter：返回零值让校验失败，触发一键部署的回滚分支。
@@ -138,7 +147,12 @@ def main():
         tmp_dir = root / "tmp"
         tmp_dir.mkdir()
         data_path.write_text(
-            json.dumps({"chain_id": "31337", "addresses": addresses, "core": CORE_ADDRESSES}))
+            json.dumps({
+                "chain_id": "31337",
+                "addresses": addresses,
+                "core": CORE_ADDRESSES,
+                "type_codes": {addresses[field]: code for field, code in MANAGER_TYPE_CODES.items()},
+            }))
         network.joinpath("network.params").write_text("CHAIN_ID=31337\nRPC_URL=http://invalid.local\n")
         network.joinpath("addresses.core.params").write_text(
             "".join(f"{field}={value}\n" for field, value in CORE_ADDRESSES.items()))
@@ -318,6 +332,8 @@ def main():
             assert "GROUP_CHAT_ADDRESS=" in output, output
             assert "Broadcast artifact:" in output, output
             assert "The previously saved addresses were restored." in output, output
+            for field, code in MANAGER_TYPE_CODES.items():
+                assert f"{field.removesuffix('_ADDRESS')}: TYPE_CODE '{code}' fits MAX_NAME_LENGTH" in output, output
             assert saved.read_text() == "# previous deployment\n"
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
 

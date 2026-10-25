@@ -33,7 +33,7 @@ contract TokenMainManager is BaseTokenScopeManager {
         address token = _tokenOfGroup[groupId];
         return token != address(0)
             && (
-                _hasTokenBalance(token, senderId) || _tokenGovVoteWeight(token, senderId) != 0
+                _hasTokenBalance(token, senderId) || _voteWeightOf(token, senderId) != 0
                     || _hasTokenActionParticipation(token, senderId)
             );
     }

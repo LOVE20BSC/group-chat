@@ -62,6 +62,9 @@ NC='\033[0m'
 
 failed_checks=0
 
+# 与部署脚本同口径：1 字节分隔符 + 4 位 hex + 4 字节 Test 前缀。
+MANAGER_NAME_RESERVED_BYTES=9
+
 cast_call() {
     cast call "$1" "$2" --rpc-url "$RPC_URL"
 }
@@ -129,23 +132,17 @@ check_equal "GroupMember: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
 check_equal "GovVotedBanSource: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 
-# 当前四个 Manager 的 type code 都是 2 字节，typeCode.length + 9 = 11。
-# 新增更长类型码时同步调整本处、11_deploy.sh 与 DeployGroupChat.s.sol。
+# 名称空间下限按各 Manager 的 TYPE_CODE() 派生，在下方 Manager 循环中校验。
 member_love20_address=$(cast_call "$MEMBER_NFT_ADDRESS" "LOVE20_TOKEN_ADDRESS()(address)")
 check_contract_code "MemberNFT: LOVE20_TOKEN_ADDRESS" "$member_love20_address" || ((failed_checks += 1))
 check_equal "MemberNFT: LOVE20_TOKEN_ADDRESS == core" "$LOVE20_TOKEN_ADDRESS" \
     "$member_love20_address" || ((failed_checks += 1))
 
-MEMBER_MAX_NAME_LENGTH=$(cast_call "$MEMBER_NFT_ADDRESS" "MAX_NAME_LENGTH()(uint256)" 2>/dev/null || echo "ERROR")
-member_max_name_length=$(strip_sci_notation "$MEMBER_MAX_NAME_LENGTH")
-if [ "$MEMBER_MAX_NAME_LENGTH" = "ERROR" ] || [[ ! "$member_max_name_length" =~ ^[0-9]+$ ]]; then
+member_max_name_length=$(cast_call "$MEMBER_NFT_ADDRESS" "MAX_NAME_LENGTH()(uint256)" 2>/dev/null || echo "")
+member_max_name_length=$(strip_sci_notation "$member_max_name_length")
+if [[ ! "$member_max_name_length" =~ ^[0-9]+$ ]]; then
     echo -e "${RED}✗${NC} MemberNFT: MAX_NAME_LENGTH query failed or invalid"
     ((failed_checks += 1))
-elif [ "$member_max_name_length" -lt 11 ]; then
-    echo -e "${RED}✗${NC} MemberNFT: MAX_NAME_LENGTH >= 11 (actual: $MEMBER_MAX_NAME_LENGTH)"
-    ((failed_checks += 1))
-else
-    echo -e "${GREEN}✓${NC} MemberNFT: MAX_NAME_LENGTH >= 11 (actual: $MEMBER_MAX_NAME_LENGTH)"
 fi
 echo ""
 
@@ -265,6 +262,23 @@ for manager in TOKEN_MAIN_MANAGER TOKEN_GOV_MANAGER TOKEN_ACTION_GOV_MANAGER TOK
         "$(cast_call "$manager_address" "BEFORE_POST_PLUGIN_ADDRESS()(address)")" || ((failed_checks += 1))
     check_equal "$manager: AFTER_POST_PLUGIN_ADDRESS" "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}" \
         "$(cast_call "$manager_address" "AFTER_POST_PLUGIN_ADDRESS()(address)")" || ((failed_checks += 1))
+    type_code=$(cast_call "$manager_address" "TYPE_CODE()(string)" 2>/dev/null | tr -d '"' || echo "")
+    type_code_length=$(printf '%s' "$type_code" | wc -c | tr -d ' ')
+    if [ -z "$type_code" ]; then
+        echo -e "${RED}✗${NC} $manager: TYPE_CODE unavailable"
+        ((failed_checks += 1))
+    elif [[ ! "$member_max_name_length" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}✗${NC} $manager: MemberNFT MAX_NAME_LENGTH unavailable, name space unchecked"
+        ((failed_checks += 1))
+    else
+        required_name_length=$((type_code_length + MANAGER_NAME_RESERVED_BYTES))
+        if [ "$member_max_name_length" -lt "$required_name_length" ]; then
+            echo -e "${RED}✗${NC} $manager: MAX_NAME_LENGTH >= TYPE_CODE.length + $MANAGER_NAME_RESERVED_BYTES (required: $required_name_length, actual: $member_max_name_length)"
+            ((failed_checks += 1))
+        else
+            echo -e "${GREEN}✓${NC} $manager: TYPE_CODE '$type_code' fits MAX_NAME_LENGTH ($member_max_name_length >= $required_name_length)"
+        fi
+    fi
     echo ""
 done
 

@@ -19,14 +19,6 @@ contract MockManager is BaseManager {
         return "mk";
     }
 
-    function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)
-        external
-        view
-        returns (bytes4)
-    {
-        return _onERC721ReceivedFromMint(operator, from, tokenId);
-    }
-
     function activateMockManagedGroup() external returns (uint256 groupId) {
         groupId = _mintManagedGroup("mock_manager", GROUP_NAME_RANDOM_HEX_LENGTH, _love20TokenRequiresTestPrefix());
         _activateManagedGroup(groupId);
