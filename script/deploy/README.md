@@ -52,6 +52,10 @@ MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).l
 
 `GROUP_CHAT_ACTION_RECENT_ROUNDS` 必须 >0，由 `DeployGroupChat.s.sol` 的 `_validateConfig` 广播前校验，`21_check.sh` 复核两个 action Manager 的 `RECENT_ROUNDS`。
 
+`GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS` / `GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS` 是必填键：零地址表示不挂载，省略键即失败（不按「未挂载」兜底），`21_check.sh` 与 `31_verify.sh` 同样要求两键存在。
+
+`group-chat.params` 里的长整数可写成 `<尾数>e<指数>`（`3e15` 即 0.3%）或带下划线的分组写法（`1_000_000`），由 `script/deploy/params.sh` 在载入时展开为十进制再导出；展开是纯词法的、没有键表，写错的写法会留给 `vm.envUint` 在广播前报错。
+
 构造期静态校验已按 dev-standards §5.7 从合约移除，统一放在部署脚本：
 
 - `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.memberNFTAddress/phaseAddress` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 名称空间下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Delegate/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。

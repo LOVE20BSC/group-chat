@@ -13,6 +13,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 NETWORK_DIR="$PROJECT_ROOT/script/network/$network"
 
+# 参数文件载入器：1e17 / 1_000_000 这类写法在载入时展开为十进制（见 params.sh）。
+source "$SCRIPT_DIR/params.sh"
+
 if [ ! -d "$NETWORK_DIR" ]; then
     echo "Error: Network directory not found: $NETWORK_DIR"
     exit 1
@@ -25,13 +28,22 @@ for config in network.params addresses.core.params addresses.action.params group
     fi
 done
 
-set -a
-source "$NETWORK_DIR/network.params"
-source "$NETWORK_DIR/addresses.core.params"
-source "$NETWORK_DIR/addresses.action.params"
-source "$NETWORK_DIR/group-chat.params"
-source "$NETWORK_DIR/addresses.group-chat.params"
-set +a
+# 参数只来自文件：清掉调用方环境里可能残留的同名变量，否则缺键会被继承值掩盖。
+unset GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH GROUP_CHAT_MAX_MENTIONED_SENDER_IDS \
+    GROUP_CHAT_MAX_ADMIN_IDS GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER GROUP_CHAT_BAN_THRESHOLD_RATIO \
+    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS
+
+params_load "$NETWORK_DIR/network.params"
+params_load "$NETWORK_DIR/addresses.core.params"
+params_load "$NETWORK_DIR/addresses.action.params"
+params_load "$NETWORK_DIR/group-chat.params"
+params_load "$NETWORK_DIR/addresses.group-chat.params"
+
+# 插件槽位是必填键（零地址=未挂载）：缺键时不能按零地址编码构造参数，否则实参与部署不一致。
+if [ -z "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-}" ] || [ -z "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-}" ]; then
+    echo "Error: GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS / GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set in $NETWORK_DIR/group-chat.params (use 0x0000000000000000000000000000000000000000 for no plugin)" >&2
+    exit 1
+fi
 
 cd "$PROJECT_ROOT"
 
@@ -53,9 +65,9 @@ for field in GROUP_CHAT_DELEGATE_ADDRESS GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS 
     fi
 done
 
-# 插件槽位未配置时按 DeployGroupChat.s.sol 的 envOr 默认值取零地址。
-before_post_plugin="${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}"
-after_post_plugin="${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}"
+# 插件槽位是必填键（零地址=未挂载）：缺键时不能按零地址编码构造参数，否则验证的实参与部署实参不一致。
+before_post_plugin="$GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS"
+after_post_plugin="$GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS"
 
 # 构造参数与 DeployGroupChat.s.sol 的部署实参一一对应；编码失败在命令替换下会静默中止，
 # 故逐个显式判别，保证失败有明确输出。

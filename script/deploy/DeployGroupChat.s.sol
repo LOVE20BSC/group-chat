@@ -176,10 +176,12 @@ contract DeployGroupChat is Script {
         }
     }
 
+    // 插件槽位是必填键：零地址=不挂载，键缺失即 revert。「没配」与「选了不挂载」不能共用同一种表示，
+    // 否则键名拼错会静默部署出一个没有插件的群。
     function _loadConfig() internal view returns (DeployConfig memory config) {
         config.chainId = vm.envUint("CHAIN_ID");
-        config.beforePostPlugin = vm.envOr("GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS", address(0));
-        config.afterPostPlugin = vm.envOr("GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS", address(0));
+        config.beforePostPlugin = vm.envAddress("GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS");
+        config.afterPostPlugin = vm.envAddress("GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS");
         config.maxContentLength = vm.envUint("GROUP_CHAT_MAX_CONTENT_LENGTH");
         config.maxMentionedSenderIds = vm.envUint("GROUP_CHAT_MAX_MENTIONED_SENDER_IDS");
         config.actionRecentRounds = vm.envUint("GROUP_CHAT_ACTION_RECENT_ROUNDS");

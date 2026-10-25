@@ -13,6 +13,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 NETWORK_DIR="$PROJECT_ROOT/script/network/$network"
 
+# 参数文件载入器：1e17 / 1_000_000 这类写法在载入时展开为十进制（见 params.sh）。
+source "$SCRIPT_DIR/params.sh"
+
 if [ ! -d "$NETWORK_DIR" ]; then
     echo "Error: Network directory not found: $NETWORK_DIR"
     exit 1
@@ -25,13 +28,22 @@ for config in network.params addresses.core.params addresses.action.params group
     fi
 done
 
-set -a
-source "$NETWORK_DIR/network.params"
-source "$NETWORK_DIR/addresses.core.params"
-source "$NETWORK_DIR/addresses.action.params"
-source "$NETWORK_DIR/group-chat.params"
-source "$NETWORK_DIR/addresses.group-chat.params"
-set +a
+# 参数只来自文件：清掉调用方环境里可能残留的同名变量，否则缺键会被继承值掩盖。
+unset GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH GROUP_CHAT_MAX_MENTIONED_SENDER_IDS \
+    GROUP_CHAT_MAX_ADMIN_IDS GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER GROUP_CHAT_BAN_THRESHOLD_RATIO \
+    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS
+
+params_load "$NETWORK_DIR/network.params"
+params_load "$NETWORK_DIR/addresses.core.params"
+params_load "$NETWORK_DIR/addresses.action.params"
+params_load "$NETWORK_DIR/group-chat.params"
+params_load "$NETWORK_DIR/addresses.group-chat.params"
+
+# 插件槽位是必填键（零地址=未挂载）：缺键时不能按未挂载继续，也不能拿空串对账。
+if [ -z "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-}" ] || [ -z "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-}" ]; then
+    echo "Error: GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS / GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set in $NETWORK_DIR/group-chat.params (use 0x0000000000000000000000000000000000000000 for no plugin)" >&2
+    exit 1
+fi
 
 # 地址文件的键集合必须与期望合约集合一致：键名漏改会让后续变量静默为空，
 # 逐项 cast 调用要到很后面才以难以定位的形式失败，故在此显式断言。
@@ -244,7 +256,7 @@ echo ""
 
 echo "Verifying manager immutable configuration..."
 for plugin in GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS; do
-    plugin_address="${!plugin:-0x0000000000000000000000000000000000000000}"
+    plugin_address="${!plugin}"
     if [ "$plugin_address" != "0x0000000000000000000000000000000000000000" ]; then
         check_contract_code "$plugin" "$plugin_address" || ((failed_checks += 1))
     fi
@@ -258,9 +270,9 @@ for manager in TOKEN_MAIN_MANAGER TOKEN_GOV_MANAGER TOKEN_ACTION_GOV_MANAGER TOK
         "$(cast_call "$manager_address" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
     check_equal "$manager: BAN_SOURCE_ADDRESS" "$GOV_VOTED_BAN_SOURCE_ADDRESS" \
         "$(cast_call "$manager_address" "BAN_SOURCE_ADDRESS()(address)")" || ((failed_checks += 1))
-    check_equal "$manager: BEFORE_POST_PLUGIN_ADDRESS" "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}" \
+    check_equal "$manager: BEFORE_POST_PLUGIN_ADDRESS" "$GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS" \
         "$(cast_call "$manager_address" "BEFORE_POST_PLUGIN_ADDRESS()(address)")" || ((failed_checks += 1))
-    check_equal "$manager: AFTER_POST_PLUGIN_ADDRESS" "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}" \
+    check_equal "$manager: AFTER_POST_PLUGIN_ADDRESS" "$GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS" \
         "$(cast_call "$manager_address" "AFTER_POST_PLUGIN_ADDRESS()(address)")" || ((failed_checks += 1))
     type_code=$(cast_call "$manager_address" "TYPE_CODE()(string)" 2>/dev/null | tr -d '"' || echo "")
     type_code_length=$(printf '%s' "$type_code" | wc -c | tr -d ' ')

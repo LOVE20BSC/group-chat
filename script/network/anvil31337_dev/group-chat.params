@@ -1,20 +1,17 @@
-# group-chat 合约构造参数。参数名与 DeployGroupChat.s.sol 读取的环境变量一致；
-# 被依赖方地址不在这里配置，见 addresses.core.params / addresses.action.params。
-
-# 行动类 Manager 扫描的最近治理轮数（发言资格窗口）
+# Rounds scanned by action managers (posting eligibility window).
 GROUP_CHAT_ACTION_RECENT_ROUNDS=3
 
-# GroupChat 正文长度与提及数量上限
+# Post body length and mention limits.
 GROUP_CHAT_MAX_CONTENT_LENGTH=4096
 GROUP_CHAT_MAX_MENTIONED_SENDER_IDS=32
 
-# GroupAdmin 每群管理员 NFT 数量上限
+# Max admin NFTs per group.
 GROUP_CHAT_MAX_ADMIN_IDS=20
 
-# GovVotedBanSource：支持票须超过反对票的整数倍数，以及占社区总有效治理票的阈值（1e18）
+# Support votes must exceed oppose votes by this factor; ban threshold ratio (1e18).
 GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER=10
-GROUP_CHAT_BAN_THRESHOLD_RATIO=3000000000000000
+GROUP_CHAT_BAN_THRESHOLD_RATIO=3e15     # 0.30%
 
-# Manager 铸造群时使用的固定插件槽位，零地址表示未挂载
+# Plugin slots for minted groups. Zero address = no plugin; both keys are required.
 GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS=0x0000000000000000000000000000000000000000
 GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS=0x0000000000000000000000000000000000000000

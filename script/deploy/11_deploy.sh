@@ -11,6 +11,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 NETWORK_DIR="$PROJECT_ROOT/script/network/$network"
 
+# 参数文件载入器：1e17 / 1_000_000 这类写法在载入时展开为十进制（见 params.sh）。
+source "$SCRIPT_DIR/params.sh"
+
 if [ ! -d "$NETWORK_DIR" ]; then
     echo "Error: Network directory not found: $NETWORK_DIR"
     exit 1
@@ -27,19 +30,27 @@ for config in network.params addresses.core.params addresses.action.params group
     fi
 done
 
+# 参数只来自文件：清掉调用方环境里可能残留的同名变量，否则缺键会被继承值掩盖。
+unset GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH GROUP_CHAT_MAX_MENTIONED_SENDER_IDS \
+    GROUP_CHAT_MAX_ADMIN_IDS GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER GROUP_CHAT_BAN_THRESHOLD_RATIO \
+    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS
+
 env_password="${KEYSTORE_PASSWORD:-}"
+params_load "$NETWORK_DIR/network.params"
+params_load "$NETWORK_DIR/addresses.core.params"
+params_load "$NETWORK_DIR/addresses.action.params"
+params_load "$NETWORK_DIR/group-chat.params"
+# .account 走普通 source：密码可能含 "#"，不能经过参数展开。
 set -a
-source "$NETWORK_DIR/network.params"
-source "$NETWORK_DIR/addresses.core.params"
-source "$NETWORK_DIR/addresses.action.params"
-source "$NETWORK_DIR/group-chat.params"
 source "$NETWORK_DIR/.account"
 set +a
 
-# 可选插件空值统一按零地址处理，避免 shell 跳过校验而 forge 解析空字符串失败。
-GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS="${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}"
-GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS="${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-0x0000000000000000000000000000000000000000}"
-export GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS
+# 插件槽位必须显式配置：零地址表示未挂载。缺键即失败，不按「未挂载」兜底——
+# 否则键名拼错会静默部署出没有插件的群，且 21_check 拿同一个默认值对账也查不出来。
+if [ -z "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-}" ] || [ -z "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-}" ]; then
+    echo "Error: GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS / GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set in $NETWORK_DIR/group-chat.params (use 0x0000000000000000000000000000000000000000 for no plugin)" >&2
+    exit 1
+fi
 
 # .account 里的空 KEYSTORE_PASSWORD 行不应清掉入口已导出的密码（避免重复弹窗）。
 [ -n "${KEYSTORE_PASSWORD:-}" ] || KEYSTORE_PASSWORD="$env_password"
@@ -145,7 +156,7 @@ if [ -z "$BROADCAST_TIMESTAMP_MS" ] || [ "$BROADCAST_TIMESTAMP_MS" -lt "$((DEPLO
 fi
 
 cat > "$ADDRESS_TMP" <<EOFADDR
-# group-chat 已部署地址，由 script/deploy/11_deploy.sh 写入；勿手改。
+# Deployed addresses, written by script/deploy/11_deploy.sh. Do not edit by hand.
 GROUP_CHAT_DELEGATE_ADDRESS=$GROUP_CHAT_DELEGATE_ADDRESS
 GROUP_ADMIN_ADDRESS=$GROUP_ADMIN_ADDRESS
 GROUP_CHAT_ADDRESS=$GROUP_CHAT_ADDRESS

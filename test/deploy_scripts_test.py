@@ -127,7 +127,31 @@ def fake_tool(tool, args):
     return 0
 
 
+def params_loader_cases() -> None:
+    """params.sh：1e 写法展开、行尾注释、引号内 # 保留、逗号项去空格。"""
+    repo = Path(__file__).resolve().parents[1]
+    cases = [
+        ("A=1e17\n", "100000000000000000"),
+        ("A=3e15  # 0.30%\n", "3000000000000000"),
+        ("A=1_000\n", "1000"),
+        ('A="a # b"\n', "a # b"),
+        ("A=1e17, 4e17\n", "100000000000000000,400000000000000000"),
+        ("A=x1e5y\n", "x1e5y"),
+    ]
+    with tempfile.TemporaryDirectory(prefix="params-loader-test-") as directory:
+        path = Path(directory) / "case.params"
+        for text, expected in cases:
+            path.write_text(text)
+            result = subprocess.run(
+                ["bash", "-c", '. "$1"; params_load "$2"; printf "%s" "$A"',
+                 "bash", str(repo / "script/deploy/params.sh"), str(path)],
+                text=True, capture_output=True)
+            assert result.returncode == 0, (text, result.stderr)
+            assert result.stdout == expected, (text, result.stdout)
+
+
 def main():
+    params_loader_cases()
     group_chat = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix="group-chat-deploy-test-") as directory:
         root = Path(directory)
@@ -164,7 +188,9 @@ def main():
             "GROUP_CHAT_MAX_MENTIONED_SENDER_IDS=1\n"
             "GROUP_CHAT_MAX_ADMIN_IDS=1\n"
             "GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER=1\n"
-            "GROUP_CHAT_BAN_THRESHOLD_RATIO=1\n")
+            "GROUP_CHAT_BAN_THRESHOLD_RATIO=1\n"
+            "GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS=0x" + "0" * 40 + "\n"
+            "GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS=0x" + "0" * 40 + "\n")
         saved = network / "addresses.group-chat.params"
         broadcast = root / "broadcast/DeployGroupChat.s.sol/31337/run-latest.json"
         broadcast.parent.mkdir(parents=True)
@@ -346,6 +372,28 @@ def main():
             assert not saved.exists()
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
 
+        def assert_plugin_keys_required():
+            # 插件槽位缺键即失败：不能把「没配」当成「未挂载」，否则拼错键名会静默部署出无插件的群。
+            saved.write_text("# previous deployment\n")
+            params = network / "group-chat.params"
+            params_text = params.read_text()
+            params.write_text("".join(line for line in params_text.splitlines(True)
+                                      if not line.startswith("GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS=")))
+            try:
+                result, log = run("11_deploy.sh", False)
+                output = result.stdout + result.stderr
+                assert "GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set" in output, output
+                assert not any(call[:2] == ["forge", "script"] for call in log), log
+                assert saved.read_text() == "# previous deployment\n"
+                # 调用方环境里的同名变量不得补位：参数只认 group-chat.params。
+                result, log = run("11_deploy.sh", False, GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS="0x" + "11" * 20)
+                output = result.stdout + result.stderr
+                assert "GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set" in output, output
+                assert not any(call[:2] == ["forge", "script"] for call in log), log
+                assert saved.read_text() == "# previous deployment\n"
+            finally:
+                params.write_text(params_text)
+
         cases = [
             ("01 成功：13 键写盘、密码临时文件 600 且清理", assert_success_writes_all),
             ("02 .account 密码直接使用，不弹窗", assert_account_password),
@@ -359,6 +407,7 @@ def main():
             ("10 上次异常退出遗留的地址临时文件在启动时清理", assert_stale_address_temp_cleanup),
             ("11 一键入口：21 失败时打印新地址并恢复旧记录", assert_one_click_check_failure_recovery),
             ("12 一键入口：21 失败且无旧文件时删除新文件", assert_one_click_check_failure_without_old_file),
+            ("13 插件槽位缺键即失败，不按未挂载兜底", assert_plugin_keys_required),
         ]
         failed = 0
         for name, body in cases:
