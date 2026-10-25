@@ -8,7 +8,8 @@ import {IAfterPostPlugin} from "./interfaces/plugins/IAfterPostPlugin.sol";
 import {IBeforePostPlugin} from "./interfaces/plugins/IBeforePostPlugin.sol";
 import {IPostBanSource} from "./interfaces/sources/IPostBanSource.sol";
 import {IPostScopeSource} from "./interfaces/sources/IPostScopeSource.sol";
-import {MemberOwner} from "./MemberOwner.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {IPhase} from "@core/interfaces/IPhase.sol";
 import {Pagination} from "@libs/Pagination.sol";
 
@@ -89,7 +90,7 @@ contract GroupChat is IGroupChat {
     }
 
     modifier onlySenderOwner(uint256 senderId) {
-        if (MemberOwner.ownerOf(GROUP_ADDRESS, senderId) != msg.sender) {
+        if (IMemberNFT(GROUP_ADDRESS).ownerOf(senderId) != msg.sender) {
             revert NotMemberOwner(senderId);
         }
         _;
@@ -843,7 +844,7 @@ contract GroupChat is IGroupChat {
         }
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
             uint256 mentionedSenderId = mentionedSenderIds[i];
-            MemberOwner.ownerOf(GROUP_ADDRESS, mentionedSenderId);
+            IMemberNFT(GROUP_ADDRESS).ownerOf(mentionedSenderId);
             for (uint256 j = 0; j < i; j++) {
                 if (mentionedSenderIds[j] == mentionedSenderId) {
                     revert DuplicateMemberId(mentionedSenderId);

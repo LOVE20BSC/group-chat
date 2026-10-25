@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
+import {IManagerBaseErrors} from "../src/interfaces/managers/IManagerBase.sol";
 import {MockERC20Payment} from "./mocks/MockLOVE20Group.sol";
 import {MockManager} from "./mocks/MockManagers.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
@@ -49,7 +49,7 @@ contract ManagerEdgeErrorsTest is TestBase {
         MockManager manager =
             new MockManager(address(groupChat), address(0), address(0), address(0), address(protocol));
 
-        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerGroupNameUnavailable.selector));
+        vm.expectRevert(abi.encodeWithSelector(IManagerBaseErrors.ManagerGroupNameUnavailable.selector));
         manager.activateMockManagedGroup();
     }
 
@@ -60,7 +60,7 @@ contract ManagerEdgeErrorsTest is TestBase {
         MockManager manager =
             new MockManager(address(groupChat), address(0), address(0), address(0), address(protocol));
 
-        vm.expectRevert(abi.encodeWithSelector(IBaseManagerErrors.ManagerMintCostChanged.selector, 0, 1));
+        vm.expectRevert(abi.encodeWithSelector(IManagerBaseErrors.ManagerMintCostChanged.selector, 0, 1));
         manager.activateMockManagedGroup();
     }
 }

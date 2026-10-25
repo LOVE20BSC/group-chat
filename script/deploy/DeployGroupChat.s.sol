@@ -24,8 +24,8 @@ import {IAdminBanSource} from "../../src/interfaces/sources/ban/IAdminBanSource.
 import {IGovVotedBanSource} from "../../src/interfaces/sources/ban/IGovVotedBanSource.sol";
 import {IGroupJoinScopeSource} from "../../src/interfaces/sources/scope/IGroupJoinScopeSource.sol";
 import {IGroupMemberScope} from "../../src/interfaces/sources/scope/IGroupMemberScope.sol";
-import {IBaseManager} from "../../src/interfaces/managers/IBaseManager.sol";
-import {IBaseTokenActionScopeManager} from "../../src/interfaces/managers/IBaseTokenActionScopeManager.sol";
+import {IManagerBase} from "../../src/interfaces/managers/IManagerBase.sol";
+import {ITokenActionScopeManagerBase} from "../../src/interfaces/managers/ITokenActionScopeManagerBase.sol";
 import {TokenActionGovManager} from "../../src/managers/TokenActionGovManager.sol";
 import {TokenActionMainManager} from "../../src/managers/TokenActionMainManager.sol";
 import {TokenGovManager} from "../../src/managers/TokenGovManager.sol";
@@ -338,23 +338,23 @@ contract DeployGroupChat is Script {
         DeployedAddresses memory deployed,
         bool isAction
     ) internal view {
-        require(IBaseManager(manager).GROUP_CHAT_ADDRESS() == deployed.groupChat, "manager chat mismatch");
-        require(IBaseManager(manager).GROUP_ADDRESS() == deps.groupNft, "manager group mismatch");
+        require(IManagerBase(manager).GROUP_CHAT_ADDRESS() == deployed.groupChat, "manager chat mismatch");
+        require(IManagerBase(manager).GROUP_ADDRESS() == deps.groupNft, "manager group mismatch");
         require(
-            IBaseManager(manager).BAN_SOURCE_ADDRESS() == deployed.govVotedBanSource,
+            IManagerBase(manager).BAN_SOURCE_ADDRESS() == deployed.govVotedBanSource,
             "manager ban source mismatch"
         );
         require(
-            IBaseManager(manager).BEFORE_POST_PLUGIN_ADDRESS() == config.beforePostPlugin,
+            IManagerBase(manager).BEFORE_POST_PLUGIN_ADDRESS() == config.beforePostPlugin,
             "manager before plugin mismatch"
         );
         require(
-            IBaseManager(manager).AFTER_POST_PLUGIN_ADDRESS() == config.afterPostPlugin,
+            IManagerBase(manager).AFTER_POST_PLUGIN_ADDRESS() == config.afterPostPlugin,
             "manager after plugin mismatch"
         );
         if (isAction) {
             require(
-                IBaseTokenActionScopeManager(manager).RECENT_ROUNDS() == config.actionRecentRounds,
+                ITokenActionScopeManagerBase(manager).RECENT_ROUNDS() == config.actionRecentRounds,
                 "manager recent rounds mismatch"
             );
         }

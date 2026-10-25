@@ -4,7 +4,8 @@ pragma solidity =0.8.37;
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {IGroupMember} from "./interfaces/IGroupMember.sol";
-import {MemberOwner} from "./MemberOwner.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupMember is IGroupMember {
@@ -73,7 +74,7 @@ contract GroupMember is IGroupMember {
         MemberState storage state = _states[groupId];
         for (uint256 i = 0; i < memberIds_.length; i++) {
             uint256 memberId = memberIds_[i];
-            MemberOwner.ownerOf(GROUP_ADDRESS, memberId);
+            IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
             for (uint256 j = 0; j < i; j++) {
                 if (memberIds_[j] == memberId) {
                     revert DuplicateMemberId(memberId);

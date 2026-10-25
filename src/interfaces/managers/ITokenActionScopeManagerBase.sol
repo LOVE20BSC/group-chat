@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IBaseManager} from "./IBaseManager.sol";
+import {IManagerBase} from "./IManagerBase.sol";
 
-interface IBaseTokenActionScopeManagerErrors {
+interface ITokenActionScopeManagerBaseErrors {
     error ActionNotExist(address tokenAddress, uint256 actionId);
 }
 
-interface IBaseTokenActionScopeManager is IBaseManager, IBaseTokenActionScopeManagerErrors {
+interface ITokenActionScopeManagerBase is IManagerBase, ITokenActionScopeManagerBaseErrors {
     event Activate(address indexed token, uint256 indexed actionId, uint256 indexed groupId, address operator);
 
     function RECENT_ROUNDS() external view returns (uint256);

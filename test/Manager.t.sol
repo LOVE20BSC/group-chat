@@ -3,7 +3,7 @@ pragma solidity =0.8.37;
 
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
-import {IBaseManagerErrors} from "../src/interfaces/managers/IBaseManager.sol";
+import {IManagerBaseErrors} from "../src/interfaces/managers/IManagerBase.sol";
 
 import {MockERC20Payment} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
@@ -88,14 +88,14 @@ contract ManagerTest is GroupChatFixture {
         MockManager manager = new MockManager(address(chat), address(0), address(0), address(0), address(managerCenter));
 
         vm.expectRevert(
-            abi.encodeWithSelector(IBaseManagerErrors.UnexpectedManagerERC721Received.selector, chatOwner, address(0), groupId)
+            abi.encodeWithSelector(IManagerBaseErrors.UnexpectedManagerERC721Received.selector, chatOwner, address(0), groupId)
         );
         manager.onERC721Received(chatOwner, address(0), groupId, "");
 
         vm.prank(address(groupNft));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IBaseManagerErrors.UnexpectedManagerERC721Received.selector, chatOwner, chatOwner, groupId
+                IManagerBaseErrors.UnexpectedManagerERC721Received.selector, chatOwner, chatOwner, groupId
             )
         );
         manager.onERC721Received(chatOwner, chatOwner, groupId, "");

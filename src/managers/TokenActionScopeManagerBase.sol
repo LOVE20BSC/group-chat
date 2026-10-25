@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {BaseTokenManager} from "./BaseTokenManager.sol";
-import {IBaseTokenActionScopeManager} from "../interfaces/managers/IBaseTokenActionScopeManager.sol";
+import {TokenManagerBase} from "./TokenManagerBase.sol";
+import {ITokenActionScopeManagerBase} from "../interfaces/managers/ITokenActionScopeManagerBase.sol";
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {ISubmit} from "@core/interfaces/ISubmit.sol";
 import {IStake} from "@core/interfaces/IStake.sol";
@@ -10,7 +10,7 @@ import {IVote} from "@core/interfaces/IVote.sol";
 import {Pagination} from "@libs/Pagination.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
-abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenActionScopeManager {
+abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionScopeManagerBase {
     uint256 public immutable RECENT_ROUNDS;
     address internal immutable SUBMIT_ADDRESS;
 
@@ -39,7 +39,7 @@ abstract contract BaseTokenActionScopeManager is BaseTokenManager, IBaseTokenAct
         address afterPostPlugin_,
         address actionTarget_,
         uint256 recentRounds_
-    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
+    ) TokenManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
         SUBMIT_ADDRESS = IActionTarget(ACTION_TARGET_ADDRESS).submitAddress();
         RECENT_ROUNDS = recentRounds_;
     }

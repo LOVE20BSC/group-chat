@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {BaseManager} from "./BaseManager.sol";
+import {ManagerBase} from "./ManagerBase.sol";
 import {ILaunch} from "@core/interfaces/ILaunch.sol";
 import {IStake} from "@core/interfaces/IStake.sol";
 import {IVote} from "@core/interfaces/IVote.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-abstract contract BaseTokenManager is BaseManager {
+abstract contract TokenManagerBase is ManagerBase {
     address internal immutable STAKE_ADDRESS;
     address internal immutable LAUNCH_ADDRESS;
 
@@ -17,7 +17,7 @@ abstract contract BaseTokenManager is BaseManager {
         address beforePostPlugin_,
         address afterPostPlugin_,
         address actionTarget_
-    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
+    ) ManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
         STAKE_ADDRESS = IVote(VOTE_ADDRESS).stakeAddress();
         LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).launchAddress();
     }

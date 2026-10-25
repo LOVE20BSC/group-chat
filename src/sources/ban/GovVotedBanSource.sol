@@ -3,7 +3,7 @@ pragma solidity =0.8.37;
 
 import {IBanVoteWeightSource} from "../../interfaces/sources/ban/IBanVoteWeightSource.sol";
 import {IGovVotedBanSource} from "../../interfaces/sources/ban/IGovVotedBanSource.sol";
-import {MemberOwner} from "../../MemberOwner.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Uint256Set} from "@libs/Uint256Set.sol";
 

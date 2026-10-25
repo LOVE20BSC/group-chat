@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {BaseTokenActionScopeManager} from "./BaseTokenActionScopeManager.sol";
+import {TokenActionScopeManagerBase} from "./TokenActionScopeManagerBase.sol";
 
-contract TokenActionGovManager is BaseTokenActionScopeManager {
+contract TokenActionGovManager is TokenActionScopeManagerBase {
     constructor(
         address groupChat_,
         address banSource_,
@@ -12,7 +12,7 @@ contract TokenActionGovManager is BaseTokenActionScopeManager {
         address actionTarget_,
         uint256 recentRounds_
     )
-        BaseTokenActionScopeManager(
+        TokenActionScopeManagerBase(
             groupChat_,
             banSource_,
             beforePostPlugin_,

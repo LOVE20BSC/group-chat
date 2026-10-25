@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {BaseTokenManager} from "./BaseTokenManager.sol";
-import {IBaseTokenScopeManager} from "../interfaces/managers/IBaseTokenScopeManager.sol";
+import {TokenManagerBase} from "./TokenManagerBase.sol";
+import {ITokenScopeManagerBase} from "../interfaces/managers/ITokenScopeManagerBase.sol";
 import {IStake} from "@core/interfaces/IStake.sol";
 import {Pagination} from "@libs/Pagination.sol";
 
-abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeManager {
+abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerBase {
     mapping(uint256 => address) internal _tokenOfGroup;
     mapping(address => uint256) internal _groupIdOfToken;
     address[] internal _tokens;
@@ -25,7 +25,7 @@ abstract contract BaseTokenScopeManager is BaseTokenManager, IBaseTokenScopeMana
         address beforePostPlugin_,
         address afterPostPlugin_,
         address actionTarget_
-    ) BaseTokenManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
+    ) TokenManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
 
     function tokensCount() external view returns (uint256) {
         return _tokens.length;

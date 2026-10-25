@@ -2,7 +2,8 @@
 pragma solidity =0.8.37;
 
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
-import {MemberOwner} from "./MemberOwner.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Uint256Set} from "@libs/Uint256Set.sol";
 
@@ -35,7 +36,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     modifier onlyDelegateOwner(uint256 delegateId) {
-        if (MemberOwner.ownerOf(GROUP_ADDRESS, delegateId) != msg.sender) {
+        if (IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId) != msg.sender) {
             revert NotMemberOwner(delegateId);
         }
         _;
@@ -54,7 +55,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         DelegateState storage state = _delegateStates[groupId];
         address targetOwnerSnapshot = delegateId == 0 ? address(0) : owner;
         address targetDelegateOwnerSnapshot =
-            delegateId == 0 ? address(0) : MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
+            delegateId == 0 ? address(0) : IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId);
         if (
             state.delegateId == delegateId && state.ownerSnapshot == targetOwnerSnapshot
                 && state.delegateOwnerSnapshot == targetDelegateOwnerSnapshot
@@ -81,7 +82,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         external
         onlyDelegateOwner(delegateId)
     {
-        address delegateOwner = MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
+        address delegateOwner = IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId);
 
         uint256 length = groupIds.length;
         for (uint256 i = 0; i < length;) {
@@ -101,7 +102,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function setDelegatorWhitelistEnabled(uint256 delegateId, bool enabled) external onlyDelegateOwner(delegateId) {
-        address delegateOwner = MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
+        address delegateOwner = IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId);
         if (_delegatorWhitelistEnabled[delegateId] == enabled) {
             return;
         }
@@ -114,7 +115,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         external
         onlyDelegateOwner(delegateId)
     {
-        address delegateOwner = MemberOwner.ownerOf(GROUP_ADDRESS, delegateId);
+        address delegateOwner = IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId);
 
         uint256 length = groupIds.length;
         if (length == 0) {

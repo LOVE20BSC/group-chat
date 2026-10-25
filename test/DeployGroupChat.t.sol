@@ -2,7 +2,7 @@
 pragma solidity =0.8.37;
 
 import {DeployGroupChat} from "../script/deploy/DeployGroupChat.s.sol";
-import {IBaseManager} from "../src/interfaces/managers/IBaseManager.sol";
+import {IManagerBase} from "../src/interfaces/managers/IManagerBase.sol";
 import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {MockPhase} from "./mocks/MockPhase.sol";
@@ -199,7 +199,7 @@ contract DeployGroupChatTest is TestBase {
         ];
         uint256 longestTypeCode;
         for (uint256 i = 0; i < managers.length; i++) {
-            uint256 typeCodeLength = bytes(IBaseManager(managers[i]).TYPE_CODE()).length;
+            uint256 typeCodeLength = bytes(IManagerBase(managers[i]).TYPE_CODE()).length;
             if (typeCodeLength > longestTypeCode) {
                 longestTypeCode = typeCodeLength;
             }

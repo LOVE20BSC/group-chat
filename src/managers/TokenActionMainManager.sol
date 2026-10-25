@@ -2,9 +2,9 @@
 pragma solidity =0.8.37;
 
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
-import {BaseTokenActionScopeManager} from "./BaseTokenActionScopeManager.sol";
+import {TokenActionScopeManagerBase} from "./TokenActionScopeManagerBase.sol";
 
-contract TokenActionMainManager is BaseTokenActionScopeManager {
+contract TokenActionMainManager is TokenActionScopeManagerBase {
     constructor(
         address groupChat_,
         address banSource_,
@@ -13,7 +13,7 @@ contract TokenActionMainManager is BaseTokenActionScopeManager {
         address actionTarget_,
         uint256 recentRounds_
     )
-        BaseTokenActionScopeManager(
+        TokenActionScopeManagerBase(
             groupChat_,
             banSource_,
             beforePostPlugin_,

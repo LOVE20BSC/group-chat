@@ -2,7 +2,7 @@
 pragma solidity =0.8.37;
 
 import {IGroupChat} from "../interfaces/IGroupChat.sol";
-import {IBaseManager} from "../interfaces/managers/IBaseManager.sol";
+import {IManagerBase} from "../interfaces/managers/IManagerBase.sol";
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -10,7 +10,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 
-abstract contract BaseManager is IBaseManager {
+abstract contract ManagerBase is IManagerBase {
     using SafeERC20 for IERC20;
 
     address public immutable GROUP_CHAT_ADDRESS;

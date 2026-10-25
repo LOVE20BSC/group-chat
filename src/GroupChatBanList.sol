@@ -4,7 +4,7 @@ pragma solidity =0.8.37;
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
 import {IGroupChatBanList} from "./interfaces/IGroupChatBanList.sol";
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
-import {MemberOwner} from "./MemberOwner.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
 import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupChatBanList is IGroupChatBanList {

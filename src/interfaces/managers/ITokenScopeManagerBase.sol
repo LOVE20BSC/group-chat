@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IBaseManager} from "./IBaseManager.sol";
+import {IManagerBase} from "./IManagerBase.sol";
 
-interface IBaseTokenScopeManager is IBaseManager {
+interface ITokenScopeManagerBase is IManagerBase {
     event Activate(address indexed token, uint256 indexed groupId, address indexed operator);
 
     function activate(address token) external returns (uint256 groupId);

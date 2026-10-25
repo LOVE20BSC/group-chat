@@ -3,17 +3,17 @@ pragma solidity =0.8.37;
 
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {MemberOwner} from "../MemberOwner.sol";
-import {BaseTokenScopeManager} from "./BaseTokenScopeManager.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
+import {TokenScopeManagerBase} from "./TokenScopeManagerBase.sol";
 
-contract TokenMainManager is BaseTokenScopeManager {
+contract TokenMainManager is TokenScopeManagerBase {
     constructor(
         address groupChat_,
         address banSource_,
         address beforePostPlugin_,
         address afterPostPlugin_,
         address actionTarget_
-    ) BaseTokenScopeManager(
+    ) TokenScopeManagerBase(
         groupChat_,
         banSource_,
         beforePostPlugin_,

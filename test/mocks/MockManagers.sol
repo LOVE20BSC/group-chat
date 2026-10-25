@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {BaseManager} from "../../src/managers/BaseManager.sol";
+import {ManagerBase} from "../../src/managers/ManagerBase.sol";
 
-contract MockManager is BaseManager {
+contract MockManager is ManagerBase {
     bool public postAllowed = true;
     uint256 public voteWeight = 1;
 
@@ -13,7 +13,7 @@ contract MockManager is BaseManager {
         address beforePostPlugin_,
         address afterPostPlugin_,
         address actionTarget_
-    ) BaseManager(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
+    ) ManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
 
     function _typeCode() internal pure override returns (string memory) {
         return "mk";

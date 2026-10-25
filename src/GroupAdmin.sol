@@ -3,7 +3,8 @@ pragma solidity =0.8.37;
 
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
 import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
-import {MemberOwner} from "./MemberOwner.sol";
+import {MemberOwner} from "@action/MemberOwner.sol";
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Uint256Set} from "@libs/Uint256Set.sol";
 
 contract GroupAdmin is IGroupAdmin {
@@ -40,7 +41,7 @@ contract GroupAdmin is IGroupAdmin {
         address groupOwnerSnapshot = _groupOwnerOfOrRevert(groupId);
         for (uint256 i = 0; i < adminIds_.length; i++) {
             uint256 adminId = adminIds_[i];
-            address adminOwnerSnapshot = MemberOwner.ownerOf(GROUP_ADDRESS, adminId);
+            address adminOwnerSnapshot = IMemberNFT(GROUP_ADDRESS).ownerOf(adminId);
             bool snapshotChanged = false;
             if (state.groupOwnerSnapshots[adminId] != groupOwnerSnapshot) {
                 state.groupOwnerSnapshots[adminId] = groupOwnerSnapshot;
@@ -94,7 +95,7 @@ contract GroupAdmin is IGroupAdmin {
 
     function _validateAdminIds(uint256[] calldata adminIds_) internal view {
         for (uint256 i = 0; i < adminIds_.length; i++) {
-            MemberOwner.ownerOf(GROUP_ADDRESS, adminIds_[i]);
+            IMemberNFT(GROUP_ADDRESS).ownerOf(adminIds_[i]);
             for (uint256 j = 0; j < i; j++) {
                 if (adminIds_[i] == adminIds_[j]) {
                     revert DuplicateMemberId(adminIds_[i]);
