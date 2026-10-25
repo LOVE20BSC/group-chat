@@ -7,6 +7,7 @@ import {IGroupChatBanList} from "../../interfaces/IGroupChatBanList.sol";
 contract AdminBanSource is IAdminBanSource {
     address public immutable GROUP_BAN_LIST_ADDRESS;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupBanList_) {
         GROUP_BAN_LIST_ADDRESS = groupBanList_;
     }

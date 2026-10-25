@@ -62,6 +62,7 @@ contract GroupChat is IGroupChat {
 
     uint256 internal _entered;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(
         address groupAdmin_,
         address phaseAddress_,

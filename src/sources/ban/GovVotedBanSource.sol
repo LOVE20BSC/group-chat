@@ -36,6 +36,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
     mapping(uint256 => ChatState) internal _states;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupAddress_, uint256 minSupportToOpposeMultiplier_, uint256 banThresholdRatio_) {
         GROUP_ADDRESS = groupAddress_;
         MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = minSupportToOpposeMultiplier_;

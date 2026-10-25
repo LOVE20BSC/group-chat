@@ -36,13 +36,9 @@ import {GroupJoinScopeSource} from "../../src/sources/scope/GroupJoinScopeSource
 import {GroupMemberScope} from "../../src/sources/scope/GroupMemberScope.sol";
 
 contract DeployGroupChat is Script {
-    uint256 internal constant DEFAULT_MAX_ADMIN_IDS = 20;
-    uint256 internal constant DEFAULT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = 10;
-    uint256 internal constant DEFAULT_MAX_CONTENT_LENGTH = 4096;
-    uint256 internal constant DEFAULT_MAX_MENTIONED_SENDER_IDS = 32;
     uint256 internal constant PRECISION = 1e18;
     // 当前四类 Manager 的类型码均为 2 字节：2 + 1 分隔符 + 4 位 hex + 4 字节 Test 前缀。
-    // 新增更长类型码时同步调整本常量、11_deploy.sh 与 21_check.sh。
+    // 新增更长类型码时同步调整本常量与 21_check.sh。
     uint256 internal constant MIN_MANAGER_NAME_LENGTH = 11;
 
     struct Dependencies {
@@ -61,6 +57,7 @@ contract DeployGroupChat is Script {
     }
 
     struct DeployConfig {
+        uint256 chainId;
         address beforePostPlugin;
         address afterPostPlugin;
         uint256 maxContentLength;
@@ -88,10 +85,10 @@ contract DeployGroupChat is Script {
     }
 
     function run() external returns (DeployedAddresses memory deployed) {
-        require(block.chainid == vm.envUint("CHAIN_ID"), "Chain ID mismatch");
-
         Dependencies memory deps = _loadDependencies();
+        CoreAddresses memory core = _loadCoreAddresses();
         DeployConfig memory config = _loadConfig();
+        _validateDependencies(deps, core);
         _validateConfig(deps, config);
 
         vm.startBroadcast();
@@ -108,14 +105,16 @@ contract DeployGroupChat is Script {
         deps.phase = vm.envAddress("PHASE_ADDRESS");
         deps.actionTarget = vm.envAddress("ACTION_TARGET_ADDRESS");
         deps.groupActionExecutor = vm.envAddress("GROUP_ACTION_EXECUTOR_ADDRESS");
-        CoreAddresses memory core = CoreAddresses({
+    }
+
+    function _loadCoreAddresses() internal view returns (CoreAddresses memory core) {
+        core = CoreAddresses({
             love20: vm.envAddress("LOVE20_TOKEN_ADDRESS"),
             submit: vm.envAddress("SUBMIT_ADDRESS"),
             vote: vm.envAddress("VOTE_ADDRESS"),
             stake: vm.envAddress("STAKE_ADDRESS"),
             launch: vm.envAddress("LAUNCH_ADDRESS")
         });
-        _validateDependencies(deps, core);
     }
 
     function _validateDependencies(Dependencies memory deps, CoreAddresses memory core) internal view {
@@ -152,6 +151,7 @@ contract DeployGroupChat is Script {
     }
 
     function _validateConfig(Dependencies memory deps, DeployConfig memory config) internal view {
+        require(block.chainid == config.chainId, "Chain ID mismatch");
         require(config.maxContentLength != 0, "GROUP_CHAT_MAX_CONTENT_LENGTH must be > 0");
         require(config.maxMentionedSenderIds != 0, "GROUP_CHAT_MAX_MENTIONED_SENDER_IDS must be > 0");
         require(config.actionRecentRounds != 0, "GROUP_CHAT_ACTION_RECENT_ROUNDS must be > 0");
@@ -174,16 +174,15 @@ contract DeployGroupChat is Script {
     }
 
     function _loadConfig() internal view returns (DeployConfig memory config) {
+        config.chainId = vm.envUint("CHAIN_ID");
         config.beforePostPlugin = vm.envOr("GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS", address(0));
         config.afterPostPlugin = vm.envOr("GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS", address(0));
-        config.maxContentLength = vm.envOr("GROUP_CHAT_MAX_CONTENT_LENGTH", DEFAULT_MAX_CONTENT_LENGTH);
-        config.maxMentionedSenderIds =
-            vm.envOr("GROUP_CHAT_MAX_MENTIONED_SENDER_IDS", DEFAULT_MAX_MENTIONED_SENDER_IDS);
+        config.maxContentLength = vm.envUint("GROUP_CHAT_MAX_CONTENT_LENGTH");
+        config.maxMentionedSenderIds = vm.envUint("GROUP_CHAT_MAX_MENTIONED_SENDER_IDS");
         config.actionRecentRounds = vm.envUint("GROUP_CHAT_ACTION_RECENT_ROUNDS");
-        config.maxAdminIds = vm.envOr("GROUP_CHAT_MAX_ADMIN_IDS", DEFAULT_MAX_ADMIN_IDS);
-        config.minSupportToOpposeMultiplier =
-            vm.envOr("GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER", DEFAULT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER);
-        config.banThresholdRatio = vm.envOr("GROUP_CHAT_BAN_THRESHOLD_RATIO", uint256(3e15));
+        config.maxAdminIds = vm.envUint("GROUP_CHAT_MAX_ADMIN_IDS");
+        config.minSupportToOpposeMultiplier = vm.envUint("GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER");
+        config.banThresholdRatio = vm.envUint("GROUP_CHAT_BAN_THRESHOLD_RATIO");
     }
 
     function _deployCore(Dependencies memory deps, DeployConfig memory config, DeployedAddresses memory deployed)

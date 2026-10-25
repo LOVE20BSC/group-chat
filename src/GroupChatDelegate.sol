@@ -22,6 +22,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
     mapping(uint256 => bool) internal _delegatorWhitelistEnabled;
     mapping(uint256 => Uint256Set.Storage) internal _allowedDelegatorGroupIdsByDelegateId;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupAddress_) {
         GROUP_ADDRESS = groupAddress_;
     }

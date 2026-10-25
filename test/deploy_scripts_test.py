@@ -13,6 +13,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 SECRET_PASSWORD = "do-not-print-this-password"
@@ -59,8 +60,6 @@ def fake_tool(tool, args):
         if args[0] == "chain-id":
             print(os.environ.get("RPC_CHAIN", data["chain_id"]))
         elif args[0] == "code":
-            if os.environ.get("RPC_CODE_ERROR"):
-                return 1
             print("0x01")
         elif args[0] == "call":
             signature = args[2]
@@ -106,6 +105,11 @@ def fake_tool(tool, args):
                   file=sys.stderr)
         if os.environ.get("DEPLOY_FAIL"):
             return 1
+        broadcast = os.environ.get("MOCK_BROADCAST")
+        if broadcast and Path(broadcast).exists():
+            artifact = json.loads(Path(broadcast).read_text())
+            artifact["timestamp"] = 0 if os.environ.get("STALE_BROADCAST") else int(time.time() * 1000)
+            Path(broadcast).write_text(json.dumps(artifact, indent=2))
         for field, value in data["addresses"].items():
             if field != os.environ.get("OMIT_ADDRESS"):
                 print(field + "= " + value)
@@ -148,8 +152,11 @@ def main():
             "GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER=1\n"
             "GROUP_CHAT_BAN_THRESHOLD_RATIO=1\n")
         saved = network / "addresses.group-chat.params"
+        broadcast = root / "broadcast/DeployGroupChat.s.sol/31337/run-latest.json"
+        broadcast.parent.mkdir(parents=True)
+        broadcast.write_text(json.dumps({"timestamp": 0}, indent=2))
         base = {"PATH": str(bin_dir) + os.pathsep + os.environ["PATH"], "MOCK_DATA": str(data_path),
-                "MOCK_LOG": str(log_path), "MOCK_TMP": str(tmp_dir)}
+                "MOCK_LOG": str(log_path), "MOCK_BROADCAST": str(broadcast), "MOCK_TMP": str(tmp_dir)}
         checks = 0
 
         def write_account(password_line=""):
@@ -176,11 +183,6 @@ def main():
         def forge_script_call(log):
             return next(call for call in log if call[:2] == ["forge", "script"])
 
-        def assert_cast_call(log, address, signature):
-            assert any(
-                call[:3] == ["cast", "call", address] and call[3] == signature for call in log
-            ), (address, signature, log)
-
         def kept_log_from(output):
             assert "Deployment log:" in output, output
             path = Path(output.split("Deployment log:", 1)[1].splitlines()[0].strip())
@@ -196,18 +198,9 @@ def main():
             assert "PASSWORD_MODE=600" in output, output
             assert "PASSWORD_SHA=" + hashlib.sha256(b"test-password").hexdigest() in output, output
             assert len([call for call in log if call[0] == "osascript"]) == 1, log
-            for address, signature in (
-                (CORE_ADDRESSES["MEMBER_NFT_ADDRESS"], "LOVE20_TOKEN_ADDRESS()(address)"),
-                (CORE_ADDRESSES["MEMBER_NFT_ADDRESS"], "MAX_NAME_LENGTH()(uint256)"),
-                (CORE_ADDRESSES["PHASE_ADDRESS"], "ORIGIN_PHASE_BLOCKS()(uint256)"),
-                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "memberNFTAddress()(address)"),
-                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "phaseAddress()(address)"),
-                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "submitAddress()(address)"),
-                (ACTION_ADDRESSES["ACTION_TARGET_ADDRESS"], "voteAddress()(address)"),
-                (CORE_ADDRESSES["VOTE_ADDRESS"], "stakeAddress()(address)"),
-                (CORE_ADDRESSES["STAKE_ADDRESS"], "launchAddress()(address)"),
-            ):
-                assert_cast_call(log, address, signature)
+            # 部署期静态校验（依赖绑定、名称空间、参数范围）在 DeployGroupChat.s.sol 的广播前阶段，
+            # 11_deploy.sh 不再重复 cast 校验。
+            assert not any(call[:2] == ["cast", "call"] for call in log), log
             text = saved.read_text()
             assert all(field + "=" + value in text for field, value in addresses.items()), text
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
@@ -229,8 +222,15 @@ def main():
 
         def assert_pre_broadcast_failure_is_quiet():
             saved.write_text("# previous deployment\n")
-            result, log = run("11_deploy.sh", False, RPC_CODE_ERROR="1")
+            params = network / "group-chat.params"
+            params_text = params.read_text()
+            params.unlink()
+            try:
+                result, log = run("11_deploy.sh", False)
+            finally:
+                params.write_text(params_text)
             output = result.stdout + result.stderr
+            assert "Missing required configuration" in output, output
             assert "contracts may already be on chain" not in output, output
             assert "Deployment log:" not in output, output
             assert not any(call[:2] == ["forge", "script"] for call in log), log
@@ -260,7 +260,13 @@ def main():
 
         def assert_one_click_backup_cleanup():
             saved.write_text("# previous deployment\n")
-            result, log = run("one_click_deploy.sh", False, RPC_CODE_ERROR="1")
+            params = network / "group-chat.params"
+            params_text = params.read_text()
+            params.unlink()
+            try:
+                result, log = run("one_click_deploy.sh", False)
+            finally:
+                params.write_text(params_text)
             assert saved.read_text() == "# previous deployment\n"
             assert not any(call[:2] == ["forge", "script"] for call in log), log
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
@@ -292,7 +298,13 @@ def main():
             saved.write_text("# previous deployment\n")
             stale = network / ".addresses.group-chat.params.999"
             stale.write_text("partial")
-            run("11_deploy.sh", False, RPC_CODE_ERROR="1")
+            params = network / "group-chat.params"
+            params_text = params.read_text()
+            params.unlink()
+            try:
+                run("11_deploy.sh", False)
+            finally:
+                params.write_text(params_text)
             assert not stale.exists(), stale
             assert saved.read_text() == "# previous deployment\n"
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())

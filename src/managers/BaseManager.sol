@@ -32,6 +32,7 @@ abstract contract BaseManager is IBaseManager {
 
     uint256 internal _mintNonce;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(
         address groupChat_,
         address banSource_,

@@ -21,6 +21,7 @@ contract GroupAdmin is IGroupAdmin {
 
     mapping(uint256 => AdminState) internal _states;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupDelegate_, uint256 maxAdminIds_) {
         address love20Group = IGroupChatDelegate(groupDelegate_).GROUP_ADDRESS();
         GROUP_DELEGATE_ADDRESS = groupDelegate_;

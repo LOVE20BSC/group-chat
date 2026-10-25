@@ -31,5 +31,4 @@ exclude_lints = [
     "weak-prng",
     "unsafe-typecast",
     "encode-packed-collision",
-    "missing-zero-check",
 ]

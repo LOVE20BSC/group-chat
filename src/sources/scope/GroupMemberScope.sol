@@ -7,6 +7,7 @@ import {IGroupMemberScope} from "../../interfaces/sources/scope/IGroupMemberScop
 contract GroupMemberScope is IGroupMemberScope {
     address public immutable GROUP_MEMBER_ADDRESS;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupMember_) {
         GROUP_MEMBER_ADDRESS = groupMember_;
     }

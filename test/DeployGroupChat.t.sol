@@ -139,6 +139,21 @@ contract DeployGroupChatTest is TestBase {
         harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
     }
 
+    function testT179_deployScriptRejectsChainMismatch() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChat.DeployConfig memory config = _config();
+        config.chainId = block.chainid + 1;
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        vm.expectRevert("Chain ID mismatch");
+        harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
+    }
+
     function testT178_deployScriptRejectsNonContractPlugin() public {
         MockLOVE20Group memberNFT = new MockLOVE20Group();
         MockPhase phase = new MockPhase(block.number + 50, 100);
@@ -166,8 +181,9 @@ contract DeployGroupChatTest is TestBase {
         });
     }
 
-    function _config() internal pure returns (DeployGroupChat.DeployConfig memory) {
+    function _config() internal view returns (DeployGroupChat.DeployConfig memory) {
         return DeployGroupChat.DeployConfig({
+            chainId: block.chainid,
             beforePostPlugin: address(0),
             afterPostPlugin: address(0),
             maxContentLength: 4096,

@@ -27,6 +27,7 @@ contract GroupChatBanList is IGroupChatBanList {
 
     mapping(uint256 => ChatState) internal _states;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupAdmin_) {
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         _groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();

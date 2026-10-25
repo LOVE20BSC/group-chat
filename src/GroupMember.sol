@@ -21,6 +21,7 @@ contract GroupMember is IGroupMember {
 
     mapping(uint256 => MemberState) internal _states;
 
+    // forge-lint: disable-next-item(missing-zero-check)
     constructor(address groupAdmin_) {
         GROUP_ADMIN_ADDRESS = groupAdmin_;
         GROUP_ADDRESS = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
