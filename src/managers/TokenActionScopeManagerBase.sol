@@ -105,7 +105,7 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         if (token == address(0)) {
             return 0;
         }
-        return IStake(STAKE_ADDRESS).globalGovVotes(token);
+        return IStake(STAKE_ADDRESS).totalValidGovVotes(token, currentPhase());
     }
 
     function _activateManagedAction(address token, uint256 actionId) internal returns (uint256 groupId) {

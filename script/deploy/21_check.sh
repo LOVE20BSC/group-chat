@@ -248,6 +248,9 @@ check_equal "Vote: stakeAddress == STAKE_ADDRESS" "$STAKE_ADDRESS" "$vote_stake_
 stake_launch_address=$(cast_call "$STAKE_ADDRESS" "launchAddress()(address)")
 check_equal "Stake: launchAddress == LAUNCH_ADDRESS" "$LAUNCH_ADDRESS" \
     "$stake_launch_address" || ((failed_checks += 1))
+stake_phase_address=$(cast_call "$STAKE_ADDRESS" "phaseAddress()(address)")
+check_equal "Stake: phaseAddress == PHASE_ADDRESS" "$PHASE_ADDRESS" \
+    "$stake_phase_address" || ((failed_checks += 1))
 echo -e "  SUBMIT_ADDRESS: $action_target_submit_address"
 echo -e "  VOTE_ADDRESS:   $action_target_vote_address"
 echo -e "  STAKE_ADDRESS:  $vote_stake_address"

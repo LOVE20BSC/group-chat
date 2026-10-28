@@ -2,14 +2,16 @@
 pragma solidity =0.8.37;
 
 import {ManagerBase} from "./ManagerBase.sol";
+import {IPhase} from "@core/interfaces/IPhase.sol";
 import {ILaunch} from "@core/interfaces/ILaunch.sol";
 import {IStake} from "@core/interfaces/IStake.sol";
 import {IVote} from "@core/interfaces/IVote.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 abstract contract TokenManagerBase is ManagerBase {
-    address internal immutable STAKE_ADDRESS;
-    address internal immutable LAUNCH_ADDRESS;
+    address public immutable STAKE_ADDRESS;
+    address public immutable LAUNCH_ADDRESS;
+    address public immutable PHASE_ADDRESS;
 
     constructor(
         address groupChat_,
@@ -20,12 +22,19 @@ abstract contract TokenManagerBase is ManagerBase {
     ) ManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
         STAKE_ADDRESS = IVote(VOTE_ADDRESS).stakeAddress();
         LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).launchAddress();
+        PHASE_ADDRESS = IStake(STAKE_ADDRESS).phaseAddress();
     }
 
     function _requireLOVE20Token(address token) internal view {
         if (token.code.length == 0 || !ILaunch(LAUNCH_ADDRESS).isLOVE20Token(token)) {
             revert TokenNotLOVE20(token);
         }
+    }
+
+    /// @dev The vote weight a manager reports is the one the community holds now, matching the old
+    ///      protocol's live reads, so every consumer resolves the phase's current round through here.
+    function currentPhase() public view returns (uint256) {
+        return IPhase(PHASE_ADDRESS).currentPhase();
     }
 
     function _tokenNamePayload(address token) internal view returns (string memory) {

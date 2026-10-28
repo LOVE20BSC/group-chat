@@ -17,6 +17,15 @@ contract MockLOVE20Protocols {
     mapping(address => uint256) public proposalCounts;
     mapping(address => uint8) internal _love20TokenFlags;
 
+    constructor() {
+        // The mock plays the phase as well, so the round the managers read is the one it reports.
+        phaseAddress = address(this);
+    }
+
+    function currentPhase() external view returns (uint256) {
+        return _currentRound;
+    }
+
     function setCurrentRound(uint256 round) external {
         _currentRound = round;
     }
@@ -96,11 +105,14 @@ contract MockLOVE20Protocols {
         return address(this);
     }
 
-    function validGovVotes(address tokenAddress, uint256 memberId) external view returns (uint256) {
+    // The real `Stake` is round-keyed; this double answers only the round the phase reports (zero otherwise).
+    function validGovVotes(address tokenAddress, uint256 round, uint256 memberId) external view returns (uint256) {
+        if (round != _currentRound) return 0;
         return govVotes[tokenAddress][memberId];
     }
 
-    function globalGovVotes(address tokenAddress) external view returns (uint256) {
+    function totalValidGovVotes(address tokenAddress, uint256 round) external view returns (uint256) {
+        if (round != _currentRound) return 0;
         return govVoteTotals[tokenAddress];
     }
 
