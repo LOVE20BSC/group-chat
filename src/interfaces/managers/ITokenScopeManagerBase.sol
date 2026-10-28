@@ -3,9 +3,15 @@ pragma solidity =0.8.37;
 
 import {IManagerBase} from "./IManagerBase.sol";
 
-interface ITokenScopeManagerBase is IManagerBase {
-    event Activate(address indexed token, uint256 indexed groupId, address indexed operator);
+interface ITokenScopeManagerBaseEvents {
+    event TokenGroupActivated(
+        address indexed tokenAddress,
+        uint256 indexed groupId,
+        address indexed operator
+    );
+}
 
+interface ITokenScopeManagerBase is IManagerBase, ITokenScopeManagerBaseEvents {
     function activate(address token) external returns (uint256 groupId);
 
     function tokenOfGroup(uint256 groupId) external view returns (address);

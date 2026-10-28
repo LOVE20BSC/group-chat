@@ -8,10 +8,6 @@ contract MockGroupDelegate {
     error NotGroupOwner(uint256 groupId);
     error DelegateIsSelfGroup(uint256 groupId);
 
-    event SetDelegateId(
-        uint256 indexed groupId, address indexed owner, uint256 indexed delegateId, uint256 prevDelegateId
-    );
-
     address public immutable GROUP_ADDRESS;
 
     struct DelegateState {
@@ -43,10 +39,11 @@ contract MockGroupDelegate {
             return;
         }
 
-        uint256 prevDelegateId = _delegateIdOf(state, owner);
         state.delegateId = delegateId;
         state.ownerSnapshot = targetOwnerSnapshot;
-        emit SetDelegateId(groupId, owner, delegateId, prevDelegateId);
+        // No event here: mock-only events land in out/ ABI and fail script/check-events.py (no family),
+        // and this mock cannot supply DelegateChanged's snapshots faithfully. Delegate event coverage
+        // lives on the real GroupChatDelegate.
     }
 
     function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256) {

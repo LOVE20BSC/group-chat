@@ -30,20 +30,23 @@ abstract contract GroupChatFixture is TestBase {
     uint256 internal phaseBlocks = 100;
     uint256 internal maxContentLength = 4096;
     uint256 internal maxMentionedSenderIds = 32;
-    bytes32 internal constant SET_SCOPE_SOURCE_SIG =
-        keccak256("SetScopeSource(uint256,address,uint256,address,address)");
-    bytes32 internal constant SET_BAN_SOURCE_SIG = keccak256("SetBanSource(uint256,address,uint256,address,address)");
-    bytes32 internal constant SET_BEFORE_POST_PLUGIN_SIG =
-        keccak256("SetBeforePostPlugin(uint256,address,uint256,address,address)");
-    bytes32 internal constant SET_AFTER_POST_PLUGIN_SIG =
-        keccak256("SetAfterPostPlugin(uint256,address,uint256,address,address)");
-    bytes32 internal constant ACTIVATE_SIG = keccak256("Activate(uint256,uint256,address)");
-    bytes32 internal constant SET_POSTING_ALLOWED_SIG = keccak256("SetPostingAllowed(uint256,uint256,address,bool)");
-    bytes32 internal constant POST_MESSAGE_SIG = keccak256("PostMessage(uint256,uint256,address,uint256,uint256)");
-    bytes32 internal constant MENTION_SENDER_ID_SIG = keccak256("MentionSenderId(uint256,uint256,uint256)");
-    bytes32 internal constant MENTION_ALL_SIG = keccak256("MentionAll(uint256,uint256)");
-    bytes32 internal constant FAIL_AFTER_POST_PLUGIN_SIG =
-        keccak256("FailAfterPostPlugin(uint256,uint256,address,uint256,bytes32,uint256,bytes4)");
+    bytes32 internal constant SCOPE_SOURCE_CHANGED_SIG =
+        keccak256("ScopeSourceChanged(uint256,address,uint256,address,address)");
+    bytes32 internal constant BAN_SOURCE_CHANGED_SIG =
+        keccak256("BanSourceChanged(uint256,address,uint256,address,address)");
+    bytes32 internal constant BEFORE_POST_PLUGIN_CHANGED_SIG =
+        keccak256("BeforePostPluginChanged(uint256,address,uint256,address,address)");
+    bytes32 internal constant AFTER_POST_PLUGIN_CHANGED_SIG =
+        keccak256("AfterPostPluginChanged(uint256,address,uint256,address,address)");
+    bytes32 internal constant GROUP_CHAT_ACTIVATED_SIG =
+        keccak256("GroupChatActivated(uint256,uint256,address,bool,address,address,address,address)");
+    bytes32 internal constant POSTING_ALLOWED_CHANGED_SIG =
+        keccak256("PostingAllowedChanged(uint256,uint256,address,bool)");
+    bytes32 internal constant MESSAGE_POSTED_SIG =
+        keccak256("MessagePosted(uint256,uint256,uint256,address,uint256,uint256,bool,bool,string)");
+    bytes32 internal constant SENDER_MENTIONED_SIG = keccak256("SenderMentioned(uint256,uint256,uint256)");
+    bytes32 internal constant AFTER_POST_PLUGIN_FAILED_SIG =
+        keccak256("AfterPostPluginFailed(uint256,uint256,uint256,address,bytes32,uint256,bytes4)");
 
     function setUp() public virtual {
         groupNft = new MockLOVE20Group();
@@ -104,12 +107,19 @@ abstract contract GroupChatFixture is TestBase {
         value = abi.decode(data, (address));
     }
 
-    function _decodePostMessage(bytes memory data) internal pure returns (uint256 round, uint256 messageId) {
-        (round, messageId) = abi.decode(data, (uint256, uint256));
-    }
-
-    function _decodeMessageId(bytes memory data) internal pure returns (uint256 messageId) {
-        messageId = abi.decode(data, (uint256));
+    function _decodeMessagePostedData(bytes memory data)
+        internal
+        pure
+        returns (
+            address sender,
+            uint256 round,
+            uint256 quotedMessageId,
+            bool hasQuote,
+            bool mentionAll,
+            string memory content
+        )
+    {
+        return abi.decode(data, (address, uint256, uint256, bool, bool, string));
     }
 
     function _decodeFailAfterPostPluginRound(bytes memory data) internal pure returns (uint256 round) {

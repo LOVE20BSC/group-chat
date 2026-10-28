@@ -27,13 +27,25 @@ interface IGroupChatErrors {
 }
 
 interface IGroupChatEvents {
-    event Activate(uint256 indexed groupId, uint256 indexed ownerId, address indexed owner);
-
-    event SetPostingAllowed(
-        uint256 indexed groupId, uint256 indexed operatorId, address indexed operator, bool postingAllowed
+    event GroupChatActivated(
+        uint256 indexed groupId,
+        uint256 indexed ownerId,
+        address indexed owner,
+        bool postingAllowed,
+        address scopeSource,
+        address banSource,
+        address beforePostPlugin,
+        address afterPostPlugin
     );
 
-    event SetScopeSource(
+    event PostingAllowedChanged(
+        uint256 indexed groupId,
+        uint256 indexed operatorId,
+        address indexed operator,
+        bool postingAllowed
+    );
+
+    event ScopeSourceChanged(
         uint256 indexed groupId,
         address indexed sourceAddress,
         uint256 indexed operatorId,
@@ -41,7 +53,7 @@ interface IGroupChatEvents {
         address prevSourceAddress
     );
 
-    event SetBanSource(
+    event BanSourceChanged(
         uint256 indexed groupId,
         address indexed sourceAddress,
         uint256 indexed operatorId,
@@ -49,7 +61,7 @@ interface IGroupChatEvents {
         address prevSourceAddress
     );
 
-    event SetBeforePostPlugin(
+    event BeforePostPluginChanged(
         uint256 indexed groupId,
         address indexed pluginAddress,
         uint256 indexed operatorId,
@@ -57,7 +69,7 @@ interface IGroupChatEvents {
         address prevPluginAddress
     );
 
-    event SetAfterPostPlugin(
+    event AfterPostPluginChanged(
         uint256 indexed groupId,
         address indexed pluginAddress,
         uint256 indexed operatorId,
@@ -65,23 +77,29 @@ interface IGroupChatEvents {
         address prevPluginAddress
     );
 
-    event PostMessage(
-        uint256 indexed groupId,
-        uint256 indexed senderId,
-        address indexed senderAddress,
-        uint256 round,
-        uint256 messageId
-    );
-
-    event MentionSenderId(uint256 indexed groupId, uint256 indexed mentionedSenderId, uint256 messageId);
-
-    event MentionAll(uint256 indexed groupId, uint256 messageId);
-
-    event FailAfterPostPlugin(
+    event MessagePosted(
         uint256 indexed groupId,
         uint256 indexed messageId,
-        address indexed pluginAddress,
+        uint256 indexed senderId,
+        address sender,
         uint256 round,
+        uint256 quotedMessageId,
+        bool hasQuote,
+        bool mentionAll,
+        string content
+    );
+
+    event SenderMentioned(
+        uint256 indexed groupId,
+        uint256 indexed messageId,
+        uint256 indexed mentionedSenderId
+    );
+
+    event AfterPostPluginFailed(
+        uint256 indexed groupId,
+        uint256 indexed messageId,
+        uint256 round,
+        address indexed pluginAddress,
         bytes32 errorHash,
         uint256 errorLength,
         bytes4 errorSelector

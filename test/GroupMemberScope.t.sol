@@ -9,6 +9,7 @@ import {IGroupMemberErrors} from "../src/interfaces/IGroupMember.sol";
 import {GroupMemberScope} from "../src/sources/scope/GroupMemberScope.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
+import {Vm} from "./utils/TestBase.sol";
 
 contract GroupMemberScopeTest is GroupChatFixture {
     GroupAdmin internal groupAdmin;
@@ -55,6 +56,37 @@ contract GroupMemberScopeTest is GroupChatFixture {
         member.removeMemberIds(groupId, adminId, _uints(senderId));
         assertTrue(!member.isMemberId(groupId, senderId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
+    }
+
+    function testT133B1_memberStatusChangedCarriesListed() public {
+        _configureAdmin();
+
+        vm.recordLogs();
+        vm.prank(adminOwner);
+        member.addMemberIds(groupId, adminId, _uints(senderId, otherGroupId));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        bytes32 memberStatusChangedSig = keccak256("MemberStatusChanged(uint256,uint256,uint256,address,bool)");
+        assertEq(logs.length, 2);
+        assertEq(logs[0].topics[0], memberStatusChangedSig);
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(senderId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(adminOwner))));
+        (uint256 operatorId, bool listed) = abi.decode(logs[0].data, (uint256, bool));
+        assertEq(operatorId, adminId);
+        assertTrue(listed);
+        assertEq(logs[1].topics[2], bytes32(otherGroupId));
+
+        vm.recordLogs();
+        vm.prank(adminOwner);
+        member.removeMemberIds(groupId, adminId, _uints(senderId));
+        logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], memberStatusChangedSig);
+        (operatorId, listed) = abi.decode(logs[0].data, (uint256, bool));
+        assertEq(operatorId, adminId);
+        assertTrue(!listed);
     }
 
     function testT133B2_ownerAndDelegateCanManageMemberIds() public {

@@ -134,19 +134,16 @@ contract GroupChat is IGroupChat {
         config.beforePostPlugin = beforePostPlugin_;
         config.afterPostPlugin = afterPostPlugin_;
 
-        if (scopeSource_ != address(0)) {
-            emit SetScopeSource(groupId, scopeSource_, groupId, msg.sender, address(0));
-        }
-        if (banSource_ != address(0)) {
-            emit SetBanSource(groupId, banSource_, groupId, msg.sender, address(0));
-        }
-        if (beforePostPlugin_ != address(0)) {
-            emit SetBeforePostPlugin(groupId, beforePostPlugin_, groupId, msg.sender, address(0));
-        }
-        if (afterPostPlugin_ != address(0)) {
-            emit SetAfterPostPlugin(groupId, afterPostPlugin_, groupId, msg.sender, address(0));
-        }
-        emit Activate(groupId, groupId, owner);
+        emit GroupChatActivated(
+            groupId,
+            groupId,
+            owner,
+            config.postingAllowed,
+            scopeSource_,
+            banSource_,
+            beforePostPlugin_,
+            afterPostPlugin_
+        );
     }
 
     function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed_)
@@ -163,7 +160,7 @@ contract GroupChat is IGroupChat {
 
         // forge-lint: disable-next-item(missing-events-access-control)
         config.postingAllowed = postingAllowed_;
-        emit SetPostingAllowed(groupId, operatorId, msg.sender, postingAllowed_);
+        emit PostingAllowedChanged(groupId, operatorId, msg.sender, postingAllowed_);
     }
 
     function setScopeSource(
@@ -257,12 +254,9 @@ contract GroupChat is IGroupChat {
 
         _recordRound(groupId, round, messageIndex);
 
-        emit PostMessage(groupId, senderId, msg.sender, round, messageIndex + 1);
+        _emitMessagePosted(groupId, messageIndex);
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
-            emit MentionSenderId(groupId, mentionedSenderIds[i], messageIndex + 1);
-        }
-        if (mentionAll) {
-            emit MentionAll(groupId, messageIndex + 1);
+            emit SenderMentioned(groupId, messageIndex + 1, mentionedSenderIds[i]);
         }
 
         if (config.afterPostPlugin != address(0)) {
@@ -284,11 +278,11 @@ contract GroupChat is IGroupChat {
                         errorSelector := mload(add(err, 0x20))
                     }
                 }
-                emit FailAfterPostPlugin(
+                emit AfterPostPluginFailed(
                     groupId,
                     messageIndex + 1,
-                    config.afterPostPlugin,
                     round,
+                    config.afterPostPlugin,
                     keccak256(err),
                     err.length,
                     errorSelector
@@ -574,9 +568,9 @@ contract GroupChat is IGroupChat {
         }
 
         if (isScope) {
-            emit SetScopeSource(groupId, sourceAddress, operatorId, msg.sender, prevSourceAddress);
+            emit ScopeSourceChanged(groupId, sourceAddress, operatorId, msg.sender, prevSourceAddress);
         } else {
-            emit SetBanSource(groupId, sourceAddress, operatorId, msg.sender, prevSourceAddress);
+            emit BanSourceChanged(groupId, sourceAddress, operatorId, msg.sender, prevSourceAddress);
         }
     }
 
@@ -603,9 +597,9 @@ contract GroupChat is IGroupChat {
         }
 
         if (isBefore) {
-            emit SetBeforePostPlugin(groupId, pluginAddress, operatorId, msg.sender, prevPluginAddress);
+            emit BeforePostPluginChanged(groupId, pluginAddress, operatorId, msg.sender, prevPluginAddress);
         } else {
-            emit SetAfterPostPlugin(groupId, pluginAddress, operatorId, msg.sender, prevPluginAddress);
+            emit AfterPostPluginChanged(groupId, pluginAddress, operatorId, msg.sender, prevPluginAddress);
         }
     }
 
@@ -933,5 +927,23 @@ contract GroupChat is IGroupChat {
         if (quotedMessageId > _messagesByChat[groupId].length) {
             revert QuotedMessageNotFound(groupId, quotedMessageId);
         }
+    }
+
+    function _emitMessagePosted(
+        uint256 groupId,
+        uint256 messageIndex
+    ) private {
+        StoredMessage storage message_ = _messagesByChat[groupId][messageIndex];
+        emit MessagePosted(
+            groupId,
+            messageIndex + 1,
+            message_.senderId,
+            message_.senderAddress,
+            message_.round,
+            message_.quotedMessageId,
+            message_.quotedMessageId != 0,
+            message_.mentionAll,
+            message_.content
+        );
     }
 }

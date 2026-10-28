@@ -40,23 +40,7 @@ contract GroupAdmin is IGroupAdmin {
         AdminState storage state = _states[groupId];
         address groupOwnerSnapshot = _groupOwnerOfOrRevert(groupId);
         for (uint256 i = 0; i < adminIds_.length; i++) {
-            uint256 adminId = adminIds_[i];
-            address adminOwnerSnapshot = IMemberNFT(GROUP_ADDRESS).ownerOf(adminId);
-            bool snapshotChanged = false;
-            if (state.groupOwnerSnapshots[adminId] != groupOwnerSnapshot) {
-                state.groupOwnerSnapshots[adminId] = groupOwnerSnapshot;
-                snapshotChanged = true;
-            }
-            if (state.adminOwnerSnapshots[adminId] != adminOwnerSnapshot) {
-                state.adminOwnerSnapshots[adminId] = adminOwnerSnapshot;
-                snapshotChanged = true;
-            }
-            if (snapshotChanged) {
-                emit SetAdminSnapshot(groupId, msg.sender, adminId, operatorId, groupOwnerSnapshot, adminOwnerSnapshot);
-            }
-            if (state.adminIds.add(adminId)) {
-                emit SetAdmin(groupId, msg.sender, adminId, operatorId, true);
-            }
+            _addAdminId(state, groupId, operatorId, groupOwnerSnapshot, adminIds_[i]);
         }
     }
 
@@ -69,12 +53,7 @@ contract GroupAdmin is IGroupAdmin {
         AdminState storage state = _states[groupId];
         for (uint256 i = 0; i < adminIds_.length; i++) {
             uint256 adminId = adminIds_[i];
-            if (!state.adminIds.remove(adminId)) {
-                continue;
-            }
-            delete state.groupOwnerSnapshots[adminId];
-            delete state.adminOwnerSnapshots[adminId];
-            emit SetAdmin(groupId, msg.sender, adminId, operatorId, false);
+            _removeAdminId(state, groupId, operatorId, adminId);
         }
     }
 
@@ -91,6 +70,71 @@ contract GroupAdmin is IGroupAdmin {
         for (uint256 i = 0; i < length; i++) {
             isEffective[i] = _isEffectiveAdminId(state, groupId, ids[i]);
         }
+    }
+
+    function _addAdminId(
+        AdminState storage state,
+        uint256 groupId,
+        uint256 operatorId,
+        address groupOwnerSnapshot,
+        uint256 adminId
+    ) internal {
+        address adminOwnerSnapshot = IMemberNFT(GROUP_ADDRESS).ownerOf(adminId);
+        address prevGroupOwnerSnapshot = state.groupOwnerSnapshots[adminId];
+        address prevAdminOwnerSnapshot = state.adminOwnerSnapshots[adminId];
+        bool snapshotChanged =
+            prevGroupOwnerSnapshot != groupOwnerSnapshot || prevAdminOwnerSnapshot != adminOwnerSnapshot;
+        if (snapshotChanged) {
+            state.groupOwnerSnapshots[adminId] = groupOwnerSnapshot;
+            state.adminOwnerSnapshots[adminId] = adminOwnerSnapshot;
+        }
+
+        bool added = state.adminIds.add(adminId);
+        bool prevListed = !added;
+        if (!added && !snapshotChanged) {
+            return;
+        }
+
+        emit AdminChanged(
+            groupId,
+            adminId,
+            operatorId,
+            msg.sender,
+            true,
+            groupOwnerSnapshot,
+            adminOwnerSnapshot,
+            prevListed,
+            prevGroupOwnerSnapshot,
+            prevAdminOwnerSnapshot
+        );
+    }
+
+    function _removeAdminId(
+        AdminState storage state,
+        uint256 groupId,
+        uint256 operatorId,
+        uint256 adminId
+    ) internal {
+        if (!state.adminIds.remove(adminId)) {
+            return;
+        }
+
+        address prevGroupOwnerSnapshot = state.groupOwnerSnapshots[adminId];
+        address prevAdminOwnerSnapshot = state.adminOwnerSnapshots[adminId];
+        delete state.groupOwnerSnapshots[adminId];
+        delete state.adminOwnerSnapshots[adminId];
+        emit AdminChanged(
+            groupId,
+            adminId,
+            operatorId,
+            msg.sender,
+            false,
+            address(0),
+            address(0),
+            true,
+            prevGroupOwnerSnapshot,
+            prevAdminOwnerSnapshot
+        );
     }
 
     function _validateAdminIds(uint256[] calldata adminIds_) internal view {

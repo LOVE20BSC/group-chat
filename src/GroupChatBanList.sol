@@ -116,7 +116,7 @@ contract GroupChatBanList is IGroupChatBanList {
             bool changed = listed ? state.senderIdBanList.add(senderId) : state.senderIdBanList.remove(senderId);
             if (changed) {
                 _setSenderIdBanOperatorState(state, senderId, operatorId, listed);
-                emit SetSenderIdBan(groupId, msg.sender, senderId, operatorId, listed);
+                emit SenderBanChanged(groupId, senderId, operatorId, msg.sender, listed);
             }
         }
     }

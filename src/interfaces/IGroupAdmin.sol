@@ -5,21 +5,21 @@ interface IGroupAdminErrors {
     error NotGroupOperator(uint256 groupId, uint256 operatorId);
     error GroupNotExist(uint256 groupId);
     error DuplicateMemberId(uint256 memberId);
-    error AdminIdsLimitExceeded(uint256 groupId, uint256 count, uint256 max);
+    error AdminIdsLimitExceeded(uint256 groupId, uint256 count, uint256 maxCount);
 }
 
 interface IGroupAdminEvents {
-    event SetAdmin(
-        uint256 indexed groupId, address indexed operator, uint256 indexed adminId, uint256 operatorId, bool listed
-    );
-
-    event SetAdminSnapshot(
+    event AdminChanged(
         uint256 indexed groupId,
-        address indexed operator,
         uint256 indexed adminId,
         uint256 operatorId,
+        address indexed operator,
+        bool listed,
         address groupOwnerSnapshot,
-        address adminOwnerSnapshot
+        address adminOwnerSnapshot,
+        bool prevListed,
+        address prevGroupOwnerSnapshot,
+        address prevAdminOwnerSnapshot
     );
 }
 

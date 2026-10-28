@@ -72,10 +72,21 @@ contract GroupChatDelegate is IGroupChatDelegate {
             _groupIdsByDelegateId[delegateId].add(groupId);
         }
 
+        address prevOwnerSnapshot = state.ownerSnapshot;
+        address prevDelegateOwnerSnapshot = state.delegateOwnerSnapshot;
         state.delegateId = delegateId;
         state.ownerSnapshot = targetOwnerSnapshot;
         state.delegateOwnerSnapshot = targetDelegateOwnerSnapshot;
-        emit SetDelegateId(groupId, owner, delegateId, prevDelegateId);
+        emit DelegateChanged(
+            groupId,
+            delegateId,
+            owner,
+            targetOwnerSnapshot,
+            targetDelegateOwnerSnapshot,
+            prevDelegateId,
+            prevOwnerSnapshot,
+            prevDelegateOwnerSnapshot
+        );
     }
 
     function clearDelegatedGroupIds(uint256 delegateId, uint256[] calldata groupIds)
@@ -88,11 +99,15 @@ contract GroupChatDelegate is IGroupChatDelegate {
         for (uint256 i = 0; i < length;) {
             DelegateState storage state = _delegateStates[groupIds[i]];
             if (state.delegateId == delegateId) {
+                address prevOwnerSnapshot = state.ownerSnapshot;
+                address prevDelegateOwnerSnapshot = state.delegateOwnerSnapshot;
                 state.delegateId = 0;
                 state.ownerSnapshot = address(0);
                 state.delegateOwnerSnapshot = address(0);
                 _groupIdsByDelegateId[delegateId].remove(groupIds[i]);
-                emit ClearDelegatedGroupId(groupIds[i], delegateId, delegateOwner);
+                emit DelegationCleared(
+                    groupIds[i], delegateId, delegateOwner, prevOwnerSnapshot, prevDelegateOwnerSnapshot
+                );
             }
 
             unchecked {
@@ -108,7 +123,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
         }
 
         _delegatorWhitelistEnabled[delegateId] = enabled;
-        emit SetDelegatorWhitelistEnabled(delegateId, delegateOwner, enabled);
+        emit DelegatorWhitelistChanged(delegateId, delegateOwner, enabled);
     }
 
     function setAllowedDelegatorGroupIds(uint256 delegateId, uint256[] calldata groupIds, bool allowed)
@@ -137,7 +152,7 @@ contract GroupChatDelegate is IGroupChatDelegate {
                 changed = _allowedDelegatorGroupIdsByDelegateId[delegateId].remove(groupId);
             }
             if (changed) {
-                emit SetAllowedDelegatorGroupId(delegateId, groupId, delegateOwner, allowed);
+                emit DelegatorGroupPermissionChanged(delegateId, groupId, delegateOwner, allowed);
             }
 
             unchecked {

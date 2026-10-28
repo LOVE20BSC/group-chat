@@ -7,8 +7,12 @@ interface IGroupMemberErrors {
 }
 
 interface IGroupMemberEvents {
-    event SetMemberId(
-        uint256 indexed groupId, address indexed operator, uint256 indexed memberId, uint256 operatorId, bool listed
+    event MemberStatusChanged(
+        uint256 indexed groupId,
+        uint256 indexed memberId,
+        uint256 operatorId,
+        address indexed operator,
+        bool listed
     );
 }
 

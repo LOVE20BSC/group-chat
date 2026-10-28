@@ -125,7 +125,7 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         _groupIdOfAction[token][actionId] = groupId;
         _actionIdsByToken[token].push(actionId);
         _activateManagedGroup(groupId);
-        emit Activate(token, actionId, groupId, msg.sender);
+        emit TokenActionGroupActivated(token, actionId, groupId, msg.sender);
     }
 
     function _requireExistingAction(address token, uint256 actionId) internal view {

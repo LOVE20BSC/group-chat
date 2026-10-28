@@ -8,11 +8,11 @@ interface IGroupChatBanListErrors {
 }
 
 interface IGroupChatBanListEvents {
-    event SetSenderIdBan(
+    event SenderBanChanged(
         uint256 indexed groupId,
-        address indexed operatorAddress,
         uint256 indexed targetSenderId,
         uint256 operatorId,
+        address indexed operator,
         bool listed
     );
 }

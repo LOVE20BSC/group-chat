@@ -17,9 +17,18 @@ contract GroupAdminTest is GroupChatFixture {
     address internal stranger = address(0x5757);
     uint256 internal adminId;
     uint256 internal secondAdminId;
-    bytes32 internal constant SET_ADMIN_SIG = keccak256("SetAdmin(uint256,address,uint256,uint256,bool)");
-    bytes32 internal constant SET_ADMIN_SNAPSHOT_SIG =
-        keccak256("SetAdminSnapshot(uint256,address,uint256,uint256,address,address)");
+    bytes32 internal constant ADMIN_CHANGED_SIG =
+        keccak256("AdminChanged(uint256,uint256,uint256,address,bool,address,address,bool,address,address)");
+
+    struct AdminChangedData {
+        uint256 operatorId;
+        bool listed;
+        address groupOwnerSnapshot;
+        address adminOwnerSnapshot;
+        bool prevListed;
+        address prevGroupOwnerSnapshot;
+        address prevAdminOwnerSnapshot;
+    }
 
     function setUp() public override {
         super.setUp();
@@ -39,9 +48,10 @@ contract GroupAdminTest is GroupChatFixture {
         vm.prank(chatOwner);
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        _assertSetAdminSnapshotLog(logs[0], groupId, chatOwner, adminId, groupId, chatOwner, adminOwner);
-        _assertSetAdminLog(logs[1], groupId, chatOwner, adminId, groupId, true);
-        assertEq(logs.length, 2);
+        _assertAdminChangedLog(
+            logs[0], groupId, chatOwner, adminId, groupId, true, false, chatOwner, adminOwner, address(0), address(0)
+        );
+        assertEq(logs.length, 1);
         assertTrue(groupAdmin.isAdminId(groupId, adminId));
 
         vm.prank(chatOwner);
@@ -53,11 +63,20 @@ contract GroupAdminTest is GroupChatFixture {
         vm.prank(delegateIdOwner);
         groupAdmin.addAdmins(groupId, delegateId, _uints(secondAdminId));
         logs = vm.getRecordedLogs();
-        _assertSetAdminSnapshotLog(
-            logs[0], groupId, delegateIdOwner, secondAdminId, delegateId, chatOwner, secondAdminOwner
+        _assertAdminChangedLog(
+            logs[0],
+            groupId,
+            delegateIdOwner,
+            secondAdminId,
+            delegateId,
+            true,
+            false,
+            chatOwner,
+            secondAdminOwner,
+            address(0),
+            address(0)
         );
-        _assertSetAdminLog(logs[1], groupId, delegateIdOwner, secondAdminId, delegateId, true);
-        assertEq(logs.length, 2);
+        assertEq(logs.length, 1);
         assertTrue(groupAdmin.isAdminId(groupId, adminId));
         assertTrue(groupAdmin.isAdminId(groupId, secondAdminId));
 
@@ -65,7 +84,9 @@ contract GroupAdminTest is GroupChatFixture {
         vm.prank(delegateIdOwner);
         groupAdmin.removeAdmins(groupId, delegateId, _uints(adminId));
         logs = vm.getRecordedLogs();
-        _assertSetAdminLog(logs[0], groupId, delegateIdOwner, adminId, delegateId, false);
+        _assertAdminChangedLog(
+            logs[0], groupId, delegateIdOwner, adminId, delegateId, false, true, address(0), address(0), chatOwner, adminOwner
+        );
         assertEq(logs.length, 1);
         assertTrue(!groupAdmin.isAdminId(groupId, adminId));
         assertTrue(groupAdmin.isAdminId(groupId, secondAdminId));
@@ -137,7 +158,9 @@ contract GroupAdminTest is GroupChatFixture {
         vm.prank(chatOwner);
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
         Vm.Log[] memory logs = vm.getRecordedLogs();
-        _assertSetAdminSnapshotLog(logs[0], groupId, chatOwner, adminId, groupId, chatOwner, stranger);
+        _assertAdminChangedLog(
+            logs[0], groupId, chatOwner, adminId, groupId, true, true, chatOwner, stranger, chatOwner, adminOwner
+        );
         assertEq(logs.length, 1);
 
         assertTrue(groupAdmin.isAdminId(groupId, adminId));
@@ -200,42 +223,31 @@ contract GroupAdminTest is GroupChatFixture {
         values[1] = b;
     }
 
-    function _assertSetAdminSnapshotLog(
+    function _assertAdminChangedLog(
         Vm.Log memory log,
         uint256 groupId_,
         address operator,
         uint256 adminId_,
         uint256 operatorId,
+        bool listed,
+        bool prevListed,
         address groupOwnerSnapshot,
-        address adminOwnerSnapshot
+        address adminOwnerSnapshot,
+        address prevGroupOwnerSnapshot,
+        address prevAdminOwnerSnapshot
     ) internal view {
         assertEq(log.emitter, address(groupAdmin));
-        assertEq(log.topics[0], SET_ADMIN_SNAPSHOT_SIG);
+        assertEq(log.topics[0], ADMIN_CHANGED_SIG);
         assertEq(log.topics[1], bytes32(groupId_));
-        assertEq(log.topics[2], bytes32(uint256(uint160(operator))));
-        assertEq(log.topics[3], bytes32(adminId_));
-        (uint256 decodedOperatorId, address decodedGroupOwnerSnapshot, address decodedAdminOwnerSnapshot) =
-            abi.decode(log.data, (uint256, address, address));
-        assertEq(decodedOperatorId, operatorId);
-        assertEq(decodedGroupOwnerSnapshot, groupOwnerSnapshot);
-        assertEq(decodedAdminOwnerSnapshot, adminOwnerSnapshot);
-    }
-
-    function _assertSetAdminLog(
-        Vm.Log memory log,
-        uint256 groupId_,
-        address operator,
-        uint256 adminId_,
-        uint256 operatorId,
-        bool listed
-    ) internal view {
-        assertEq(log.emitter, address(groupAdmin));
-        assertEq(log.topics[0], SET_ADMIN_SIG);
-        assertEq(log.topics[1], bytes32(groupId_));
-        assertEq(log.topics[2], bytes32(uint256(uint160(operator))));
-        assertEq(log.topics[3], bytes32(adminId_));
-        (uint256 decodedOperatorId, bool decodedListed) = abi.decode(log.data, (uint256, bool));
-        assertEq(decodedOperatorId, operatorId);
-        assertEq(decodedListed, listed);
+        assertEq(log.topics[2], bytes32(adminId_));
+        assertEq(log.topics[3], bytes32(uint256(uint160(operator))));
+        AdminChangedData memory decoded = abi.decode(log.data, (AdminChangedData));
+        assertEq(decoded.operatorId, operatorId);
+        assertEq(decoded.listed, listed);
+        assertEq(decoded.prevListed, prevListed);
+        assertEq(decoded.groupOwnerSnapshot, groupOwnerSnapshot);
+        assertEq(decoded.adminOwnerSnapshot, adminOwnerSnapshot);
+        assertEq(decoded.prevGroupOwnerSnapshot, prevGroupOwnerSnapshot);
+        assertEq(decoded.prevAdminOwnerSnapshot, prevAdminOwnerSnapshot);
     }
 }

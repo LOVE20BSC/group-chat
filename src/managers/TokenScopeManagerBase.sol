@@ -80,6 +80,6 @@ abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerB
         _groupIdOfToken[token] = groupId;
         _tokens.push(token);
         _activateManagedGroup(groupId);
-        emit Activate(token, groupId, msg.sender);
+        emit TokenGroupActivated(token, groupId, msg.sender);
     }
 }

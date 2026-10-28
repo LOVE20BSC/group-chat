@@ -14,7 +14,7 @@ interface IGovVotedBanSourceErrors {
 }
 
 interface IGovVotedBanSourceEvents {
-    event SetSenderIdBanVote(
+    event SenderBanVoteCast(
         uint256 indexed groupId,
         uint256 indexed targetSenderId,
         uint256 indexed voterId,
@@ -25,9 +25,17 @@ interface IGovVotedBanSourceEvents {
         uint256 stateVersion
     );
 
-    event SetSenderIdBan(uint256 indexed groupId, uint256 indexed targetSenderId, bool listed, uint256 stateVersion);
+    event GovSenderBanChanged(
+        uint256 indexed groupId,
+        uint256 indexed targetSenderId,
+        bool listed,
+        uint256 stateVersion
+    );
 
-    event ChangeStateVersion(uint256 indexed groupId, uint256 stateVersion);
+    event StateVersionChanged(
+        uint256 indexed groupId,
+        uint256 stateVersion
+    );
 }
 
 interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVotedBanSourceEvents {

@@ -82,7 +82,7 @@ contract GroupMember is IGroupMember {
             }
             bool changed = listed ? state.memberIds.add(memberId) : state.memberIds.remove(memberId);
             if (changed) {
-                emit SetMemberId(groupId, msg.sender, memberId, operatorId, listed);
+                emit MemberStatusChanged(groupId, memberId, operatorId, msg.sender, listed);
             }
         }
     }

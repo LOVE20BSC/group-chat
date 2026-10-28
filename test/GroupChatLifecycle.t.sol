@@ -167,7 +167,11 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
-        assertEq(logs[0].topics[0], SET_POSTING_ALLOWED_SIG);
+        assertEq(logs[0].topics[0], POSTING_ALLOWED_CHANGED_SIG);
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(delegateId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateIdOwner))));
+        assertTrue(!abi.decode(logs[0].data, (bool)));
         IGroupChat.ChatInfo memory info = chat.chatInfo(groupId);
         assertTrue(!info.postingAllowed);
     }

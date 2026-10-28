@@ -1,0 +1,23 @@
+# Event -> family map, enforced by script/check-events.py.
+# Families and slot rules: matt-gov/docs/event-standards.md §6.1.
+AdminChanged gc.management
+MemberStatusChanged gc.management
+SenderBanChanged gc.management
+GroupChatActivated gc.management
+PostingAllowedChanged gc.management
+ScopeSourceChanged gc.management
+BanSourceChanged gc.management
+BeforePostPluginChanged gc.management
+AfterPostPluginChanged gc.management
+DelegateChanged gc.management
+DelegationCleared gc.management
+DelegatorWhitelistChanged gc.delegation
+DelegatorGroupPermissionChanged gc.delegation
+SenderBanVoteCast gc.ban-vote
+GovSenderBanChanged gc.ban-vote
+StateVersionChanged gc.ban-vote
+MessagePosted gc.message
+SenderMentioned gc.message
+AfterPostPluginFailed gc.plugin
+TokenGroupActivated gc.link
+TokenActionGroupActivated gc.link

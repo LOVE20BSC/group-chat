@@ -25,6 +25,15 @@ contract GroupChatDelegateTest is TestBase {
     uint256 internal strangerGroupId;
     uint256 internal delegateId;
 
+    bytes32 internal constant DELEGATE_CHANGED_SIG =
+        keccak256("DelegateChanged(uint256,uint256,address,address,address,uint256,address,address)");
+    bytes32 internal constant DELEGATION_CLEARED_SIG =
+        keccak256("DelegationCleared(uint256,uint256,address,address,address)");
+    bytes32 internal constant DELEGATOR_WHITELIST_CHANGED_SIG =
+        keccak256("DelegatorWhitelistChanged(uint256,address,bool)");
+    bytes32 internal constant DELEGATOR_GROUP_PERMISSION_CHANGED_SIG =
+        keccak256("DelegatorGroupPermissionChanged(uint256,uint256,address,bool)");
+
     function setUp() public {
         groupNft = new MockLOVE20Group();
         groupId = groupNft.mint(chatOwner);
@@ -43,6 +52,71 @@ contract GroupChatDelegateTest is TestBase {
         groupDelegate.setDelegateId(groupId, 0);
         assertEq(groupDelegate.delegateIdOf(groupId), 0);
         assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 0);
+    }
+
+    function testT140C_delegateChangedZeroIsExplicitClear() public {
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+
+        vm.recordLogs();
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        require(logs.length == 1, "one clear event");
+        require(logs[0].topics[0] == DELEGATE_CHANGED_SIG, "delegate changed topic");
+        require(logs[0].topics[2] == bytes32(0), "delegate id zero");
+        require(logs[0].topics[3] == bytes32(uint256(uint160(chatOwner))), "owner topic");
+        (
+            address ownerSnapshot,
+            address delegateOwnerSnapshot,
+            uint256 prevDelegateId,
+            address prevOwnerSnapshot,
+            address prevDelegateOwnerSnapshot
+        ) = abi.decode(logs[0].data, (address, address, uint256, address, address));
+        require(prevDelegateId == delegateId, "prev delegate id");
+        require(ownerSnapshot == address(0) && delegateOwnerSnapshot == address(0), "new snapshots zero");
+        require(prevOwnerSnapshot == chatOwner && prevDelegateOwnerSnapshot == delegateOwner, "prev snapshots");
+    }
+
+    function testT140B_delegateEventsCarryOwnerSnapshotOldAndNewValues() public {
+        vm.recordLogs();
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], DELEGATE_CHANGED_SIG);
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(delegateId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(chatOwner))));
+        (
+            address ownerSnapshot,
+            address delegateOwnerSnapshot,
+            uint256 prevDelegateId,
+            address prevOwnerSnapshot,
+            address prevDelegateOwnerSnapshot
+        ) = abi.decode(logs[0].data, (address, address, uint256, address, address));
+        assertEq(prevDelegateId, 0);
+        assertEq(ownerSnapshot, chatOwner);
+        assertEq(delegateOwnerSnapshot, delegateOwner);
+        assertEq(prevOwnerSnapshot, address(0));
+        assertEq(prevDelegateOwnerSnapshot, address(0));
+
+        vm.recordLogs();
+        vm.prank(delegateOwner);
+        groupDelegate.clearDelegatedGroupIds(delegateId, _uints(groupId));
+        logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], DELEGATION_CLEARED_SIG);
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(delegateId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateOwner))));
+        (address clearedPrevOwnerSnapshot, address clearedPrevDelegateOwnerSnapshot) =
+            abi.decode(logs[0].data, (address, address));
+        assertEq(clearedPrevOwnerSnapshot, chatOwner);
+        assertEq(clearedPrevDelegateOwnerSnapshot, delegateOwner);
     }
 
     function testT141_groupNftTransferInvalidatesDelegateAndTransferBackRestores() public {
@@ -87,6 +161,31 @@ contract GroupChatDelegateTest is TestBase {
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
         assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
+    }
+
+    function testT143B_delegatorConfigEventsCarryFlags() public {
+        vm.recordLogs();
+        vm.prank(delegateOwner);
+        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], DELEGATOR_WHITELIST_CHANGED_SIG);
+        assertEq(logs[0].topics[1], bytes32(delegateId));
+        assertEq(logs[0].topics[2], bytes32(uint256(uint160(delegateOwner))));
+        assertTrue(abi.decode(logs[0].data, (bool)));
+
+        vm.recordLogs();
+        vm.prank(delegateOwner);
+        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], DELEGATOR_GROUP_PERMISSION_CHANGED_SIG);
+        assertEq(logs[0].topics[1], bytes32(delegateId));
+        assertEq(logs[0].topics[2], bytes32(groupId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateOwner))));
+        assertTrue(abi.decode(logs[0].data, (bool)));
     }
 
     function testT144_whitelistRemovalRejectsSameIdResetInsteadOfSilentNoOp() public {

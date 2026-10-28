@@ -12,6 +12,7 @@ import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {AdminBanSource} from "../src/sources/ban/AdminBanSource.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
+import {Vm} from "./utils/TestBase.sol";
 
 contract AdminBanSourceTest is GroupChatFixture {
     uint256 internal constant MAX_ADMIN_IDS = 20;
@@ -24,6 +25,8 @@ contract AdminBanSourceTest is GroupChatFixture {
     address internal stranger = address(0x5757);
     uint256 internal adminId;
     uint256 internal secondAdminId;
+    bytes32 internal constant SENDER_BAN_CHANGED_SIG =
+        keccak256("SenderBanChanged(uint256,uint256,uint256,address,bool)");
 
     function setUp() public override {
         super.setUp();
@@ -53,6 +56,37 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertEq(operatorIds[0], groupId);
         assertEq(operatorAddresses[1], delegateIdOwner);
         assertEq(operatorIds[1], delegateId);
+    }
+
+    function testT120B_senderBanChangedCarriesOperatorAndListed() public {
+        // The delegate operates the group, so `groupId` and `operatorId` stay distinguishable.
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+
+        vm.recordLogs();
+        vm.prank(delegateIdOwner);
+        banList.banBySenderIds(groupId, delegateId, _uints(senderId));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], SENDER_BAN_CHANGED_SIG);
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(senderId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateIdOwner))));
+        (uint256 operatorId, bool listed) = abi.decode(logs[0].data, (uint256, bool));
+        assertEq(operatorId, delegateId);
+        assertTrue(listed);
+
+        vm.recordLogs();
+        vm.prank(delegateIdOwner);
+        banList.unbanBySenderIds(groupId, delegateId, _uints(senderId));
+        logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], SENDER_BAN_CHANGED_SIG);
+        (operatorId, listed) = abi.decode(logs[0].data, (uint256, bool));
+        assertEq(operatorId, delegateId);
+        assertTrue(!listed);
     }
 
     function testT121_adminRequiresExplicitAdminIdAndCanOnlyManageBanLists() public {

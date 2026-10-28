@@ -7,9 +7,20 @@ interface ITokenActionScopeManagerBaseErrors {
     error ActionNotExist(address tokenAddress, uint256 actionId);
 }
 
-interface ITokenActionScopeManagerBase is IManagerBase, ITokenActionScopeManagerBaseErrors {
-    event Activate(address indexed token, uint256 indexed actionId, uint256 indexed groupId, address operator);
+interface ITokenActionScopeManagerBaseEvents {
+    event TokenActionGroupActivated(
+        address indexed tokenAddress,
+        uint256 indexed actionId,
+        uint256 indexed groupId,
+        address operator
+    );
+}
 
+interface ITokenActionScopeManagerBase is
+    IManagerBase,
+    ITokenActionScopeManagerBaseEvents,
+    ITokenActionScopeManagerBaseErrors
+{
     function RECENT_ROUNDS() external view returns (uint256);
 
     function activate(address token, uint256 actionId) external returns (uint256 groupId);

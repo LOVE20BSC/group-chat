@@ -184,9 +184,13 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.prank(delegateIdOwner);
         chat.setScopeSource(groupId, delegateId, address(scope1));
         Vm.Log[] memory scopeLogs1 = vm.getRecordedLogs();
-        (, address prevScope1) = abi.decode(scopeLogs1[0].data, (address, address));
+        (address scopeOperator1, address prevScope1) = abi.decode(scopeLogs1[0].data, (address, address));
         assertEq(scopeLogs1.length, 1);
-        assertEq(scopeLogs1[0].topics[0], SET_SCOPE_SOURCE_SIG);
+        assertEq(scopeLogs1[0].topics[0], SCOPE_SOURCE_CHANGED_SIG);
+        assertEq(scopeLogs1[0].topics[1], bytes32(groupId));
+        assertEq(scopeLogs1[0].topics[2], bytes32(uint256(uint160(address(scope1)))));
+        assertEq(scopeLogs1[0].topics[3], bytes32(delegateId));
+        assertEq(scopeOperator1, delegateIdOwner);
         assertEq(prevScope1, address(0));
         assertEq(chat.scopeSource(groupId), address(scope1));
 
@@ -237,9 +241,13 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.prank(delegateIdOwner);
         chat.setBanSource(groupId, delegateId, address(ban1));
         Vm.Log[] memory banLogs1 = vm.getRecordedLogs();
-        (, address prevBan1) = abi.decode(banLogs1[0].data, (address, address));
+        (address banOperator1, address prevBan1) = abi.decode(banLogs1[0].data, (address, address));
         assertEq(banLogs1.length, 1);
-        assertEq(banLogs1[0].topics[0], SET_BAN_SOURCE_SIG);
+        assertEq(banLogs1[0].topics[0], BAN_SOURCE_CHANGED_SIG);
+        assertEq(banLogs1[0].topics[1], bytes32(groupId));
+        assertEq(banLogs1[0].topics[2], bytes32(uint256(uint160(address(ban1)))));
+        assertEq(banLogs1[0].topics[3], bytes32(delegateId));
+        assertEq(banOperator1, delegateIdOwner);
         assertEq(prevBan1, address(0));
         assertEq(chat.banSource(groupId), address(ban1));
 
@@ -273,24 +281,34 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(chat.banSource(groupId), address(ban1));
     }
 
-    function testT070F_activateChatEmitsSourceSlotDiffEvents() public {
+    function testT070F_activateChatEmitsInitialConfig() public {
         MockPostScopeSource scope = new MockPostScopeSource();
         MockPostBanSource banSource = new MockPostBanSource();
+        MockBeforePostCapturePlugin beforePlugin = new MockBeforePostCapturePlugin();
+        MockAfterPostCapturePlugin afterPlugin = new MockAfterPostCapturePlugin();
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        chat.activateChat(groupId, address(scope), address(banSource), address(0), address(0));
+        chat.activateChat(groupId, address(scope), address(banSource), address(beforePlugin), address(afterPlugin));
         Vm.Log[] memory activateLogs = vm.getRecordedLogs();
 
-        assertEq(activateLogs.length, 3);
-        assertEq(activateLogs[0].topics[0], SET_SCOPE_SOURCE_SIG);
-        assertEq(activateLogs[1].topics[0], SET_BAN_SOURCE_SIG);
-        assertEq(activateLogs[2].topics[0], ACTIVATE_SIG);
-        (, address activatePrevScope) = abi.decode(activateLogs[0].data, (address, address));
-        (, address activatePrevBan) = abi.decode(activateLogs[1].data, (address, address));
-        assertEq(activatePrevScope, address(0));
-        assertEq(activatePrevBan, address(0));
-        assertEq(activateLogs[2].data.length, 0);
+        assertEq(activateLogs.length, 1);
+        assertEq(activateLogs[0].topics[0], GROUP_CHAT_ACTIVATED_SIG);
+        assertEq(activateLogs[0].topics[1], bytes32(groupId));
+        assertEq(activateLogs[0].topics[2], bytes32(groupId));
+        assertEq(activateLogs[0].topics[3], bytes32(uint256(uint160(chatOwner))));
+        (
+            bool postingAllowed,
+            address activatedScope,
+            address activatedBan,
+            address activatedBefore,
+            address activatedAfter
+        ) = abi.decode(activateLogs[0].data, (bool, address, address, address, address));
+        assertTrue(postingAllowed);
+        assertEq(activatedScope, address(scope));
+        assertEq(activatedBan, address(banSource));
+        assertEq(activatedBefore, address(beforePlugin));
+        assertEq(activatedAfter, address(afterPlugin));
 
         vm.recordLogs();
         vm.prank(chatOwner);
@@ -303,13 +321,54 @@ contract GroupChatPluginsTest is GroupChatFixture {
         Vm.Log[] memory banLogs = vm.getRecordedLogs();
 
         assertEq(scopeLogs.length, 1);
-        assertEq(scopeLogs[0].topics[0], SET_SCOPE_SOURCE_SIG);
+        assertEq(scopeLogs[0].topics[0], SCOPE_SOURCE_CHANGED_SIG);
         assertEq(banLogs.length, 1);
-        assertEq(banLogs[0].topics[0], SET_BAN_SOURCE_SIG);
+        assertEq(banLogs[0].topics[0], BAN_SOURCE_CHANGED_SIG);
         (, address prevScope) = abi.decode(scopeLogs[0].data, (address, address));
         (, address prevBan) = abi.decode(banLogs[0].data, (address, address));
         assertEq(prevScope, address(scope));
         assertEq(prevBan, address(banSource));
+    }
+
+    function testT070F2_pluginSettersEmitChangedEvents() public {
+        MockBeforePostCapturePlugin beforePlugin = new MockBeforePostCapturePlugin();
+        MockAfterPostCapturePlugin afterPlugin = new MockAfterPostCapturePlugin();
+
+        vm.prank(chatOwner);
+        chat.activateChat(groupId, address(0), address(0), address(beforePlugin), address(afterPlugin));
+
+        // The delegate operates the group, so `groupId` and `operatorId` stay distinguishable.
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+
+        vm.recordLogs();
+        vm.prank(delegateIdOwner);
+        chat.setBeforePostPlugin(groupId, delegateId, address(0));
+        Vm.Log[] memory beforePluginLogs = vm.getRecordedLogs();
+
+        vm.recordLogs();
+        vm.prank(delegateIdOwner);
+        chat.setAfterPostPlugin(groupId, delegateId, address(0));
+        Vm.Log[] memory afterPluginLogs = vm.getRecordedLogs();
+
+        assertEq(beforePluginLogs.length, 1);
+        assertEq(beforePluginLogs[0].topics[0], BEFORE_POST_PLUGIN_CHANGED_SIG);
+        assertEq(beforePluginLogs[0].topics[1], bytes32(groupId));
+        assertEq(beforePluginLogs[0].topics[2], bytes32(uint256(0)));
+        assertEq(beforePluginLogs[0].topics[3], bytes32(delegateId));
+        assertEq(afterPluginLogs.length, 1);
+        assertEq(afterPluginLogs[0].topics[0], AFTER_POST_PLUGIN_CHANGED_SIG);
+        assertEq(afterPluginLogs[0].topics[1], bytes32(groupId));
+        assertEq(afterPluginLogs[0].topics[2], bytes32(uint256(0)));
+        assertEq(afterPluginLogs[0].topics[3], bytes32(delegateId));
+        (address beforeOperator, address prevBeforePlugin) =
+            abi.decode(beforePluginLogs[0].data, (address, address));
+        (address afterOperator, address prevAfterPlugin) =
+            abi.decode(afterPluginLogs[0].data, (address, address));
+        assertEq(beforeOperator, delegateIdOwner);
+        assertEq(afterOperator, delegateIdOwner);
+        assertEq(prevBeforePlugin, address(beforePlugin));
+        assertEq(prevAfterPlugin, address(afterPlugin));
     }
 
     function testT070G_ownerAndDelegateBypassScopeAndBanSources() public {
@@ -377,11 +436,16 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         assertEq(chat.messagesCount(groupId), 1);
         assertEq(logs.length, 2);
-        assertEq(logs[0].topics[0], POST_MESSAGE_SIG);
-        assertEq(logs[1].topics[0], FAIL_AFTER_POST_PLUGIN_SIG);
-        (uint256 round, uint256 messageId) = _decodePostMessage(logs[0].data);
+        assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
+        assertEq(logs[0].topics[2], bytes32(uint256(1)));
+        assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
+        (address sender, uint256 round,, bool hasQuote, bool mentionAll, string memory content) =
+            _decodeMessagePostedData(logs[0].data);
+        assertEq(sender, senderOwner);
         assertEq(round, 1);
-        assertEq(messageId, 1);
+        assertEq(content, "ok");
+        assertTrue(!hasQuote);
+        assertTrue(!mentionAll);
         assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 1);
         (, bytes32 errorHash, uint256 errorLength, bytes4 errorSelector) =
             abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
@@ -422,14 +486,19 @@ contract GroupChatPluginsTest is GroupChatFixture {
         chat.activateChat(groupId, address(0), address(0), address(0), address(afterPlugin));
 
         vm.roll(originBlocks);
+        // A priming post keeps `groupId` and `messageId` from collapsing onto the same value.
+        vm.prank(senderOwner);
+        _post(groupId, senderId, "prime");
         vm.recordLogs();
         vm.prank(senderOwner);
         _post(groupId, senderId, "outer");
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(chat.messagesCount(groupId), 2);
         assertEq(logs.length, 2);
-        assertEq(logs[1].topics[0], FAIL_AFTER_POST_PLUGIN_SIG);
+        assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
+        assertEq(logs[1].topics[1], bytes32(groupId));
+        assertEq(logs[1].topics[2], bytes32(uint256(2)));
         (, , , bytes4 errorSelector) = abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
         assertEq(errorSelector, IGroupChatErrors.Reentrant.selector);
     }
@@ -449,8 +518,8 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(chat.messagesCount(groupId), 1);
         assertTrue(chat.postingAllowed(groupId));
         assertEq(logs.length, 2);
-        assertEq(logs[0].topics[0], POST_MESSAGE_SIG);
-        assertEq(logs[1].topics[0], FAIL_AFTER_POST_PLUGIN_SIG);
+        assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
+        assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
     }
 
     function testT077_beforePostPluginReceivesMentionArgs() public {

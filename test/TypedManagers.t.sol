@@ -15,8 +15,9 @@ import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
 
 contract TypedManagersTest is GroupChatFixture {
-    bytes32 internal constant TOKEN_ACTIVATE_SIG = keccak256("Activate(address,uint256,address)");
-    bytes32 internal constant TOKEN_ACTION_ACTIVATE_SIG = keccak256("Activate(address,uint256,uint256,address)");
+    bytes32 internal constant TOKEN_GROUP_ACTIVATED_SIG = keccak256("TokenGroupActivated(address,uint256,address)");
+    bytes32 internal constant TOKEN_ACTION_GROUP_ACTIVATED_SIG =
+        keccak256("TokenActionGroupActivated(address,uint256,uint256,address)");
 
     function testT110_tokenMainManagerStoresTokenAndCombinesEligibility() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
@@ -62,7 +63,7 @@ contract TypedManagersTest is GroupChatFixture {
             new TokenGovManager(address(chat), address(0), address(0), address(0), address(protocol));
         vm.recordLogs();
         groupId = manager.activate(token);
-        _assertTokenActivate(vm.getRecordedLogs(), address(manager), token, groupId, address(this));
+        _assertTokenGroupActivated(vm.getRecordedLogs(), address(manager), token, groupId, address(this));
 
         assertEq(manager.tokenOfGroup(groupId), token);
         assertEq(manager.groupIdOfToken(token), groupId);
@@ -96,7 +97,7 @@ contract TypedManagersTest is GroupChatFixture {
         protocol.setCurrentRound(7);
         vm.recordLogs();
         groupId = manager.activate(token, 42);
-        _assertTokenActionActivate(vm.getRecordedLogs(), address(manager), token, 42, groupId, address(this));
+        _assertTokenActionGroupActivated(vm.getRecordedLogs(), address(manager), token, 42, groupId, address(this));
         (address storedToken, uint256 actionId) = manager.actionOfGroup(groupId);
         assertEq(storedToken, token);
         assertEq(actionId, 42);
@@ -574,7 +575,7 @@ contract TypedManagersTest is GroupChatFixture {
         }
     }
 
-    function _assertTokenActivate(
+    function _assertTokenGroupActivated(
         Vm.Log[] memory logs,
         address manager,
         address token,
@@ -583,14 +584,14 @@ contract TypedManagersTest is GroupChatFixture {
     ) internal pure {
         Vm.Log memory log = logs[logs.length - 1];
         assertEq(log.emitter, manager);
-        assertEq(log.topics[0], TOKEN_ACTIVATE_SIG);
+        assertEq(log.topics[0], TOKEN_GROUP_ACTIVATED_SIG);
         assertEq(log.topics[1], _topicAddress(token));
         assertEq(log.topics[2], bytes32(activatedGroupId));
         assertEq(log.topics[3], _topicAddress(operator));
         assertEq(log.data.length, 0);
     }
 
-    function _assertTokenActionActivate(
+    function _assertTokenActionGroupActivated(
         Vm.Log[] memory logs,
         address manager,
         address token,
@@ -600,7 +601,7 @@ contract TypedManagersTest is GroupChatFixture {
     ) internal pure {
         Vm.Log memory log = logs[logs.length - 1];
         assertEq(log.emitter, manager);
-        assertEq(log.topics[0], TOKEN_ACTION_ACTIVATE_SIG);
+        assertEq(log.topics[0], TOKEN_ACTION_GROUP_ACTIVATED_SIG);
         assertEq(log.topics[1], _topicAddress(token));
         assertEq(log.topics[2], bytes32(actionId));
         assertEq(log.topics[3], bytes32(activatedGroupId));

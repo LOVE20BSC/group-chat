@@ -197,7 +197,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (newVersion == 0) {
             revert VoteUnchanged(groupId, targetSenderId, voterId);
         }
-        _emitChangeStateVersion(groupId, newVersion);
+        _emitChangeStateVersionIfChanged(groupId, newVersion);
     }
 
     function _setVoteIfChanged(
@@ -244,7 +244,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (newVersion == 0) {
             revert VoteNotFound(groupId, targetSenderId, voterId);
         }
-        _emitChangeStateVersion(groupId, newVersion);
+        _emitChangeStateVersionIfChanged(groupId, newVersion);
     }
 
     function _clearVoteIfFound(uint256 groupId, uint256 targetSenderId, uint256 voterId, uint256 newVersion)
@@ -326,13 +326,9 @@ contract GovVotedBanSource is IGovVotedBanSource {
         return newVersion;
     }
 
-    function _emitChangeStateVersion(uint256 groupId, uint256 newVersion) internal {
-        emit ChangeStateVersion(groupId, newVersion);
-    }
-
     function _emitChangeStateVersionIfChanged(uint256 groupId, uint256 newVersion) internal {
         if (newVersion != 0) {
-            emit ChangeStateVersion(groupId, newVersion);
+            emit StateVersionChanged(groupId, newVersion);
         }
     }
 
@@ -346,7 +342,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 newVersion
     ) internal {
         TargetState storage target = _targetState(state, targetSenderId);
-        emit SetSenderIdBanVote(
+        emit SenderBanVoteCast(
             groupId,
             targetSenderId,
             voterId,
@@ -475,7 +471,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     }
 
     function _emitSetBan(uint256 groupId, uint256 targetSenderId, bool listed, uint256 newVersion) internal {
-        emit SetSenderIdBan(groupId, targetSenderId, listed, newVersion);
+        emit GovSenderBanChanged(groupId, targetSenderId, listed, newVersion);
     }
 
     function _addWeight(TargetState storage target, bool supportBan, uint256 weight) internal {

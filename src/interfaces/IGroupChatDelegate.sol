@@ -10,16 +10,36 @@ interface IGroupChatDelegateErrors {
 }
 
 interface IGroupChatDelegateEvents {
-    event SetDelegateId(
-        uint256 indexed groupId, address indexed owner, uint256 indexed delegateId, uint256 prevDelegateId
+    event DelegateChanged(
+        uint256 indexed groupId,
+        uint256 indexed delegateId,
+        address indexed owner,
+        address ownerSnapshot,
+        address delegateOwnerSnapshot,
+        uint256 prevDelegateId,
+        address prevOwnerSnapshot,
+        address prevDelegateOwnerSnapshot
     );
 
-    event ClearDelegatedGroupId(uint256 indexed groupId, uint256 indexed delegateId, address indexed delegateOwner);
+    event DelegationCleared(
+        uint256 indexed groupId,
+        uint256 indexed delegateId,
+        address indexed delegateOwner,
+        address prevOwnerSnapshot,
+        address prevDelegateOwnerSnapshot
+    );
 
-    event SetDelegatorWhitelistEnabled(uint256 indexed delegateId, address indexed delegateOwner, bool enabled);
+    event DelegatorWhitelistChanged(
+        uint256 indexed delegateId,
+        address indexed delegateOwner,
+        bool enabled
+    );
 
-    event SetAllowedDelegatorGroupId(
-        uint256 indexed delegateId, uint256 indexed groupId, address indexed delegateOwner, bool allowed
+    event DelegatorGroupPermissionChanged(
+        uint256 indexed delegateId,
+        uint256 indexed groupId,
+        address indexed delegateOwner,
+        bool allowed
     );
 }
 
