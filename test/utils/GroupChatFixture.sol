@@ -43,7 +43,7 @@ abstract contract GroupChatFixture is TestBase {
     bytes32 internal constant POSTING_ALLOWED_CHANGED_SIG =
         keccak256("PostingAllowedChanged(uint256,uint256,address,bool)");
     bytes32 internal constant MESSAGE_POSTED_SIG =
-        keccak256("MessagePosted(uint256,uint256,uint256,address,uint256,uint256,bool,bool,string)");
+        keccak256("MessagePosted(uint256,uint256,uint256,address,uint256,uint256,bool,bool,uint256,string)");
     bytes32 internal constant SENDER_MENTIONED_SIG = keccak256("SenderMentioned(uint256,uint256,uint256)");
     bytes32 internal constant AFTER_POST_PLUGIN_FAILED_SIG =
         keccak256("AfterPostPluginFailed(uint256,uint256,uint256,address,bytes32,uint256,bytes4)");
@@ -116,10 +116,11 @@ abstract contract GroupChatFixture is TestBase {
             uint256 quotedMessageId,
             bool hasQuote,
             bool mentionAll,
+            uint256 mentionedSenderCount,
             string memory content
         )
     {
-        return abi.decode(data, (address, uint256, uint256, bool, bool, string));
+        return abi.decode(data, (address, uint256, uint256, bool, bool, uint256, string));
     }
 
     function _decodeFailAfterPostPluginRound(bytes memory data) internal pure returns (uint256 round) {

@@ -115,12 +115,16 @@ contract GroupChatMessagesTest is GroupChatFixture {
     function testT048_postStoresMentionedSenderIdsAndMentionMessageIds() public {
         _activateEmpty();
 
-        uint256[] memory mentionedSenderIds = new uint256[](2);
+        uint256 thirdMentionedSenderId = groupNft.mint(other);
+        uint256 fourthMentionedSenderId = groupNft.mint(other);
+        uint256[] memory mentionedSenderIds = new uint256[](4);
         mentionedSenderIds[0] = otherGroupId;
         mentionedSenderIds[1] = delegateId;
+        mentionedSenderIds[2] = thirdMentionedSenderId;
+        mentionedSenderIds[3] = fourthMentionedSenderId;
 
         vm.roll(originBlocks);
-        // Two priming posts keep `messageId` (3) apart from both `groupId` (1) and `senderId` (2).
+        // Two priming posts keep `messageId` (3) apart from `groupId` (1), `senderId` (2) and the mention count (4).
         vm.prank(senderOwner);
         _post(groupId, senderId, "prime one");
         vm.prank(senderOwner);
@@ -130,7 +134,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         _postWithMentionedSenderIds(groupId, senderId, "hello @two", mentionedSenderIds, false);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(logs.length, 3);
+        assertEq(logs.length, 5);
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(uint256(3)));
@@ -141,6 +145,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
             uint256 postedQuotedMessageId,
             bool postedHasQuote,
             bool postedMentionAll,
+            uint256 postedMentionedSenderCount,
             string memory postedContent
         ) = _decodeMessagePostedData(logs[0].data);
         assertEq(postedSender, senderOwner);
@@ -149,20 +154,22 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(postedQuotedMessageId, 0);
         assertTrue(!postedHasQuote);
         assertTrue(!postedMentionAll);
-        assertEq(logs[1].topics[0], SENDER_MENTIONED_SIG);
-        assertEq(logs[1].topics[1], bytes32(groupId));
-        assertEq(uint256(logs[1].topics[2]), 3);
-        assertEq(logs[1].topics[3], bytes32(otherGroupId));
-        assertEq(logs[2].topics[0], SENDER_MENTIONED_SIG);
-        assertEq(logs[2].topics[1], bytes32(groupId));
-        assertEq(uint256(logs[2].topics[2]), 3);
-        assertEq(logs[2].topics[3], bytes32(delegateId));
+        assertEq(postedMentionedSenderCount, 4);
+        assertEq(postedMentionedSenderCount, logs.length - 1);
+        for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
+            assertEq(logs[i + 1].topics[0], SENDER_MENTIONED_SIG);
+            assertEq(logs[i + 1].topics[1], bytes32(groupId));
+            assertEq(uint256(logs[i + 1].topics[2]), 3);
+            assertEq(uint256(logs[i + 1].topics[3]), mentionedSenderIds[i]);
+        }
 
         IGroupChat.Message[] memory result = chat.messages(groupId, 2, 1, false);
         assertEq(result.length, 1);
-        assertEq(result[0].mentionedSenderIds.length, 2);
+        assertEq(result[0].mentionedSenderIds.length, 4);
         assertEq(result[0].mentionedSenderIds[0], otherGroupId);
         assertEq(result[0].mentionedSenderIds[1], delegateId);
+        assertEq(result[0].mentionedSenderIds[2], thirdMentionedSenderId);
+        assertEq(result[0].mentionedSenderIds[3], fourthMentionedSenderId);
         assertTrue(!result[0].mentionAll);
         assertEq(result[0].quotedMessageId, 0);
 
@@ -173,7 +180,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         IGroupChat.Message[] memory byMention = chat.messagesByMention(groupId, delegateId, 0, 10, false);
         assertEq(byMention.length, 1);
         assertEq(byMention[0].messageId, 3);
-        assertEq(byMention[0].mentionedSenderIds.length, 2);
+        assertEq(byMention[0].mentionedSenderIds.length, 4);
 
         uint256[] memory messageIds = chat.messageIdsByMention(groupId, otherGroupId, 0, 10, false);
         assertEq(messageIds.length, 1);
@@ -216,8 +223,10 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(mentionAllLogs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(mentionAllLogs[0].topics[1], bytes32(groupId));
         assertEq(mentionAllLogs[0].topics[2], bytes32(uint256(1)));
-        (, , , , bool mentionAllFlag, ) = _decodeMessagePostedData(mentionAllLogs[0].data);
+        (, , , , bool mentionAllFlag, uint256 emittedMentionedSenderCount, ) =
+            _decodeMessagePostedData(mentionAllLogs[0].data);
         assertTrue(mentionAllFlag);
+        assertEq(emittedMentionedSenderCount, 0);
 
         vm.prank(other);
         _post(groupId, otherGroupId, "plain");
@@ -504,6 +513,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
             uint256 quotedMessageId,
             bool hasQuote,
             bool mentionAll,
+            uint256 mentionedSenderCount,
             string memory content
         ) = _decodeMessagePostedData(logs[0].data);
         assertEq(sender, senderOwner);
@@ -512,19 +522,22 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(quotedMessageId, 0);
         assertTrue(!hasQuote);
         assertTrue(!mentionAll);
+        assertEq(mentionedSenderCount, 0);
 
         vm.recordLogs();
         vm.prank(senderOwner);
         _postWithQuote(groupId, senderId, "quoted", 1);
         logs = vm.getRecordedLogs();
 
-        (,, quotedMessageId, hasQuote, mentionAll, content) = _decodeMessagePostedData(logs[0].data);
+        (,, quotedMessageId, hasQuote, mentionAll, mentionedSenderCount, content) =
+            _decodeMessagePostedData(logs[0].data);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(uint256(2)));
         assertEq(content, "quoted");
         assertEq(quotedMessageId, 1);
         assertTrue(hasQuote);
         assertTrue(!mentionAll);
+        assertEq(mentionedSenderCount, 0);
     }
 
     function testT084_messageViewReadsSingleMessageAndRevertsWhenMissing() public {

@@ -943,6 +943,7 @@ contract GroupChat is IGroupChat {
             message_.quotedMessageId,
             message_.quotedMessageId != 0,
             message_.mentionAll,
+            message_.mentionedSenderIds.length,
             message_.content
         );
     }

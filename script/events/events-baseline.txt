@@ -7,7 +7,7 @@ GroupChat.AfterPostPluginFailed(groupId:uint256 indexed,messageId:uint256 indexe
 GroupChat.BanSourceChanged(groupId:uint256 indexed,sourceAddress:address indexed,operatorId:uint256 indexed,operator:address,prevSourceAddress:address)
 GroupChat.BeforePostPluginChanged(groupId:uint256 indexed,pluginAddress:address indexed,operatorId:uint256 indexed,operator:address,prevPluginAddress:address)
 GroupChat.GroupChatActivated(groupId:uint256 indexed,ownerId:uint256 indexed,owner:address indexed,postingAllowed:bool,scopeSource:address,banSource:address,beforePostPlugin:address,afterPostPlugin:address)
-GroupChat.MessagePosted(groupId:uint256 indexed,messageId:uint256 indexed,senderId:uint256 indexed,sender:address,round:uint256,quotedMessageId:uint256,hasQuote:bool,mentionAll:bool,content:string)
+GroupChat.MessagePosted(groupId:uint256 indexed,messageId:uint256 indexed,senderId:uint256 indexed,sender:address,round:uint256,quotedMessageId:uint256,hasQuote:bool,mentionAll:bool,mentionedSenderCount:uint256,content:string)
 GroupChat.PostingAllowedChanged(groupId:uint256 indexed,operatorId:uint256 indexed,operator:address indexed,postingAllowed:bool)
 GroupChat.ScopeSourceChanged(groupId:uint256 indexed,sourceAddress:address indexed,operatorId:uint256 indexed,operator:address,prevSourceAddress:address)
 GroupChat.SenderMentioned(groupId:uint256 indexed,messageId:uint256 indexed,mentionedSenderId:uint256 indexed)

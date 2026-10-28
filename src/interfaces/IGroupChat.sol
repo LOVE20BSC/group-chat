@@ -86,6 +86,7 @@ interface IGroupChatEvents {
         uint256 quotedMessageId,
         bool hasQuote,
         bool mentionAll,
+        uint256 mentionedSenderCount,
         string content
     );
 

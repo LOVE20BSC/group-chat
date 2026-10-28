@@ -439,13 +439,22 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(logs[0].topics[2], bytes32(uint256(1)));
         assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
-        (address sender, uint256 round,, bool hasQuote, bool mentionAll, string memory content) =
-            _decodeMessagePostedData(logs[0].data);
+        (
+            address sender,
+            uint256 round,
+            uint256 quotedMessageId,
+            bool hasQuote,
+            bool mentionAll,
+            uint256 mentionedSenderCount,
+            string memory content
+        ) = _decodeMessagePostedData(logs[0].data);
         assertEq(sender, senderOwner);
         assertEq(round, 1);
         assertEq(content, "ok");
         assertTrue(!hasQuote);
         assertTrue(!mentionAll);
+        assertEq(quotedMessageId, 0);
+        assertEq(mentionedSenderCount, 0);
         assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 1);
         (, bytes32 errorHash, uint256 errorLength, bytes4 errorSelector) =
             abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
