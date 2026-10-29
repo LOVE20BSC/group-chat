@@ -5,7 +5,7 @@ interface IGroupChatDelegateErrors {
     error GroupNotExist(uint256 groupId);
     error NotGroupOwner(uint256 groupId);
     error NotMemberOwner(uint256 memberId);
-    error DelegatorGroupIdNotAllowed(uint256 groupId, uint256 delegateId);
+    error DelegateNotAcceptingNewDelegations(uint256 delegateId);
     error DelegateIsSelfGroup(uint256 groupId);
 }
 
@@ -29,18 +29,7 @@ interface IGroupChatDelegateEvents {
         address prevDelegateOwnerSnapshot
     );
 
-    event DelegatorWhitelistChanged(
-        uint256 indexed delegateId,
-        address indexed delegateOwner,
-        bool enabled
-    );
-
-    event DelegatorGroupPermissionChanged(
-        uint256 indexed delegateId,
-        uint256 indexed groupId,
-        address indexed delegateOwner,
-        bool allowed
-    );
+    event DelegationAcceptanceChanged(uint256 indexed delegateId, address indexed delegateOwner, bool enabled);
 }
 
 interface IGroupChatDelegate is IGroupChatDelegateErrors, IGroupChatDelegateEvents {
@@ -50,20 +39,9 @@ interface IGroupChatDelegate is IGroupChatDelegateErrors, IGroupChatDelegateEven
 
     function clearDelegatedGroupIds(uint256 delegateId, uint256[] calldata groupIds) external;
 
-    function setDelegatorWhitelistEnabled(uint256 delegateId, bool enabled) external;
+    function setDelegationAcceptanceEnabled(uint256 delegateId, bool enabled) external;
 
-    function setAllowedDelegatorGroupIds(uint256 delegateId, uint256[] calldata groupIds, bool allowed) external;
-
-    function isDelegatorWhitelistEnabled(uint256 delegateId) external view returns (bool);
-
-    function canSetDelegateTo(uint256 groupId, uint256 delegateId) external view returns (bool);
-
-    function allowedDelegatorGroupIds(uint256 delegateId, uint256 offset, uint256 limit)
-        external
-        view
-        returns (uint256[] memory groupIds, uint256 total);
-
-    function allowedDelegatorGroupIdsCount(uint256 delegateId) external view returns (uint256);
+    function isDelegationAcceptanceEnabled(uint256 delegateId) external view returns (bool);
 
     function delegateIdOf(uint256 groupId) external view returns (uint256);
 

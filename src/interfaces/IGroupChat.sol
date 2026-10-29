@@ -20,10 +20,10 @@ interface IGroupChatErrors {
     error MessageNotFound(uint256 groupId, uint256 messageId);
     error QuotedMessageNotFound(uint256 groupId, uint256 messageId);
     error MentionAllUnauthorized(uint256 groupId, uint256 senderId);
-    error ScopeRejected(address source, uint256 groupId, uint256 senderId);
-    error BanRejected(address source, uint256 groupId, uint256 senderId);
-    error ScopeSourceFailed(address source);
-    error BanSourceFailed(address source);
+    error ScopeRejected(uint256 groupId, uint256 senderId, address source);
+    error BanRejected(uint256 groupId, uint256 senderId, address source);
+    error ScopeSourceFailed(uint256 groupId, address source);
+    error BanSourceFailed(uint256 groupId, address source);
 }
 
 interface IGroupChatEvents {

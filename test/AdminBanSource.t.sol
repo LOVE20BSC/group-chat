@@ -130,7 +130,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(adminOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, adminId)
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, groupId, adminId, address(banSource))
         );
         localChat.post(groupId, adminId, "admin", _emptyMentionedSenderIds(), false, 0);
 
@@ -155,7 +155,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, senderId)
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, groupId, senderId, address(banSource))
         );
         _post(groupId, senderId, "banned");
 

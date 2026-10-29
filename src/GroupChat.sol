@@ -755,16 +755,16 @@ contract GroupChat is IGroupChat {
         uint256 senderId
     ) internal view {
         if (reason == PostRejectionReason.ScopeRejected) {
-            revert ScopeRejected(config.scopeSource, groupId, senderId);
+            revert ScopeRejected(groupId, senderId, config.scopeSource);
         }
         if (reason == PostRejectionReason.BanRejected) {
-            revert BanRejected(config.banSource, groupId, senderId);
+            revert BanRejected(groupId, senderId, config.banSource);
         }
         if (reason == PostRejectionReason.ScopeSourceFailed) {
-            revert ScopeSourceFailed(config.scopeSource);
+            revert ScopeSourceFailed(groupId, config.scopeSource);
         }
         if (reason == PostRejectionReason.BanSourceFailed) {
-            revert BanSourceFailed(config.banSource);
+            revert BanSourceFailed(groupId, config.banSource);
         }
         assert(false);
     }

@@ -59,7 +59,7 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
 
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.ScopeRejected.selector, address(scope), groupId, senderId)
+            abi.encodeWithSelector(IGroupChatErrors.ScopeRejected.selector, groupId, senderId, address(scope))
         );
         _post(groupId, senderId, "exited-group");
     }

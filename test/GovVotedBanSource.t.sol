@@ -37,10 +37,8 @@ contract GovVotedBanSourceTest is GroupChatFixture {
     uint256 internal voter2Id;
 
     bytes32 internal constant SENDER_BAN_VOTE_CAST_SIG =
-        keccak256("SenderBanVoteCast(uint256,uint256,uint256,bool,uint256,uint256,uint256,uint256)");
-    bytes32 internal constant GOV_SENDER_BAN_CHANGED_SIG =
-        keccak256("GovSenderBanChanged(uint256,uint256,bool,uint256)");
-    bytes32 internal constant STATE_VERSION_CHANGED_SIG = keccak256("StateVersionChanged(uint256,uint256)");
+        keccak256("SenderBanVoteCast(uint256,uint256,uint256,bool,uint256,uint256,uint256)");
+    bytes32 internal constant GOV_SENDER_BAN_CHANGED_SIG = keccak256("GovSenderBanChanged(uint256,uint256,bool)");
 
     function setUp() public override {
         super.setUp();
@@ -110,7 +108,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
     }
 
-    function testT130C_voteEventsCarryWeightsListedStateAndVersion() public {
+    function testT130C_voteEventsCarryWeightsAndListedState() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
 
@@ -119,34 +117,23 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(logs.length, 3);
+        assertEq(logs.length, 2);
         assertEq(logs[0].topics[0], SENDER_BAN_VOTE_CAST_SIG);
         assertEq(logs[0].topics[1], bytes32(managerGroupId));
         assertEq(logs[0].topics[2], bytes32(otherGroupId));
         assertEq(logs[0].topics[3], bytes32(senderId));
-        (
-            bool supportBan,
-            uint256 settledWeight,
-            uint256 supportWeight,
-            uint256 opposeWeight,
-            uint256 voteStateVersion
-        ) = abi.decode(logs[0].data, (bool, uint256, uint256, uint256, uint256));
+        (bool supportBan, uint256 settledWeight, uint256 supportWeight, uint256 opposeWeight) =
+            abi.decode(logs[0].data, (bool, uint256, uint256, uint256));
         assertTrue(supportBan);
         assertEq(settledWeight, 7);
         assertEq(supportWeight, 7);
         assertEq(opposeWeight, 0);
-        assertEq(voteStateVersion, 1);
 
         assertEq(logs[1].topics[0], GOV_SENDER_BAN_CHANGED_SIG);
         assertEq(logs[1].topics[1], bytes32(managerGroupId));
         assertEq(logs[1].topics[2], bytes32(otherGroupId));
-        (bool listed, uint256 banStateVersion) = abi.decode(logs[1].data, (bool, uint256));
+        (bool listed) = abi.decode(logs[1].data, (bool));
         assertTrue(listed);
-        assertEq(banStateVersion, 1);
-
-        assertEq(logs[2].topics[0], STATE_VERSION_CHANGED_SIG);
-        assertEq(logs[2].topics[1], bytes32(managerGroupId));
-        assertEq(abi.decode(logs[2].data, (uint256)), 1);
     }
 
     function testT131_clearAndRefreshUpdateVoterWeightsAndRemoveVoteAtZero() public {
@@ -177,16 +164,20 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
     }
 
-    function testT131C_stateVersionAdvancesOnlyOnSettledChanges() public {
+    function testT131C_identicalRecastRevertsEvenWhenListWouldFlip() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
-        assertEq(banSource.stateVersion(managerGroupId), 0);
 
         vm.prank(senderOwner);
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
-        uint256 afterVote = banSource.stateVersion(managerGroupId);
-        assertEq(afterVote, 1);
+        assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
 
+        vm.recordLogs();
+        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        // Live total weight moved so a sync would unlist; the identical re-cast must still revert.
+        protocol.setGovVotes(token, voter2Id, 3000);
         vm.prank(senderOwner);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -194,15 +185,26 @@ contract GovVotedBanSourceTest is GroupChatFixture {
             )
         );
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
-        assertEq(banSource.stateVersion(managerGroupId), afterVote);
-
-        protocol.setGovVotes(token, senderId, 8);
-        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
-        uint256 afterRefresh = banSource.stateVersion(managerGroupId);
-        assertEq(afterRefresh, afterVote + 1);
+        assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
 
         banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
-        assertEq(banSource.stateVersion(managerGroupId), afterRefresh);
+        assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
+    }
+
+    function testT131D_belowThresholdEmitsVoteEventOnly() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 1);
+        protocol.setGovVotes(token, voter2Id, 1000);
+
+        vm.recordLogs();
+        vm.prank(senderOwner);
+        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Below the 0.3% threshold: the ban list does not flip, so only the vote event is emitted.
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], SENDER_BAN_VOTE_CAST_SIG);
+        assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
     }
 
     function testT132_zeroWeightAndMissingVoteRevert() public {
@@ -279,7 +281,9 @@ contract GovVotedBanSourceTest is GroupChatFixture {
 
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGovVotedBanSourceErrors.BanVoteWeightSourceUnavailable.selector, other)
+            abi.encodeWithSelector(
+                IGovVotedBanSourceErrors.BanVoteWeightSourceUnavailable.selector, managerGroupId, other
+            )
         );
         banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
     }
@@ -370,8 +374,6 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(supportWeights[1], 0);
         assertEq(opposeWeights[0], 0);
         assertEq(opposeWeights[1], 0);
-
-        assertEq(banSource.stateVersion(managerGroupId), 1);
     }
 
     function testT139_govVoteStatusReturnsSettledBannedAndTallies() public {

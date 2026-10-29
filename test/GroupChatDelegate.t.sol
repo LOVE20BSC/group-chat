@@ -29,10 +29,8 @@ contract GroupChatDelegateTest is TestBase {
         keccak256("DelegateChanged(uint256,uint256,address,address,address,uint256,address,address)");
     bytes32 internal constant DELEGATION_CLEARED_SIG =
         keccak256("DelegationCleared(uint256,uint256,address,address,address)");
-    bytes32 internal constant DELEGATOR_WHITELIST_CHANGED_SIG =
-        keccak256("DelegatorWhitelistChanged(uint256,address,bool)");
-    bytes32 internal constant DELEGATOR_GROUP_PERMISSION_CHANGED_SIG =
-        keccak256("DelegatorGroupPermissionChanged(uint256,uint256,address,bool)");
+    bytes32 internal constant DELEGATION_ACCEPTANCE_CHANGED_SIG =
+        keccak256("DelegationAcceptanceChanged(uint256,address,bool)");
 
     function setUp() public {
         groupNft = new MockLOVE20Group();
@@ -42,7 +40,29 @@ contract GroupChatDelegateTest is TestBase {
         groupDelegate = new GroupChatDelegate(address(groupNft));
     }
 
-    function testT140_setDelegateIdAndClearIt() public {
+    function _acceptDelegations() internal {
+        vm.prank(delegateOwner);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, true);
+    }
+
+    function testT140_acceptanceDefaultsOffAndBlocksNewDelegation() public {
+        assertTrue(!groupDelegate.isDelegationAcceptanceEnabled(delegateId));
+
+        vm.prank(chatOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateNotAcceptingNewDelegations.selector, delegateId)
+        );
+        groupDelegate.setDelegateId(groupId, delegateId);
+
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, 0);
+        assertEq(groupDelegate.delegateIdOf(groupId), 0);
+        assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 0);
+    }
+
+    function testT140B_setDelegateIdAndClearIt() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
         assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
@@ -55,6 +75,8 @@ contract GroupChatDelegateTest is TestBase {
     }
 
     function testT140C_delegateChangedZeroIsExplicitClear() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
@@ -63,10 +85,10 @@ contract GroupChatDelegateTest is TestBase {
         groupDelegate.setDelegateId(groupId, 0);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        require(logs.length == 1, "one clear event");
-        require(logs[0].topics[0] == DELEGATE_CHANGED_SIG, "delegate changed topic");
-        require(logs[0].topics[2] == bytes32(0), "delegate id zero");
-        require(logs[0].topics[3] == bytes32(uint256(uint160(chatOwner))), "owner topic");
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], DELEGATE_CHANGED_SIG);
+        assertEq(logs[0].topics[2], bytes32(0));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(chatOwner))));
         (
             address ownerSnapshot,
             address delegateOwnerSnapshot,
@@ -74,12 +96,15 @@ contract GroupChatDelegateTest is TestBase {
             address prevOwnerSnapshot,
             address prevDelegateOwnerSnapshot
         ) = abi.decode(logs[0].data, (address, address, uint256, address, address));
-        require(prevDelegateId == delegateId, "prev delegate id");
-        require(ownerSnapshot == address(0) && delegateOwnerSnapshot == address(0), "new snapshots zero");
-        require(prevOwnerSnapshot == chatOwner && prevDelegateOwnerSnapshot == delegateOwner, "prev snapshots");
+        assertEq(prevDelegateId, delegateId);
+        assertEq(ownerSnapshot, address(0));
+        assertEq(delegateOwnerSnapshot, address(0));
+        assertEq(prevOwnerSnapshot, chatOwner);
+        assertEq(prevDelegateOwnerSnapshot, delegateOwner);
     }
 
-    function testT140B_delegateEventsCarryOwnerSnapshotOldAndNewValues() public {
+    function testT140D_delegateEventsCarryOwnerSnapshotOldAndNewValues() public {
+        _acceptDelegations();
         vm.recordLogs();
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
@@ -120,6 +145,8 @@ contract GroupChatDelegateTest is TestBase {
     }
 
     function testT141_groupNftTransferInvalidatesDelegateAndTransferBackRestores() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
@@ -133,6 +160,8 @@ contract GroupChatDelegateTest is TestBase {
     }
 
     function testT142_delegateNftTransferInvalidatesDelegateAndTransferBackRestores() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
@@ -145,73 +174,149 @@ contract GroupChatDelegateTest is TestBase {
         assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
     }
 
-    function testT143_delegatorWhitelistGatesSetDelegateId() public {
+    function testT143_acceptanceSwitchGatesNewDesignationsOnly() public {
+        _acceptDelegations();
+
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+
         vm.prank(delegateOwner);
-        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
+
+        assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
+        assertEq(groupDelegate.ownerOrDelegateIdOf(groupId, delegateOwner), delegateId);
+        (uint256[] memory delegatedGroups, bool[] memory effective, uint256 total) =
+            groupDelegate.delegatedGroupIds(delegateId, 0, 10);
+        assertEq(total, 1);
+        assertEq(delegatedGroups[0], groupId);
+        assertTrue(effective[0]);
 
         vm.prank(chatOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegatorGroupIdNotAllowed.selector, groupId, delegateId)
+            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateNotAcceptingNewDelegations.selector, delegateId)
         );
         groupDelegate.setDelegateId(groupId, delegateId);
 
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        vm.prank(strangerOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateNotAcceptingNewDelegations.selector, delegateId)
+        );
+        groupDelegate.setDelegateId(strangerGroupId, delegateId);
 
         vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-        assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
+        groupDelegate.setDelegateId(groupId, 0);
+        assertEq(groupDelegate.delegateIdOf(groupId), 0);
     }
 
-    function testT143B_delegatorConfigEventsCarryFlags() public {
+    function testT143B_acceptanceChangedEventCarriesFlags() public {
+        assertTrue(!groupDelegate.isDelegationAcceptanceEnabled(delegateId));
+
         vm.recordLogs();
         vm.prank(delegateOwner);
-        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, true);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
-        assertEq(logs[0].topics[0], DELEGATOR_WHITELIST_CHANGED_SIG);
+        assertEq(logs[0].topics[0], DELEGATION_ACCEPTANCE_CHANGED_SIG);
         assertEq(logs[0].topics[1], bytes32(delegateId));
         assertEq(logs[0].topics[2], bytes32(uint256(uint160(delegateOwner))));
         assertTrue(abi.decode(logs[0].data, (bool)));
 
         vm.recordLogs();
         vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, true);
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        vm.recordLogs();
+        vm.prank(delegateOwner);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
         logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
-        assertEq(logs[0].topics[0], DELEGATOR_GROUP_PERMISSION_CHANGED_SIG);
-        assertEq(logs[0].topics[1], bytes32(delegateId));
-        assertEq(logs[0].topics[2], bytes32(groupId));
-        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateOwner))));
-        assertTrue(abi.decode(logs[0].data, (bool)));
+        assertTrue(!abi.decode(logs[0].data, (bool)));
+        assertTrue(!groupDelegate.isDelegationAcceptanceEnabled(delegateId));
     }
 
-    function testT144_whitelistRemovalRejectsSameIdResetInsteadOfSilentNoOp() public {
+    function testT143C_acceptanceSurvivesDelegateNftTransfer() public {
+        _acceptDelegations();
+
         vm.prank(delegateOwner);
-        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
+        groupNft.transferFrom(delegateOwner, strangerOwner, delegateId);
+
+        // The switch belongs to the memberId, not to the holder.
+        assertTrue(groupDelegate.isDelegationAcceptanceEnabled(delegateId));
+
         vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotMemberOwner.selector, delegateId));
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
+
+        // Ineffective by snapshot, but re-designating the same id is a new designation and passes the switch.
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+        assertEq(groupDelegate.delegateIdOf(groupId), delegateId);
+
+        vm.prank(strangerOwner);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
+        assertTrue(!groupDelegate.isDelegationAcceptanceEnabled(delegateId));
+    }
+
+    function testT143D_reDesignationAfterTransferNeedsAcceptance() public {
+        _acceptDelegations();
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), false);
+        groupNft.transferFrom(delegateOwner, strangerOwner, delegateId);
+        vm.prank(strangerOwner);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
+
         assertEq(groupDelegate.delegateIdOf(groupId), 0);
+
+        vm.prank(chatOwner);
+        vm.expectRevert(
+            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateNotAcceptingNewDelegations.selector, delegateId)
+        );
+        groupDelegate.setDelegateId(groupId, delegateId);
+    }
+
+    function testT144_clearAfterDelegateNftTransferCarriesRawDelegateId() public {
+        _acceptDelegations();
+        vm.prank(chatOwner);
+        groupDelegate.setDelegateId(groupId, delegateId);
+
+        vm.prank(delegateOwner);
+        groupNft.transferFrom(delegateOwner, strangerOwner, delegateId);
+        assertEq(groupDelegate.delegateIdOf(groupId), 0);
+
+        vm.prank(strangerOwner);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
 
         vm.recordLogs();
         vm.prank(chatOwner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatDelegateErrors.DelegatorGroupIdNotAllowed.selector, groupId, delegateId)
-        );
-        groupDelegate.setDelegateId(groupId, delegateId);
-        assertEq(groupDelegate.delegateIdOf(groupId), 0);
-        assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 1);
-        assertEq(vm.getRecordedLogs().length, 0);
+        groupDelegate.setDelegateId(groupId, 0);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        assertEq(logs[0].topics[0], DELEGATE_CHANGED_SIG);
+        (
+            address ownerSnapshot,
+            address delegateOwnerSnapshot,
+            uint256 prevDelegateId,
+            address prevOwnerSnapshot,
+            address prevDelegateOwnerSnapshot
+        ) = abi.decode(logs[0].data, (address, address, uint256, address, address));
+        // The whole prev group is the raw stored state, so the id agrees with the two snapshots.
+        assertEq(prevDelegateId, delegateId);
+        assertEq(prevOwnerSnapshot, chatOwner);
+        assertEq(prevDelegateOwnerSnapshot, delegateOwner);
+        assertEq(ownerSnapshot, address(0));
+        assertEq(delegateOwnerSnapshot, address(0));
+        assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 0);
     }
 
     function testT145_delegateOwnerClearsDelegatedGroupIdsInBatch() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
         vm.prank(strangerOwner);
@@ -229,39 +334,32 @@ contract GroupChatDelegateTest is TestBase {
         groupDelegate.clearDelegatedGroupIds(delegateId, _uints(groupId));
     }
 
-    function testT146_delegateIdsOfAndCanSetDelegateTo() public {
+    function testT146_delegateIdsOfReturnsStoredIds() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
         uint256[] memory delegateIds = groupDelegate.delegateIdsOf(_uints(groupId, strangerGroupId));
         assertEq(delegateIds[0], delegateId);
         assertEq(delegateIds[1], 0);
-
-        assertTrue(groupDelegate.canSetDelegateTo(strangerGroupId, 0));
-        assertTrue(groupDelegate.canSetDelegateTo(strangerGroupId, delegateId));
-        assertTrue(!groupDelegate.canSetDelegateTo(groupId, groupId));
-        assertTrue(!groupDelegate.canSetDelegateTo(groupId, 999));
     }
 
-    function testT146B_delegateQueriesReturnEmptyForMissingDelegate() public view {
-        assertTrue(!groupDelegate.isDelegatorWhitelistEnabled(999));
-        assertEq(groupDelegate.allowedDelegatorGroupIdsCount(999), 0);
-        (uint256[] memory allowed, uint256 allowedTotal) = groupDelegate.allowedDelegatorGroupIds(999, 0, 10);
-        assertEq(allowed.length, 0);
-        assertEq(allowedTotal, 0);
+    function testT146B_delegationQueriesReturnEmptyForMissingDelegate() public view {
+        assertTrue(!groupDelegate.isDelegationAcceptanceEnabled(999));
         assertEq(groupDelegate.delegatedGroupIdsCount(999), 0);
         (uint256[] memory delegated, bool[] memory effective, uint256 delegatedTotal) =
             groupDelegate.delegatedGroupIds(999, 0, 10);
         assertEq(delegated.length, 0);
         assertEq(effective.length, 0);
         assertEq(delegatedTotal, 0);
-        assertTrue(groupDelegate.canSetDelegateTo(groupId, 0));
     }
 
-    function testT147_delegatedAndAllowedIndexesSwapPopOnRemoval() public {
+    function testT147_delegatedIndexesSwapPopOnRemoval() public {
         uint256 thirdGroupId = groupNft.mint(address(0xC0FFEE));
         uint256 fourthGroupId = groupNft.mint(address(0xD00D));
 
+        _acceptDelegations();
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
         vm.prank(strangerOwner);
@@ -277,22 +375,13 @@ contract GroupChatDelegateTest is TestBase {
         assertEq(groupDelegate.delegatedGroupIdsCount(delegateId), 3);
         (uint256[] memory page,,) = groupDelegate.delegatedGroupIds(delegateId, 0, 10);
         assertEq(page.length, 3);
-
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId, strangerGroupId, thirdGroupId), true);
-        assertEq(groupDelegate.allowedDelegatorGroupIdsCount(delegateId), 3);
-
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(strangerGroupId), false);
-        assertEq(groupDelegate.allowedDelegatorGroupIdsCount(delegateId), 2);
-        (uint256[] memory allowedPage,) = groupDelegate.allowedDelegatorGroupIds(delegateId, 0, 10);
-        assertEq(allowedPage.length, 2);
     }
 
     function testT148_ownerOrDelegateIdOfReportsOwnerDelegateAndStranger() public {
         assertEq(groupDelegate.ownerOrDelegateIdOf(groupId, chatOwner), groupId);
         assertEq(groupDelegate.ownerOrDelegateIdOf(groupId, strangerOwner), 0);
 
+        _acceptDelegations();
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
@@ -302,6 +391,8 @@ contract GroupChatDelegateTest is TestBase {
     }
 
     function testT150_delegatedGroupIdsReportEffectiveFlag() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
@@ -309,16 +400,16 @@ contract GroupChatDelegateTest is TestBase {
             groupDelegate.delegatedGroupIds(delegateId, 0, 10);
         assertEq(total, 1);
         assertEq(groups[0], groupId);
-        assertEq(effective[0], true);
+        assertTrue(effective[0]);
 
         groupNft.transferFrom(chatOwner, strangerOwner, groupId);
         (, effective, total) = groupDelegate.delegatedGroupIds(delegateId, 0, 10);
         assertEq(total, 1);
-        assertEq(effective[0], false);
+        assertTrue(!effective[0]);
 
         groupNft.transferFrom(strangerOwner, chatOwner, groupId);
         (, effective,) = groupDelegate.delegatedGroupIds(delegateId, 0, 10);
-        assertEq(effective[0], true);
+        assertTrue(effective[0]);
     }
 
     function testT151_delegateWritesRejectNonOwnerAndSelf() public {
@@ -328,67 +419,42 @@ contract GroupChatDelegateTest is TestBase {
 
         vm.prank(chatOwner);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotMemberOwner.selector, delegateId));
-        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
-
-        vm.prank(chatOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.NotMemberOwner.selector, delegateId));
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, true);
 
         vm.prank(chatOwner);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateIsSelfGroup.selector, groupId));
         groupDelegate.setDelegateId(groupId, groupId);
-
-        vm.prank(delegateOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.DelegateIsSelfGroup.selector, delegateId));
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(delegateId), true);
     }
 
-    function testT151B_delegateWritesRejectMissingDelegateId() public {
+    function testT151B_acceptanceSwitchRejectsMissingDelegateId() public {
         vm.prank(chatOwner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999))
-        );
-        groupDelegate.setDelegatorWhitelistEnabled(999_999, true);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999)));
+        groupDelegate.setDelegationAcceptanceEnabled(999_999, true);
     }
 
-    function testT151C_setDelegateIdRejectsMissingDelegateId() public {
+    function testT151C_setDelegateIdRejectsMissingDelegateIdBeforeSwitch() public {
         vm.prank(chatOwner);
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999))
-        );
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999_999)));
         groupDelegate.setDelegateId(groupId, 999_999);
     }
 
     function testT152_idempotentAndEmptyInputsAreNoop() public {
-        vm.prank(delegateOwner);
-        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
-        assertTrue(groupDelegate.isDelegatorWhitelistEnabled(delegateId));
         vm.recordLogs();
         vm.prank(delegateOwner);
-        groupDelegate.setDelegatorWhitelistEnabled(delegateId, true);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
         assertEq(vm.getRecordedLogs().length, 0);
 
         vm.recordLogs();
         vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, new uint256[](0), true);
+        groupDelegate.clearDelegatedGroupIds(delegateId, new uint256[](0));
         assertEq(vm.getRecordedLogs().length, 0);
 
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        _acceptDelegations();
+
         vm.recordLogs();
         vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, true);
         assertEq(vm.getRecordedLogs().length, 0);
-
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), false);
-        vm.recordLogs();
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), false);
-        assertEq(vm.getRecordedLogs().length, 0);
-
-        vm.prank(delegateOwner);
-        groupDelegate.setAllowedDelegatorGroupIds(delegateId, _uints(groupId), true);
 
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
@@ -406,15 +472,10 @@ contract GroupChatDelegateTest is TestBase {
     }
 
     function testT153_delegationPaginationBoundaries() public {
+        _acceptDelegations();
+
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
-
-        (uint256[] memory page, uint256 total) = groupDelegate.allowedDelegatorGroupIds(delegateId, 0, 0);
-        assertEq(page.length, 0);
-        assertEq(total, 0);
-        (page, total) = groupDelegate.allowedDelegatorGroupIds(delegateId, 5, 10);
-        assertEq(page.length, 0);
-        assertEq(total, 0);
 
         (uint256[] memory groups, bool[] memory effective, uint256 delegatedTotal) =
             groupDelegate.delegatedGroupIds(delegateId, 0, 0);
@@ -442,8 +503,12 @@ contract GroupChatDelegateTest is TestBase {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(0), address(banSource), address(0), address(0));
 
+        _acceptDelegations();
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
+
+        vm.prank(delegateOwner);
+        groupDelegate.setDelegationAcceptanceEnabled(delegateId, false);
 
         vm.roll(block.number + 50);
         assertTrue(_canPost(chat, groupId, delegateId));
@@ -456,7 +521,7 @@ contract GroupChatDelegateTest is TestBase {
 
         vm.prank(strangerOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, strangerGroupId)
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, groupId, strangerGroupId, address(banSource))
         );
         chat.post(groupId, strangerGroupId, "stranger", _emptyMentions(), false, 0);
 
@@ -472,6 +537,14 @@ contract GroupChatDelegateTest is TestBase {
     function testT154_missingGroupRejects() public {
         vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotExist.selector, uint256(999)));
         groupDelegate.delegateIdOf(999);
+    }
+
+    function testT154B_setDelegateIdMissingGroupRejects() public {
+        _acceptDelegations();
+
+        vm.prank(chatOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatDelegateErrors.GroupNotExist.selector, uint256(999)));
+        groupDelegate.setDelegateId(999, delegateId);
     }
 
     function _canPost(GroupChat chat, uint256 groupId_, uint256 senderId_) internal view returns (bool) {
@@ -492,12 +565,5 @@ contract GroupChatDelegateTest is TestBase {
         values = new uint256[](2);
         values[0] = a;
         values[1] = b;
-    }
-
-    function _uints(uint256 a, uint256 b, uint256 c) internal pure returns (uint256[] memory values) {
-        values = new uint256[](3);
-        values[0] = a;
-        values[1] = b;
-        values[2] = c;
     }
 }

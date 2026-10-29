@@ -5,7 +5,7 @@ import {IPostBanSource} from "../IPostBanSource.sol";
 
 interface IGovVotedBanSourceErrors {
     error GroupNotExist(uint256 groupId);
-    error BanVoteWeightSourceUnavailable(address source);
+    error BanVoteWeightSourceUnavailable(uint256 groupId, address source);
     error ZeroTargetSenderId();
     error ZeroVoteWeight(uint256 groupId, uint256 voterId);
     error VoteUnchanged(uint256 groupId, uint256 targetSenderId, uint256 voterId);
@@ -21,21 +21,10 @@ interface IGovVotedBanSourceEvents {
         bool supportBan,
         uint256 settledWeight,
         uint256 supportWeight,
-        uint256 opposeWeight,
-        uint256 stateVersion
+        uint256 opposeWeight
     );
 
-    event GovSenderBanChanged(
-        uint256 indexed groupId,
-        uint256 indexed targetSenderId,
-        bool listed,
-        uint256 stateVersion
-    );
-
-    event StateVersionChanged(
-        uint256 indexed groupId,
-        uint256 stateVersion
-    );
+    event GovSenderBanChanged(uint256 indexed groupId, uint256 indexed targetSenderId, bool listed);
 }
 
 interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVotedBanSourceEvents {
@@ -91,6 +80,4 @@ interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVo
         external
         view
         returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights);
-
-    function stateVersion(uint256 groupId) external view returns (uint256);
 }

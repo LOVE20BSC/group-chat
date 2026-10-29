@@ -166,6 +166,24 @@ contract GroupAdminTest is GroupChatFixture {
         assertTrue(groupAdmin.isAdminId(groupId, adminId));
     }
 
+    function testT129G_groupOwnerSnapshotChangeIsDiscriminable() public {
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+
+        groupNft.transferFrom(chatOwner, stranger, groupId);
+
+        vm.recordLogs();
+        vm.prank(stranger);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1);
+        _assertAdminChangedLog(
+            logs[0], groupId, stranger, adminId, groupId, true, true, stranger, adminOwner, chatOwner, adminOwner
+        );
+        assertTrue(groupAdmin.isAdminId(groupId, adminId));
+    }
+
     function testT129D_addRemoveAdminsValidateInputLimitsAndList() public {
         vm.prank(chatOwner);
         vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.DuplicateMemberId.selector, adminId));

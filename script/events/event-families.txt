@@ -11,11 +11,9 @@ BeforePostPluginChanged gc.management
 AfterPostPluginChanged gc.management
 DelegateChanged gc.management
 DelegationCleared gc.management
-DelegatorWhitelistChanged gc.delegation
-DelegatorGroupPermissionChanged gc.delegation
+DelegationAcceptanceChanged gc.delegation
 SenderBanVoteCast gc.ban-vote
 GovSenderBanChanged gc.ban-vote
-StateVersionChanged gc.ban-vote
 MessagePosted gc.message
 SenderMentioned gc.message
 AfterPostPluginFailed gc.plugin

@@ -82,7 +82,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.ScopeRejected.selector, address(scope), groupId, senderId)
+            abi.encodeWithSelector(IGroupChatErrors.ScopeRejected.selector, groupId, senderId, address(scope))
         );
         _post(groupId, senderId, "banned-by-scope");
 
@@ -109,7 +109,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, address(banSource), groupId, senderId)
+            abi.encodeWithSelector(IGroupChatErrors.BanRejected.selector, groupId, senderId, address(banSource))
         );
         _post(groupId, senderId, "banned-by-ban");
 
@@ -145,7 +145,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.ScopeSourceFailed.selector, address(failingScope))
+            abi.encodeWithSelector(IGroupChatErrors.ScopeSourceFailed.selector, groupId, address(failingScope))
         );
         _post(groupId, senderId, "scope-boom");
 
@@ -162,7 +162,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.prank(senderOwner);
         vm.expectRevert(
-            abi.encodeWithSelector(IGroupChatErrors.BanSourceFailed.selector, address(failingBan))
+            abi.encodeWithSelector(IGroupChatErrors.BanSourceFailed.selector, groupId, address(failingBan))
         );
         _post(groupId, senderId, "ban-boom");
     }
