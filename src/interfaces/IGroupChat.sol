@@ -8,22 +8,57 @@ interface IGroupChatErrors {
     error ChatAlreadyActivated(uint256 groupId);
     error ChatNotActivated(uint256 groupId);
     error PostingNotAllowed(uint256 groupId);
-    error RoundNotStarted(uint256 requiredRound, uint256 currentRound);
+    error RoundNotStarted(
+        uint256 requiredRound,
+        uint256 currentRound
+    );
     error NotGroupOwner(uint256 groupId);
-    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error NotGroupOperator(
+        uint256 groupId,
+        uint256 operatorId
+    );
     error NotMemberOwner(uint256 memberId);
     error Reentrant();
     error ContentEmpty();
-    error ContentTooLong(uint256 length, uint256 maxLength);
-    error TooManyMentionedSenderIds(uint256 length, uint256 maxLength);
+    error ContentTooLong(
+        uint256 length,
+        uint256 maxLength
+    );
+    error TooManyMentionedSenderIds(
+        uint256 length,
+        uint256 maxLength
+    );
     error DuplicateMemberId(uint256 memberId);
-    error MessageNotFound(uint256 groupId, uint256 messageId);
-    error QuotedMessageNotFound(uint256 groupId, uint256 messageId);
-    error MentionAllUnauthorized(uint256 groupId, uint256 senderId);
-    error ScopeRejected(uint256 groupId, uint256 senderId, address source);
-    error BanRejected(uint256 groupId, uint256 senderId, address source);
-    error ScopeSourceFailed(uint256 groupId, address source);
-    error BanSourceFailed(uint256 groupId, address source);
+    error MessageNotFound(
+        uint256 groupId,
+        uint256 messageId
+    );
+    error QuotedMessageNotFound(
+        uint256 groupId,
+        uint256 messageId
+    );
+    error MentionAllUnauthorized(
+        uint256 groupId,
+        uint256 senderId
+    );
+    error ScopeRejected(
+        uint256 groupId,
+        uint256 senderId,
+        address source
+    );
+    error BanRejected(
+        uint256 groupId,
+        uint256 senderId,
+        address source
+    );
+    error ScopeSourceFailed(
+        uint256 groupId,
+        address source
+    );
+    error BanSourceFailed(
+        uint256 groupId,
+        address source
+    );
 }
 
 interface IGroupChatEvents {

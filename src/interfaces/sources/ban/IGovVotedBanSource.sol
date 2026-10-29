@@ -5,11 +5,25 @@ import {IPostBanSource} from "../IPostBanSource.sol";
 
 interface IGovVotedBanSourceErrors {
     error GroupNotExist(uint256 groupId);
-    error BanVoteWeightSourceUnavailable(uint256 groupId, address source);
+    error BanVoteWeightSourceUnavailable(
+        uint256 groupId,
+        address source
+    );
     error ZeroTargetSenderId();
-    error ZeroVoteWeight(uint256 groupId, uint256 voterId);
-    error VoteUnchanged(uint256 groupId, uint256 targetSenderId, uint256 voterId);
-    error VoteNotFound(uint256 groupId, uint256 targetSenderId, uint256 voterId);
+    error ZeroVoteWeight(
+        uint256 groupId,
+        uint256 voterId
+    );
+    error VoteUnchanged(
+        uint256 groupId,
+        uint256 targetSenderId,
+        uint256 voterId
+    );
+    error VoteNotFound(
+        uint256 groupId,
+        uint256 targetSenderId,
+        uint256 voterId
+    );
     error NotMemberOwner(uint256 memberId);
 }
 

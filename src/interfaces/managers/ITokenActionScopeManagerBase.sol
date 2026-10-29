@@ -4,7 +4,10 @@ pragma solidity =0.8.37;
 import {IManagerBase} from "./IManagerBase.sol";
 
 interface ITokenActionScopeManagerBaseErrors {
-    error ActionNotExist(address tokenAddress, uint256 actionId);
+    error ActionNotExist(
+        address tokenAddress,
+        uint256 actionId
+    );
 }
 
 interface ITokenActionScopeManagerBaseEvents {

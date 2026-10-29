@@ -2,10 +2,17 @@
 pragma solidity =0.8.37;
 
 interface IGroupAdminErrors {
-    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error NotGroupOperator(
+        uint256 groupId,
+        uint256 operatorId
+    );
     error GroupNotExist(uint256 groupId);
     error DuplicateMemberId(uint256 memberId);
-    error AdminIdsLimitExceeded(uint256 groupId, uint256 count, uint256 maxCount);
+    error AdminIdsLimitExceeded(
+        uint256 groupId,
+        uint256 count,
+        uint256 maxCount
+    );
 }
 
 interface IGroupAdminEvents {

@@ -2,7 +2,10 @@
 pragma solidity =0.8.37;
 
 interface IGroupMemberErrors {
-    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error NotGroupOperator(
+        uint256 groupId,
+        uint256 operatorId
+    );
     error DuplicateMemberId(uint256 memberId);
 }
 

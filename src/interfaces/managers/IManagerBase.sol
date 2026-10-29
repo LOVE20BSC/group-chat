@@ -9,9 +9,16 @@ import {IBanVoteWeightSource} from "../sources/ban/IBanVoteWeightSource.sol";
 interface IManagerBaseErrors {
     error AlreadyManaged(uint256 groupId);
     error ManagerGroupNameUnavailable();
-    error ManagerMintCostChanged(uint256 expected, uint256 actual);
+    error ManagerMintCostChanged(
+        uint256 expected,
+        uint256 actual
+    );
     error TokenNotLOVE20(address tokenAddress);
-    error UnexpectedManagerERC721Received(address operator, address from, uint256 tokenId);
+    error UnexpectedManagerERC721Received(
+        address operator,
+        address from,
+        uint256 tokenId
+    );
 }
 
 interface IManagerBase is IPostScopeSource, IBanVoteWeightSource, IERC721Receiver, IManagerBaseErrors {

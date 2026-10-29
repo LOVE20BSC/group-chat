@@ -2,7 +2,10 @@
 pragma solidity =0.8.37;
 
 interface IGroupChatBanListErrors {
-    error NotGroupOperator(uint256 groupId, uint256 operatorId);
+    error NotGroupOperator(
+        uint256 groupId,
+        uint256 operatorId
+    );
     error ZeroTargetSenderId();
     error DuplicateMemberId(uint256 memberId);
 }
