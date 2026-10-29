@@ -34,13 +34,13 @@ contract MockGroupDelegate {
         }
 
         DelegateState storage state = _states[groupId];
-        address targetOwnerSnapshot = delegateId == 0 ? address(0) : owner;
-        if (state.delegateId == delegateId && state.ownerSnapshot == targetOwnerSnapshot) {
+        address ownerSnapshot = delegateId == 0 ? address(0) : owner;
+        if (state.delegateId == delegateId && state.ownerSnapshot == ownerSnapshot) {
             return;
         }
 
         state.delegateId = delegateId;
-        state.ownerSnapshot = targetOwnerSnapshot;
+        state.ownerSnapshot = ownerSnapshot;
         // No event here: mock-only events land in out/ ABI and fail script/check-events.py (no family),
         // and this mock cannot supply DelegateChanged's snapshots faithfully. Delegate event coverage
         // lives on the real GroupChatDelegate.

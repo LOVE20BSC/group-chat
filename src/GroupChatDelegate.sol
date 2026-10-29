@@ -47,11 +47,11 @@ contract GroupChatDelegate is IGroupChatDelegate {
             revert DelegateIsSelfGroup(groupId);
         }
 
-        address targetOwnerSnapshot = address(0);
-        address targetDelegateOwnerSnapshot = address(0);
+        address ownerSnapshot = address(0);
+        address delegateOwnerSnapshot = address(0);
         if (delegateId != 0) {
-            targetOwnerSnapshot = owner;
-            targetDelegateOwnerSnapshot = IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId);
+            ownerSnapshot = owner;
+            delegateOwnerSnapshot = IMemberNFT(GROUP_ADDRESS).ownerOf(delegateId);
             if (!_delegationAcceptanceEnabled[delegateId]) {
                 revert DelegateNotAcceptingNewDelegations(delegateId);
             }
@@ -59,8 +59,8 @@ contract GroupChatDelegate is IGroupChatDelegate {
 
         DelegateState storage state = _delegateStates[groupId];
         if (
-            state.delegateId == delegateId && state.ownerSnapshot == targetOwnerSnapshot
-                && state.delegateOwnerSnapshot == targetDelegateOwnerSnapshot
+            state.delegateId == delegateId && state.ownerSnapshot == ownerSnapshot
+                && state.delegateOwnerSnapshot == delegateOwnerSnapshot
         ) {
             return;
         }
@@ -76,14 +76,14 @@ contract GroupChatDelegate is IGroupChatDelegate {
         address prevOwnerSnapshot = state.ownerSnapshot;
         address prevDelegateOwnerSnapshot = state.delegateOwnerSnapshot;
         state.delegateId = delegateId;
-        state.ownerSnapshot = targetOwnerSnapshot;
-        state.delegateOwnerSnapshot = targetDelegateOwnerSnapshot;
+        state.ownerSnapshot = ownerSnapshot;
+        state.delegateOwnerSnapshot = delegateOwnerSnapshot;
         emit DelegateChanged({
             groupId: groupId,
             delegateId: delegateId,
             owner: owner,
-            ownerSnapshot: targetOwnerSnapshot,
-            delegateOwnerSnapshot: targetDelegateOwnerSnapshot,
+            ownerSnapshot: ownerSnapshot,
+            delegateOwnerSnapshot: delegateOwnerSnapshot,
             prevDelegateId: prevDelegateId,
             prevOwnerSnapshot: prevOwnerSnapshot,
             prevDelegateOwnerSnapshot: prevDelegateOwnerSnapshot
