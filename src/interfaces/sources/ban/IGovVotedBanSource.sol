@@ -24,7 +24,11 @@ interface IGovVotedBanSourceEvents {
         uint256 opposeWeight
     );
 
-    event GovSenderBanChanged(uint256 indexed groupId, uint256 indexed targetSenderId, bool listed);
+    event GovSenderBanChanged(
+        uint256 indexed groupId,
+        uint256 indexed targetSenderId,
+        bool listed
+    );
 }
 
 interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVotedBanSourceEvents {

@@ -29,7 +29,11 @@ interface IGroupChatDelegateEvents {
         address prevDelegateOwnerSnapshot
     );
 
-    event DelegationAcceptanceChanged(uint256 indexed delegateId, address indexed delegateOwner, bool enabled);
+    event DelegationAcceptanceChanged(
+        uint256 indexed delegateId,
+        address indexed delegateOwner,
+        bool enabled
+    );
 }
 
 interface IGroupChatDelegate is IGroupChatDelegateErrors, IGroupChatDelegateEvents {
