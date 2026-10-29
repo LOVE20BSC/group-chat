@@ -78,16 +78,16 @@ contract GroupChatDelegate is IGroupChatDelegate {
         state.delegateId = delegateId;
         state.ownerSnapshot = targetOwnerSnapshot;
         state.delegateOwnerSnapshot = targetDelegateOwnerSnapshot;
-        emit DelegateChanged(
-            groupId,
-            delegateId,
-            owner,
-            targetOwnerSnapshot,
-            targetDelegateOwnerSnapshot,
-            prevDelegateId,
-            prevOwnerSnapshot,
-            prevDelegateOwnerSnapshot
-        );
+        emit DelegateChanged({
+            groupId: groupId,
+            delegateId: delegateId,
+            owner: owner,
+            ownerSnapshot: targetOwnerSnapshot,
+            delegateOwnerSnapshot: targetDelegateOwnerSnapshot,
+            prevDelegateId: prevDelegateId,
+            prevOwnerSnapshot: prevOwnerSnapshot,
+            prevDelegateOwnerSnapshot: prevDelegateOwnerSnapshot
+        });
     }
 
     function clearDelegatedGroupIds(uint256 delegateId, uint256[] calldata groupIds)
@@ -106,9 +106,13 @@ contract GroupChatDelegate is IGroupChatDelegate {
                 state.ownerSnapshot = address(0);
                 state.delegateOwnerSnapshot = address(0);
                 _groupIdsByDelegateId[delegateId].remove(groupIds[i]);
-                emit DelegationCleared(
-                    groupIds[i], delegateId, delegateOwner, prevOwnerSnapshot, prevDelegateOwnerSnapshot
-                );
+                emit DelegationCleared({
+                    groupId: groupIds[i],
+                    delegateId: delegateId,
+                    delegateOwner: delegateOwner,
+                    prevOwnerSnapshot: prevOwnerSnapshot,
+                    prevDelegateOwnerSnapshot: prevDelegateOwnerSnapshot
+                });
             }
 
             unchecked {
@@ -124,7 +128,11 @@ contract GroupChatDelegate is IGroupChatDelegate {
         }
 
         _delegationAcceptanceEnabled[delegateId] = enabled;
-        emit DelegationAcceptanceChanged(delegateId, delegateOwner, enabled);
+        emit DelegationAcceptanceChanged({
+            delegateId: delegateId,
+            delegateOwner: delegateOwner,
+            enabled: enabled
+        });
     }
 
     function isDelegationAcceptanceEnabled(uint256 delegateId) external view returns (bool) {

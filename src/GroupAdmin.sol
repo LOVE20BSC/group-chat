@@ -95,18 +95,18 @@ contract GroupAdmin is IGroupAdmin {
             return;
         }
 
-        emit AdminChanged(
-            groupId,
-            adminId,
-            operatorId,
-            msg.sender,
-            true,
-            groupOwnerSnapshot,
-            adminOwnerSnapshot,
-            prevListed,
-            prevGroupOwnerSnapshot,
-            prevAdminOwnerSnapshot
-        );
+        emit AdminChanged({
+            groupId: groupId,
+            adminId: adminId,
+            operatorId: operatorId,
+            operator: msg.sender,
+            listed: true,
+            groupOwnerSnapshot: groupOwnerSnapshot,
+            adminOwnerSnapshot: adminOwnerSnapshot,
+            prevListed: prevListed,
+            prevGroupOwnerSnapshot: prevGroupOwnerSnapshot,
+            prevAdminOwnerSnapshot: prevAdminOwnerSnapshot
+        });
     }
 
     function _removeAdminId(
@@ -123,18 +123,18 @@ contract GroupAdmin is IGroupAdmin {
         address prevAdminOwnerSnapshot = state.adminOwnerSnapshots[adminId];
         delete state.groupOwnerSnapshots[adminId];
         delete state.adminOwnerSnapshots[adminId];
-        emit AdminChanged(
-            groupId,
-            adminId,
-            operatorId,
-            msg.sender,
-            false,
-            address(0),
-            address(0),
-            true,
-            prevGroupOwnerSnapshot,
-            prevAdminOwnerSnapshot
-        );
+        emit AdminChanged({
+            groupId: groupId,
+            adminId: adminId,
+            operatorId: operatorId,
+            operator: msg.sender,
+            listed: false,
+            groupOwnerSnapshot: address(0),
+            adminOwnerSnapshot: address(0),
+            prevListed: true,
+            prevGroupOwnerSnapshot: prevGroupOwnerSnapshot,
+            prevAdminOwnerSnapshot: prevAdminOwnerSnapshot
+        });
     }
 
     function _validateAdminIds(uint256[] calldata adminIds_) internal view {

@@ -134,16 +134,16 @@ contract GroupChat is IGroupChat {
         config.beforePostPlugin = beforePostPlugin_;
         config.afterPostPlugin = afterPostPlugin_;
 
-        emit GroupChatActivated(
-            groupId,
-            groupId,
-            owner,
-            config.postingAllowed,
-            scopeSource_,
-            banSource_,
-            beforePostPlugin_,
-            afterPostPlugin_
-        );
+        emit GroupChatActivated({
+            groupId: groupId,
+            ownerId: groupId,
+            owner: owner,
+            postingAllowed: config.postingAllowed,
+            scopeSource: scopeSource_,
+            banSource: banSource_,
+            beforePostPlugin: beforePostPlugin_,
+            afterPostPlugin: afterPostPlugin_
+        });
     }
 
     function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed_)
@@ -160,7 +160,12 @@ contract GroupChat is IGroupChat {
 
         // forge-lint: disable-next-item(missing-events-access-control)
         config.postingAllowed = postingAllowed_;
-        emit PostingAllowedChanged(groupId, operatorId, msg.sender, postingAllowed_);
+        emit PostingAllowedChanged({
+            groupId: groupId,
+            operatorId: operatorId,
+            operator: msg.sender,
+            postingAllowed: postingAllowed_
+        });
     }
 
     function setScopeSource(
@@ -256,7 +261,11 @@ contract GroupChat is IGroupChat {
 
         _emitMessagePosted(groupId, messageIndex);
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
-            emit SenderMentioned(groupId, messageIndex + 1, mentionedSenderIds[i]);
+            emit SenderMentioned({
+                groupId: groupId,
+                messageId: messageIndex + 1,
+                mentionedSenderId: mentionedSenderIds[i]
+            });
         }
 
         if (config.afterPostPlugin != address(0)) {
@@ -278,15 +287,15 @@ contract GroupChat is IGroupChat {
                         errorSelector := mload(add(err, 0x20))
                     }
                 }
-                emit AfterPostPluginFailed(
-                    groupId,
-                    messageIndex + 1,
-                    round,
-                    config.afterPostPlugin,
-                    keccak256(err),
-                    err.length,
-                    errorSelector
-                );
+                emit AfterPostPluginFailed({
+                    groupId: groupId,
+                    messageId: messageIndex + 1,
+                    round: round,
+                    pluginAddress: config.afterPostPlugin,
+                    errorHash: keccak256(err),
+                    errorLength: err.length,
+                    errorSelector: errorSelector
+                });
             }
         }
     }
@@ -568,9 +577,21 @@ contract GroupChat is IGroupChat {
         }
 
         if (isScope) {
-            emit ScopeSourceChanged(groupId, sourceAddress, operatorId, msg.sender, prevSourceAddress);
+            emit ScopeSourceChanged({
+                groupId: groupId,
+                sourceAddress: sourceAddress,
+                operatorId: operatorId,
+                operator: msg.sender,
+                prevSourceAddress: prevSourceAddress
+            });
         } else {
-            emit BanSourceChanged(groupId, sourceAddress, operatorId, msg.sender, prevSourceAddress);
+            emit BanSourceChanged({
+                groupId: groupId,
+                sourceAddress: sourceAddress,
+                operatorId: operatorId,
+                operator: msg.sender,
+                prevSourceAddress: prevSourceAddress
+            });
         }
     }
 
@@ -597,9 +618,21 @@ contract GroupChat is IGroupChat {
         }
 
         if (isBefore) {
-            emit BeforePostPluginChanged(groupId, pluginAddress, operatorId, msg.sender, prevPluginAddress);
+            emit BeforePostPluginChanged({
+                groupId: groupId,
+                pluginAddress: pluginAddress,
+                operatorId: operatorId,
+                operator: msg.sender,
+                prevPluginAddress: prevPluginAddress
+            });
         } else {
-            emit AfterPostPluginChanged(groupId, pluginAddress, operatorId, msg.sender, prevPluginAddress);
+            emit AfterPostPluginChanged({
+                groupId: groupId,
+                pluginAddress: pluginAddress,
+                operatorId: operatorId,
+                operator: msg.sender,
+                prevPluginAddress: prevPluginAddress
+            });
         }
     }
 
@@ -934,17 +967,17 @@ contract GroupChat is IGroupChat {
         uint256 messageIndex
     ) private {
         StoredMessage storage message_ = _messagesByChat[groupId][messageIndex];
-        emit MessagePosted(
-            groupId,
-            messageIndex + 1,
-            message_.senderId,
-            message_.senderAddress,
-            message_.round,
-            message_.quotedMessageId,
-            message_.quotedMessageId != 0,
-            message_.mentionAll,
-            message_.mentionedSenderIds.length,
-            message_.content
-        );
+        emit MessagePosted({
+            groupId: groupId,
+            messageId: messageIndex + 1,
+            senderId: message_.senderId,
+            sender: message_.senderAddress,
+            round: message_.round,
+            quotedMessageId: message_.quotedMessageId,
+            hasQuote: message_.quotedMessageId != 0,
+            mentionAll: message_.mentionAll,
+            mentionedSenderCount: message_.mentionedSenderIds.length,
+            content: message_.content
+        });
     }
 }

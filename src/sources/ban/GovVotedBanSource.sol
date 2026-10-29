@@ -300,9 +300,15 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 totalWeight
     ) internal {
         TargetState storage target = _targetState(state, targetSenderId);
-        emit SenderBanVoteCast(
-            groupId, targetSenderId, voterId, supportBan, settledWeight, target.supportWeight, target.opposeWeight
-        );
+        emit SenderBanVoteCast({
+            groupId: groupId,
+            targetSenderId: targetSenderId,
+            voterId: voterId,
+            supportBan: supportBan,
+            settledWeight: settledWeight,
+            supportWeight: target.supportWeight,
+            opposeWeight: target.opposeWeight
+        });
         _syncBanList(state, groupId, targetSenderId, totalWeight);
     }
 
@@ -315,7 +321,11 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
 
         _setBanListed(state, targetSenderId, shouldList);
-        emit GovSenderBanChanged(groupId, targetSenderId, shouldList);
+        emit GovSenderBanChanged({
+            groupId: groupId,
+            targetSenderId: targetSenderId,
+            listed: shouldList
+        });
     }
 
     function _sourceOrRevert(uint256 groupId) internal view returns (address source) {
