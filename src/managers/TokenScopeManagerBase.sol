@@ -7,81 +7,87 @@ import {IStake} from "@core/interfaces/IStake.sol";
 import {Pagination} from "@libs/Pagination.sol";
 
 abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerBase {
-    mapping(uint256 => address) internal _tokenOfGroup;
-    mapping(address => uint256) internal _groupIdOfToken;
+    // groupId => managed token address
+    mapping(uint256 => address) internal _tokenAddressByGroupId;
+    // tokenAddress => groupId; 0 means not managed
+    mapping(address => uint256) internal _groupIdByTokenAddress;
+    // managed token addresses, in activation order
     address[] internal _tokens;
 
-    function tokenOfGroup(uint256 groupId) external view returns (address) {
-        return _tokenOfGroup[groupId];
+    function tokenAddressByGroupId(uint256 groupId) external view returns (address) {
+        return _tokenAddressByGroupId[groupId];
     }
 
-    function groupIdOfToken(address token) external view returns (uint256) {
-        return _groupIdOfToken[token];
+    function groupIdByTokenAddress(address tokenAddress) external view returns (uint256) {
+        return _groupIdByTokenAddress[tokenAddress];
     }
 
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_
-    ) TokenManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
-
-    function tokensCount() external view returns (uint256) {
-        return _tokens.length;
-    }
+        address groupChatAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress,
+        address actionTargetAddress
+    ) TokenManagerBase(
+        groupChatAddress,
+        banSourceAddress,
+        beforePostPluginAddress,
+        afterPostPluginAddress,
+        actionTargetAddress
+    ) {}
 
     function tokens(uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (address[] memory tokenList, uint256[] memory groupIds)
+        returns (address[] memory tokenList, uint256[] memory groupIds, uint256 totalCount)
     {
-        uint256 count = Pagination.pageCount(_tokens.length, offset, limit);
+        totalCount = _tokens.length;
+        uint256 count = Pagination.pageCount(totalCount, offset, limit);
         tokenList = new address[](count);
         groupIds = new uint256[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            address token = _tokens[Pagination.pageIndex(_tokens.length, offset, i, reverse)];
-            tokenList[i] = token;
-            groupIds[i] = _groupIdOfToken[token];
+            address tokenAddress = _tokens[Pagination.pageIndex(totalCount, offset, i, reverse)];
+            tokenList[i] = tokenAddress;
+            groupIds[i] = _groupIdByTokenAddress[tokenAddress];
         }
     }
 
-    function voteWeightOf(uint256 groupId, uint256 voterId) public view returns (uint256) {
-        return _voteWeightOf(_tokenOfGroup[groupId], voterId);
+    function voteWeight(uint256 groupId, uint256 voterId) public view returns (uint256) {
+        return _voteWeight(_tokenAddressByGroupId[groupId], voterId);
     }
 
     function totalVoteWeight(uint256 groupId) external view returns (uint256) {
-        address token = _tokenOfGroup[groupId];
-        if (token == address(0)) {
+        address tokenAddress = _tokenAddressByGroupId[groupId];
+        if (tokenAddress == address(0)) {
             return 0;
         }
-        return IStake(STAKE_ADDRESS).totalValidGovVotes(token, currentPhase());
+        return IStake(STAKE_ADDRESS).totalValidGovVotes(tokenAddress, currentPhase());
     }
 
-    function _voteWeightOf(address token, uint256 voterId) internal view returns (uint256) {
-        if (token == address(0)) {
+    function _voteWeight(address tokenAddress, uint256 voterId) internal view returns (uint256) {
+        if (tokenAddress == address(0)) {
             return 0;
         }
-        return IStake(STAKE_ADDRESS).validGovVotes(token, currentPhase(), voterId);
+        return IStake(STAKE_ADDRESS).validGovVotes(tokenAddress, currentPhase(), voterId);
     }
 
-    function _activateToken(address token) internal returns (uint256 groupId) {
-        _requireLOVE20Token(token);
-        _requireNotManaged(_groupIdOfToken[token]);
+    function _activateToken(address tokenAddress) internal returns (uint256 groupId) {
+        _requireLOVE20Token(tokenAddress);
+        _requireNotManaged(_groupIdByTokenAddress[tokenAddress]);
 
         bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
         (string memory stem, uint256 randomHexLength) =
-            _managedGroupNameStem(_tokenNamePayload(token), requiresTestPrefix);
+            _managedGroupNameStem(_tokenNamePayload(tokenAddress), requiresTestPrefix);
         groupId = _mintManagedGroup(stem, randomHexLength, requiresTestPrefix);
         // forge-lint: disable-next-item(missing-events-access-control)
-        _tokenOfGroup[groupId] = token;
+        _tokenAddressByGroupId[groupId] = tokenAddress;
         // forge-lint: disable-next-item(missing-events-access-control)
-        _groupIdOfToken[token] = groupId;
-        _tokens.push(token);
+        _groupIdByTokenAddress[tokenAddress] = groupId;
+        _tokens.push(tokenAddress);
         _activateManagedGroup(groupId);
         emit TokenGroupActivated({
-            tokenAddress: token,
+            tokenAddress: tokenAddress,
             groupId: groupId,
             operator: msg.sender
         });

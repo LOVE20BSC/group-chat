@@ -39,7 +39,7 @@ contract GroupChat is IGroupChat {
         uint256 endIndex;
     }
 
-    struct StoredMessage {
+    struct MessageRecord {
         uint256 senderId;
         address senderAddress;
         string content;
@@ -51,42 +51,51 @@ contract GroupChat is IGroupChat {
         uint256 quotedMessageId;
     }
 
-    mapping(uint256 => ChatConfig) internal _chatConfigs;
-    mapping(uint256 => StoredMessage[]) internal _messagesByChat;
-    mapping(uint256 => mapping(uint256 => uint256[])) internal _senderMessageIndexes;
-    mapping(uint256 => mapping(uint256 => uint256[])) internal _mentionMessageIndexes;
-    mapping(uint256 => uint256[]) internal _mentionAllMessageIndexes;
-    mapping(uint256 => uint256[]) internal _senderIdsByChat;
-    mapping(uint256 => mapping(uint256 => RoundState)) internal _roundStates;
-    mapping(uint256 => uint256[]) internal _roundListByChat;
+    // groupId => chat config
+    mapping(uint256 => ChatConfig) internal _chatConfig;
+    // groupId => messages, append-only so messageId is index + 1
+    mapping(uint256 => MessageRecord[]) internal _messagesByGroupId;
+    // groupId => senderId => message indexes, in posting order
+    mapping(uint256 => mapping(uint256 => uint256[])) internal _messageIndexesByGroupIdBySenderId;
+    // groupId => mentionedSenderId => message indexes, in posting order
+    mapping(uint256 => mapping(uint256 => uint256[])) internal _messageIndexesByGroupIdByMentionedSenderId;
+    // groupId => message indexes posted with mentionAll
+    mapping(uint256 => uint256[]) internal _mentionAllMessageIndexesByGroupId;
+    // groupId => senderIds that posted at least once, in first-post order
+    mapping(uint256 => uint256[]) internal _senderIdsByGroupId;
+    // groupId => round => span of messages in that round
+    mapping(uint256 => mapping(uint256 => RoundState)) internal _roundStateByGroupIdByRound;
+    // groupId => rounds that have at least one message, in first-message order
+    mapping(uint256 => uint256[]) internal _roundsByGroupId;
+    // all activated groupIds, in activation order
     uint256[] internal _groupIds;
 
-    uint256 internal _entered;
+    uint256 internal _reentrancyStatus;
 
     // forge-lint: disable-next-item(missing-zero-check)
     constructor(
-        address groupAdmin_,
-        address phaseAddress_,
-        uint256 maxContentLength_,
-        uint256 maxMentionedSenderIds_
+        address groupAdminAddress,
+        address phaseAddress,
+        uint256 maxContentLength,
+        uint256 maxMentionedSenderIds
     ) {
-        address groupDelegate = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
-        address groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
-        GROUP_ADMIN_ADDRESS = groupAdmin_;
-        GROUP_DELEGATE_ADDRESS = groupDelegate;
+        address groupDelegateAddress = IGroupAdmin(groupAdminAddress).GROUP_DELEGATE_ADDRESS();
+        address groupAddress = IGroupAdmin(groupAdminAddress).GROUP_ADDRESS();
+        GROUP_ADMIN_ADDRESS = groupAdminAddress;
+        GROUP_DELEGATE_ADDRESS = groupDelegateAddress;
         GROUP_ADDRESS = groupAddress;
-        PHASE_ADDRESS = phaseAddress_;
-        MAX_CONTENT_LENGTH = maxContentLength_;
-        MAX_MENTIONED_SENDER_IDS = maxMentionedSenderIds_;
+        PHASE_ADDRESS = phaseAddress;
+        MAX_CONTENT_LENGTH = maxContentLength;
+        MAX_MENTIONED_SENDER_IDS = maxMentionedSenderIds;
     }
 
     modifier nonReentrant() {
-        if (_entered != 0) {
+        if (_reentrancyStatus != 0) {
             revert Reentrant();
         }
-        _entered = 1;
+        _reentrancyStatus = 1;
         _;
-        _entered = 0;
+        _reentrancyStatus = 0;
     }
 
     modifier onlySenderOwner(uint256 senderId) {
@@ -97,7 +106,7 @@ contract GroupChat is IGroupChat {
     }
 
     modifier onlyChatOwner(uint256 groupId) {
-        if (msg.sender != _ownerOfOrRevertGroupNotExist(groupId)) {
+        if (msg.sender != _ownerOrRevertGroupNotExist(groupId)) {
             revert NotGroupOwner(groupId);
         }
         _;
@@ -105,22 +114,22 @@ contract GroupChat is IGroupChat {
 
     function activateChat(
         uint256 groupId,
-        address scopeSource_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_
+        address scopeSourceAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress
     ) external nonReentrant onlyChatOwner(groupId) {
-        address owner = _ownerOfOrRevertGroupNotExist(groupId);
+        address owner = _ownerOrRevertGroupNotExist(groupId);
 
-        ChatConfig storage config = _chatConfigs[groupId];
+        ChatConfig storage config = _chatConfig[groupId];
         if (config.activated) {
             revert ChatAlreadyActivated(groupId);
         }
 
-        _validateSourceAddress(scopeSource_);
-        _validateSourceAddress(banSource_);
-        _validatePluginAddress(beforePostPlugin_);
-        _validatePluginAddress(afterPostPlugin_);
+        _validateSourceAddress(scopeSourceAddress);
+        _validateSourceAddress(banSourceAddress);
+        _validatePluginAddress(beforePostPluginAddress);
+        _validatePluginAddress(afterPostPluginAddress);
 
         config.firstActivatedOwner = owner;
         config.firstActivatedBlockNumber = block.number;
@@ -129,75 +138,75 @@ contract GroupChat is IGroupChat {
 
         config.activated = true;
         config.postingAllowed = true;
-        config.scopeSource = scopeSource_;
-        config.banSource = banSource_;
-        config.beforePostPlugin = beforePostPlugin_;
-        config.afterPostPlugin = afterPostPlugin_;
+        config.scopeSource = scopeSourceAddress;
+        config.banSource = banSourceAddress;
+        config.beforePostPlugin = beforePostPluginAddress;
+        config.afterPostPlugin = afterPostPluginAddress;
 
         emit GroupChatActivated({
             groupId: groupId,
             ownerId: groupId,
             owner: owner,
             postingAllowed: config.postingAllowed,
-            scopeSource: scopeSource_,
-            banSource: banSource_,
-            beforePostPlugin: beforePostPlugin_,
-            afterPostPlugin: afterPostPlugin_
+            scopeSource: scopeSourceAddress,
+            banSource: banSourceAddress,
+            beforePostPlugin: beforePostPluginAddress,
+            afterPostPlugin: afterPostPluginAddress
         });
     }
 
-    function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed_)
+    function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed)
         external
         nonReentrant
         onlyOwnerOrDelegate(groupId, operatorId)
     {
         _requireActivated(groupId);
 
-        ChatConfig storage config = _chatConfigs[groupId];
-        if (config.postingAllowed == postingAllowed_) {
+        ChatConfig storage config = _chatConfig[groupId];
+        if (config.postingAllowed == postingAllowed) {
             return;
         }
 
         // forge-lint: disable-next-item(missing-events-access-control)
-        config.postingAllowed = postingAllowed_;
+        config.postingAllowed = postingAllowed;
         emit PostingAllowedChanged({
             groupId: groupId,
             operatorId: operatorId,
             operator: msg.sender,
-            postingAllowed: postingAllowed_
+            postingAllowed: postingAllowed
         });
     }
 
     function setScopeSource(
         uint256 groupId,
         uint256 operatorId,
-        address sourceAddress
+        address scopeSourceAddress
     ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
-        _setSource(groupId, operatorId, sourceAddress, true);
+        _setSource(groupId, operatorId, scopeSourceAddress, true);
     }
 
     function setBanSource(
         uint256 groupId,
         uint256 operatorId,
-        address sourceAddress
+        address banSourceAddress
     ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
-        _setSource(groupId, operatorId, sourceAddress, false);
+        _setSource(groupId, operatorId, banSourceAddress, false);
     }
 
     function setBeforePostPlugin(
         uint256 groupId,
         uint256 operatorId,
-        address pluginAddress
+        address beforePostPluginAddress
     ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
-        _setPostPlugin(groupId, operatorId, pluginAddress, true);
+        _setPostPlugin(groupId, operatorId, beforePostPluginAddress, true);
     }
 
     function setAfterPostPlugin(
         uint256 groupId,
         uint256 operatorId,
-        address pluginAddress
+        address afterPostPluginAddress
     ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
-        _setPostPlugin(groupId, operatorId, pluginAddress, false);
+        _setPostPlugin(groupId, operatorId, afterPostPluginAddress, false);
     }
 
     function post(
@@ -220,7 +229,7 @@ contract GroupChat is IGroupChat {
         uint256 quotedMessageId
     ) internal {
         _requireExistingGroup(groupId);
-        ChatConfig storage config = _chatConfigs[groupId];
+        ChatConfig storage config = _chatConfig[groupId];
         if (!config.activated) {
             revert ChatNotActivated(groupId);
         }
@@ -235,7 +244,7 @@ contract GroupChat is IGroupChat {
             revert ContentTooLong(bytes(content).length, MAX_CONTENT_LENGTH);
         }
         _validateMentionedSenderIds(mentionedSenderIds);
-        uint256 delegateId = IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId);
+        uint256 delegateId = IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).effectiveDelegateId(groupId);
         if (mentionAll) {
             _requireMentionAllOperator(groupId, senderId, delegateId);
         }
@@ -252,10 +261,10 @@ contract GroupChat is IGroupChat {
         uint256 messageIndex =
             _storeMessage(groupId, senderId, content, mentionedSenderIds, mentionAll, quotedMessageId, round);
 
-        if (_senderMessageIndexes[groupId][senderId].length == 0) {
-            _senderIdsByChat[groupId].push(senderId);
+        if (_messageIndexesByGroupIdBySenderId[groupId][senderId].length == 0) {
+            _senderIdsByGroupId[groupId].push(senderId);
         }
-        _senderMessageIndexes[groupId][senderId].push(messageIndex);
+        _messageIndexesByGroupIdBySenderId[groupId][senderId].push(messageIndex);
 
         _recordRound(groupId, round, messageIndex);
 
@@ -300,23 +309,23 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    function chatInfo(uint256 groupId) external view returns (ChatInfo memory) {
+    function chatInfo(uint256 groupId) external view returns (ChatInfo memory info) {
         return _chatInfo(groupId);
     }
 
-    function chatInfos(uint256[] calldata groupIds_) external view returns (ChatInfo[] memory) {
-        ChatInfo[] memory result = new ChatInfo[](groupIds_.length);
+    function chatInfosByGroupIds(uint256[] calldata requestedGroupIds) external view returns (ChatInfo[] memory) {
+        ChatInfo[] memory result = new ChatInfo[](requestedGroupIds.length);
 
-        for (uint256 i = 0; i < groupIds_.length; i++) {
-            result[i] = _chatInfo(groupIds_[i]);
+        for (uint256 i = 0; i < requestedGroupIds.length; i++) {
+            result[i] = _chatInfo(requestedGroupIds[i]);
         }
 
         return result;
     }
 
     function _chatInfo(uint256 groupId) internal view returns (ChatInfo memory) {
-        address owner = _ownerOfOrRevertGroupNotExist(groupId);
-        ChatConfig storage config = _chatConfigs[groupId];
+        address owner = _ownerOrRevertGroupNotExist(groupId);
+        ChatConfig storage config = _chatConfig[groupId];
         return ChatInfo({
             groupId: groupId,
             owner: owner,
@@ -332,29 +341,29 @@ contract GroupChat is IGroupChat {
         });
     }
 
-    function postingAllowed(uint256 groupId) external view returns (bool) {
+    function isPostingAllowed(uint256 groupId) external view returns (bool) {
         _requireExistingGroup(groupId);
-        return _chatConfigs[groupId].postingAllowed;
+        return _chatConfig[groupId].postingAllowed;
     }
 
     function scopeSource(uint256 groupId) external view returns (address) {
         _requireExistingGroup(groupId);
-        return _chatConfigs[groupId].scopeSource;
+        return _chatConfig[groupId].scopeSource;
     }
 
     function banSource(uint256 groupId) external view returns (address) {
         _requireExistingGroup(groupId);
-        return _chatConfigs[groupId].banSource;
+        return _chatConfig[groupId].banSource;
     }
 
     function beforePostPlugin(uint256 groupId) external view returns (address) {
         _requireExistingGroup(groupId);
-        return _chatConfigs[groupId].beforePostPlugin;
+        return _chatConfig[groupId].beforePostPlugin;
     }
 
     function afterPostPlugin(uint256 groupId) external view returns (address) {
         _requireExistingGroup(groupId);
-        return _chatConfigs[groupId].afterPostPlugin;
+        return _chatConfig[groupId].afterPostPlugin;
     }
 
     function canPost(uint256 groupId, uint256 senderId)
@@ -373,182 +382,167 @@ contract GroupChat is IGroupChat {
         return round;
     }
 
-    function messagesCount(uint256 groupId) external view returns (uint256) {
+    function message(uint256 groupId, uint256 messageId) external view returns (Message memory storedMessage) {
         _requireExistingGroup(groupId);
-        return _messagesByChat[groupId].length;
-    }
-
-    function message(uint256 groupId, uint256 messageId) external view returns (Message memory) {
-        _requireExistingGroup(groupId);
-        if (messageId == 0 || messageId > _messagesByChat[groupId].length) {
+        if (messageId == 0 || messageId > _messagesByGroupId[groupId].length) {
             revert MessageNotFound(groupId, messageId);
         }
         uint256 messageIndex = messageId - 1;
-        return _copyMessage(_messagesByChat[groupId][messageIndex], groupId, messageIndex);
-    }
-
-    function messagesByRoundCount(uint256 groupId, uint256 round) external view returns (uint256) {
-        _requireExistingGroup(groupId);
-        RoundState storage state = _roundStates[groupId][round];
-        if (state.startIndexPlusOne == 0) {
-            return 0;
-        }
-        uint256 startIndex = state.startIndexPlusOne - 1;
-        return state.endIndex - startIndex + 1;
-    }
-
-    function messagesBySenderCount(uint256 groupId, uint256 senderId) external view returns (uint256) {
-        _requireExistingGroup(groupId);
-        return _senderMessageIndexes[groupId][senderId].length;
-    }
-
-    function senderIdsCount(uint256 groupId) external view returns (uint256) {
-        _requireExistingGroup(groupId);
-        return _senderIdsByChat[groupId].length;
-    }
-
-    function groupIdsCount() external view returns (uint256) {
-        return _groupIds.length;
+        return _copyMessage(_messagesByGroupId[groupId][messageIndex], groupId, messageIndex);
     }
 
     function messages(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (Message[] memory)
+        returns (Message[] memory messageList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        return _messagesPage(groupId, 0, _messagesByChat[groupId].length, offset, limit, reverse);
+        totalCount = _messagesByGroupId[groupId].length;
+        messageList = _messagesPage(groupId, 0, totalCount, offset, limit, reverse);
     }
 
     function messagesByRound(uint256 groupId, uint256 round, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (Message[] memory)
+        returns (Message[] memory messageList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        RoundState storage state = _roundStates[groupId][round];
+        RoundState storage state = _roundStateByGroupIdByRound[groupId][round];
         if (state.startIndexPlusOne == 0) {
-            return new Message[](0);
+            return (new Message[](0), 0);
         }
 
         uint256 startIndex = state.startIndexPlusOne - 1;
-        uint256 total = state.endIndex - startIndex + 1;
-        return _messagesPage(groupId, startIndex, total, offset, limit, reverse);
+        totalCount = state.endIndex - startIndex + 1;
+        messageList = _messagesPage(groupId, startIndex, totalCount, offset, limit, reverse);
     }
 
-    function messagesBySender(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit, bool reverse)
+    function messagesBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (Message[] memory)
+        returns (Message[] memory messageList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        return _messagesByIndexes(groupId, _senderMessageIndexes[groupId][senderId], offset, limit, reverse);
+        uint256[] storage indexes = _messageIndexesByGroupIdBySenderId[groupId][senderId];
+        totalCount = indexes.length;
+        messageList = _messagesByIndexes(groupId, indexes, offset, limit, reverse);
     }
 
-    function messageIdsBySender(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit, bool reverse)
+    function messageIdsBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory)
+        returns (uint256[] memory messageIds, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        return _messageIdsByIndexes(_senderMessageIndexes[groupId][senderId], offset, limit, reverse);
+        uint256[] storage indexes = _messageIndexesByGroupIdBySenderId[groupId][senderId];
+        totalCount = indexes.length;
+        messageIds = _messageIdsByIndexes(indexes, offset, limit, reverse);
     }
 
-    function messagesByMentionCount(uint256 groupId, uint256 mentionedSenderId) external view returns (uint256) {
-        _requireExistingGroup(groupId);
-        return _mentionMessageIndexes[groupId][mentionedSenderId].length;
-    }
-
-    function messagesByMention(uint256 groupId, uint256 mentionedSenderId, uint256 offset, uint256 limit, bool reverse)
-        external
-        view
-        returns (Message[] memory)
-    {
-        _requireExistingGroup(groupId);
-        return _messagesByIndexes(groupId, _mentionMessageIndexes[groupId][mentionedSenderId], offset, limit, reverse);
-    }
-
-    function messageIdsByMention(
+    function messagesByMentionedSenderId(
         uint256 groupId,
         uint256 mentionedSenderId,
         uint256 offset,
         uint256 limit,
         bool reverse
-    ) external view returns (uint256[] memory) {
-        _requireExistingGroup(groupId);
-        return _messageIdsByIndexes(_mentionMessageIndexes[groupId][mentionedSenderId], offset, limit, reverse);
-    }
-
-    function messagesByMentionAllCount(uint256 groupId) external view returns (uint256) {
-        _requireExistingGroup(groupId);
-        return _mentionAllMessageIndexes[groupId].length;
-    }
-
-    function messagesByMentionAll(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
+    )
         external
         view
-        returns (Message[] memory)
+        returns (Message[] memory messageList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        return _messagesByIndexes(groupId, _mentionAllMessageIndexes[groupId], offset, limit, reverse);
+        uint256[] storage indexes = _messageIndexesByGroupIdByMentionedSenderId[groupId][mentionedSenderId];
+        totalCount = indexes.length;
+        messageList = _messagesByIndexes(groupId, indexes, offset, limit, reverse);
     }
 
-    function messageIdsByMentionAll(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
+    function messageIdsByMentionedSenderId(
+        uint256 groupId,
+        uint256 mentionedSenderId,
+        uint256 offset,
+        uint256 limit,
+        bool reverse
+    ) external view returns (uint256[] memory messageIds, uint256 totalCount) {
+        _requireExistingGroup(groupId);
+        uint256[] storage indexes = _messageIndexesByGroupIdByMentionedSenderId[groupId][mentionedSenderId];
+        totalCount = indexes.length;
+        messageIds = _messageIdsByIndexes(indexes, offset, limit, reverse);
+    }
+
+    function mentionAllMessages(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory)
+        returns (Message[] memory messageList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        return _messageIdsByIndexes(_mentionAllMessageIndexes[groupId], offset, limit, reverse);
+        uint256[] storage indexes = _mentionAllMessageIndexesByGroupId[groupId];
+        totalCount = indexes.length;
+        messageList = _messagesByIndexes(groupId, indexes, offset, limit, reverse);
+    }
+
+    function mentionAllMessageIds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
+        external
+        view
+        returns (uint256[] memory messageIds, uint256 totalCount)
+    {
+        _requireExistingGroup(groupId);
+        uint256[] storage indexes = _mentionAllMessageIndexesByGroupId[groupId];
+        totalCount = indexes.length;
+        messageIds = _messageIdsByIndexes(indexes, offset, limit, reverse);
     }
 
     function senderIds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory)
+        returns (uint256[] memory senderIdList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        return _uint256Page(_senderIdsByChat[groupId], offset, limit, reverse);
+        uint256[] storage list = _senderIdsByGroupId[groupId];
+        totalCount = list.length;
+        senderIdList = _uint256Page(list, offset, limit, reverse);
     }
 
-    function groupIds(uint256 offset, uint256 limit, bool reverse) external view returns (uint256[] memory) {
-        return _uint256Page(_groupIds, offset, limit, reverse);
-    }
-
-    function roundsCount(uint256 groupId) external view returns (uint256) {
-        _requireExistingGroup(groupId);
-        return _roundListByChat[groupId].length;
+    function groupIds(uint256 offset, uint256 limit, bool reverse)
+        external
+        view
+        returns (uint256[] memory groupIdList, uint256 totalCount)
+    {
+        totalCount = _groupIds.length;
+        groupIdList = _uint256Page(_groupIds, offset, limit, reverse);
     }
 
     function rounds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (RoundSpan[] memory)
+        returns (RoundSpan[] memory roundList, uint256 totalCount)
     {
         _requireExistingGroup(groupId);
-        uint256[] storage list = _roundListByChat[groupId];
-        uint256 count = Pagination.pageCount(list.length, offset, limit);
-        RoundSpan[] memory result = new RoundSpan[](count);
+        uint256[] storage list = _roundsByGroupId[groupId];
+        totalCount = list.length;
+        uint256 count = Pagination.pageCount(totalCount, offset, limit);
+        roundList = new RoundSpan[](count);
 
         for (uint256 i = 0; i < count; i++) {
-            uint256 round = list[Pagination.pageIndex(list.length, offset, i, reverse)];
-            result[i] = _roundSpan(groupId, round);
+            uint256 round = list[Pagination.pageIndex(totalCount, offset, i, reverse)];
+            roundList[i] = _roundSpan(groupId, round);
         }
-
-        return result;
     }
 
-    function roundInfo(uint256 groupId, uint256 round) external view returns (RoundSpan memory) {
+    function roundInfo(uint256 groupId, uint256 round) external view returns (RoundSpan memory roundSpan) {
         _requireExistingGroup(groupId);
         return _roundSpanOrEmpty(groupId, round);
     }
 
-    function roundInfos(uint256 groupId, uint256[] calldata rounds_) external view returns (RoundSpan[] memory) {
+    function roundInfosByRounds(uint256 groupId, uint256[] calldata requestedRounds)
+        external
+        view
+        returns (RoundSpan[] memory)
+    {
         _requireExistingGroup(groupId);
-        RoundSpan[] memory result = new RoundSpan[](rounds_.length);
+        RoundSpan[] memory result = new RoundSpan[](requestedRounds.length);
 
-        for (uint256 i = 0; i < rounds_.length; i++) {
-            result[i] = _roundSpanOrEmpty(groupId, rounds_[i]);
+        for (uint256 i = 0; i < requestedRounds.length; i++) {
+            result[i] = _roundSpanOrEmpty(groupId, requestedRounds[i]);
         }
 
         return result;
@@ -563,7 +557,7 @@ contract GroupChat is IGroupChat {
         _requireActivated(groupId);
         _validateSourceAddress(sourceAddress);
 
-        ChatConfig storage config = _chatConfigs[groupId];
+        ChatConfig storage config = _chatConfig[groupId];
         address prevSourceAddress = isScope ? config.scopeSource : config.banSource;
         if (prevSourceAddress == sourceAddress) {
             return;
@@ -604,7 +598,7 @@ contract GroupChat is IGroupChat {
         _requireActivated(groupId);
         _validatePluginAddress(pluginAddress);
 
-        ChatConfig storage config = _chatConfigs[groupId];
+        ChatConfig storage config = _chatConfig[groupId];
         address prevPluginAddress = isBefore ? config.beforePostPlugin : config.afterPostPlugin;
         if (prevPluginAddress == pluginAddress) {
             return;
@@ -637,11 +631,11 @@ contract GroupChat is IGroupChat {
     }
 
     function _recordRound(uint256 groupId, uint256 round, uint256 messageIndex) internal {
-        RoundState storage state = _roundStates[groupId][round];
+        RoundState storage state = _roundStateByGroupIdByRound[groupId][round];
         if (state.startIndexPlusOne == 0) {
             state.startIndexPlusOne = messageIndex + 1;
             state.endIndex = messageIndex;
-            _roundListByChat[groupId].push(round);
+            _roundsByGroupId[groupId].push(round);
             return;
         }
 
@@ -676,7 +670,7 @@ contract GroupChat is IGroupChat {
 
         for (uint256 i = 0; i < count; i++) {
             uint256 messageIndex = startIndex + Pagination.pageIndex(total, offset, i, reverse);
-            result[i] = _copyMessage(_messagesByChat[groupId][messageIndex], groupId, messageIndex);
+            result[i] = _copyMessage(_messagesByGroupId[groupId][messageIndex], groupId, messageIndex);
         }
 
         return result;
@@ -692,7 +686,7 @@ contract GroupChat is IGroupChat {
 
         for (uint256 i = 0; i < count; i++) {
             uint256 messageIndex = indexes[Pagination.pageIndex(indexes.length, offset, i, reverse)];
-            result[i] = _copyMessage(_messagesByChat[groupId][messageIndex], groupId, messageIndex);
+            result[i] = _copyMessage(_messagesByGroupId[groupId][messageIndex], groupId, messageIndex);
         }
 
         return result;
@@ -718,7 +712,7 @@ contract GroupChat is IGroupChat {
         uint256 operatorId
     ) {
         uint256 resolvedOperatorId =
-            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
+            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
         if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
             revert NotGroupOperator(groupId, operatorId);
         }
@@ -726,8 +720,8 @@ contract GroupChat is IGroupChat {
     }
 
     function _requireActivated(uint256 groupId) internal view {
-        _ownerOfOrRevertGroupNotExist(groupId);
-        if (!_chatConfigs[groupId].activated) {
+        _ownerOrRevertGroupNotExist(groupId);
+        if (!_chatConfig[groupId].activated) {
             revert ChatNotActivated(groupId);
         }
     }
@@ -761,7 +755,7 @@ contract GroupChat is IGroupChat {
             return PostRejectionReason.None;
         }
         if (config.scopeSource != address(0)) {
-            try IPostScopeSource(config.scopeSource).canPost(groupId, senderId) returns (bool sourceAllowed) {
+            try IPostScopeSource(config.scopeSource).isSenderAllowed(groupId, senderId) returns (bool sourceAllowed) {
                 if (!sourceAllowed) {
                     return PostRejectionReason.ScopeRejected;
                 }
@@ -812,7 +806,7 @@ contract GroupChat is IGroupChat {
             return (false, PostRejectionReason.GroupNotExist);
         }
 
-        ChatConfig storage config = _chatConfigs[groupId];
+        ChatConfig storage config = _chatConfig[groupId];
         if (!config.activated) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, PostRejectionReason.ChatNotActivated);
@@ -828,7 +822,7 @@ contract GroupChat is IGroupChat {
         }
 
         reason = _postSourceRejection(
-            config, groupId, senderId, IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).delegateIdOf(groupId)
+            config, groupId, senderId, IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).effectiveDelegateId(groupId)
         );
         if (reason != PostRejectionReason.None) {
             // forge-lint: disable-next-item(boolean-cst)
@@ -840,10 +834,10 @@ contract GroupChat is IGroupChat {
     }
 
     function _requireExistingGroup(uint256 groupId) internal view {
-        _ownerOfOrRevertGroupNotExist(groupId);
+        _ownerOrRevertGroupNotExist(groupId);
     }
 
-    function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
+    function _ownerOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist(groupId);
@@ -889,31 +883,31 @@ contract GroupChat is IGroupChat {
         uint256 quotedMessageId,
         uint256 round
     ) internal returns (uint256 messageIndex) {
-        messageIndex = _messagesByChat[groupId].length;
-        _messagesByChat[groupId].push();
+        messageIndex = _messagesByGroupId[groupId].length;
+        _messagesByGroupId[groupId].push();
 
-        StoredMessage storage message_ = _messagesByChat[groupId][messageIndex];
-        message_.senderId = senderId;
-        message_.senderAddress = msg.sender;
-        message_.content = content;
-        message_.blockNumber = block.number;
-        message_.timestamp = block.timestamp;
-        message_.round = round;
-        message_.mentionAll = mentionAll;
-        message_.quotedMessageId = quotedMessageId;
+        MessageRecord storage storedMessage = _messagesByGroupId[groupId][messageIndex];
+        storedMessage.senderId = senderId;
+        storedMessage.senderAddress = msg.sender;
+        storedMessage.content = content;
+        storedMessage.blockNumber = block.number;
+        storedMessage.timestamp = block.timestamp;
+        storedMessage.round = round;
+        storedMessage.mentionAll = mentionAll;
+        storedMessage.quotedMessageId = quotedMessageId;
 
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
             uint256 mentionedSenderId = mentionedSenderIds[i];
-            message_.mentionedSenderIds.push(mentionedSenderId);
-            _mentionMessageIndexes[groupId][mentionedSenderId].push(messageIndex);
+            storedMessage.mentionedSenderIds.push(mentionedSenderId);
+            _messageIndexesByGroupIdByMentionedSenderId[groupId][mentionedSenderId].push(messageIndex);
         }
         if (mentionAll) {
-            _mentionAllMessageIndexes[groupId].push(messageIndex);
+            _mentionAllMessageIndexesByGroupId[groupId].push(messageIndex);
         }
     }
 
     function _roundSpan(uint256 groupId, uint256 round) internal view returns (RoundSpan memory) {
-        RoundState storage state = _roundStates[groupId][round];
+        RoundState storage state = _roundStateByGroupIdByRound[groupId][round];
         uint256 startIndex = state.startIndexPlusOne - 1;
         return RoundSpan({
             round: round,
@@ -924,14 +918,14 @@ contract GroupChat is IGroupChat {
     }
 
     function _roundSpanOrEmpty(uint256 groupId, uint256 round) internal view returns (RoundSpan memory) {
-        RoundState storage state = _roundStates[groupId][round];
+        RoundState storage state = _roundStateByGroupIdByRound[groupId][round];
         if (state.startIndexPlusOne == 0) {
             return RoundSpan(round, 0, 0, 0);
         }
         return _roundSpan(groupId, round);
     }
 
-    function _copyMessage(StoredMessage storage source, uint256 groupId, uint256 messageIndex)
+    function _copyMessage(MessageRecord storage source, uint256 groupId, uint256 messageIndex)
         internal
         view
         returns (Message memory result)
@@ -957,7 +951,7 @@ contract GroupChat is IGroupChat {
         if (quotedMessageId == 0) {
             return;
         }
-        if (quotedMessageId > _messagesByChat[groupId].length) {
+        if (quotedMessageId > _messagesByGroupId[groupId].length) {
             revert QuotedMessageNotFound(groupId, quotedMessageId);
         }
     }
@@ -966,18 +960,18 @@ contract GroupChat is IGroupChat {
         uint256 groupId,
         uint256 messageIndex
     ) private {
-        StoredMessage storage message_ = _messagesByChat[groupId][messageIndex];
+        MessageRecord storage storedMessage = _messagesByGroupId[groupId][messageIndex];
         emit MessagePosted({
             groupId: groupId,
             messageId: messageIndex + 1,
-            senderId: message_.senderId,
-            sender: message_.senderAddress,
-            round: message_.round,
-            quotedMessageId: message_.quotedMessageId,
-            hasQuote: message_.quotedMessageId != 0,
-            mentionAll: message_.mentionAll,
-            mentionedSenderCount: message_.mentionedSenderIds.length,
-            content: message_.content
+            senderId: storedMessage.senderId,
+            sender: storedMessage.senderAddress,
+            round: storedMessage.round,
+            quotedMessageId: storedMessage.quotedMessageId,
+            hasQuote: storedMessage.quotedMessageId != 0,
+            mentionAll: storedMessage.mentionAll,
+            mentionedSenderCount: storedMessage.mentionedSenderIds.length,
+            content: storedMessage.content
         });
     }
 }

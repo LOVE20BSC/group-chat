@@ -59,14 +59,14 @@ contract OperatorAuthTest is GroupChatFixture {
     function testT205_ownerAndDelegateIdsAccepted() public {
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, false);
-        assertTrue(!chat.postingAllowed(groupId));
+        assertTrue(!chat.isPostingAllowed(groupId));
 
         vm.prank(chatOwner);
         groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.prank(delegateIdOwner);
         chat.setPostingAllowed(groupId, delegateId, true);
-        assertTrue(chat.postingAllowed(groupId));
+        assertTrue(chat.isPostingAllowed(groupId));
     }
 
     function testT206_duplicateMemberIdsRejected() public {

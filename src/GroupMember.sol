@@ -14,69 +14,69 @@ contract GroupMember is IGroupMember {
     address public immutable GROUP_ADMIN_ADDRESS;
     address public immutable GROUP_ADDRESS;
 
-    address internal immutable _groupDelegateAddress;
+    address public immutable GROUP_DELEGATE_ADDRESS;
 
     struct MemberState {
         Uint256Set.Storage memberIds;
     }
 
-    mapping(uint256 => MemberState) internal _states;
+    // groupId => member state
+    mapping(uint256 => MemberState) internal _memberState;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupAdmin_) {
-        GROUP_ADMIN_ADDRESS = groupAdmin_;
-        GROUP_ADDRESS = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
-        _groupDelegateAddress = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
+    constructor(address groupAdminAddress) {
+        GROUP_ADMIN_ADDRESS = groupAdminAddress;
+        GROUP_ADDRESS = IGroupAdmin(groupAdminAddress).GROUP_ADDRESS();
+        GROUP_DELEGATE_ADDRESS = IGroupAdmin(groupAdminAddress).GROUP_DELEGATE_ADDRESS();
     }
 
-    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_)
+    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList)
         external
         onlyOperator(groupId, operatorId)
     {
-        _setMemberIds(groupId, operatorId, memberIds_, true);
+        _setMemberIds(groupId, operatorId, memberIdList, true);
     }
 
-    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_)
+    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList)
         external
         onlyOperator(groupId, operatorId)
     {
-        _setMemberIds(groupId, operatorId, memberIds_, false);
+        _setMemberIds(groupId, operatorId, memberIdList, false);
     }
 
     function isMemberId(uint256 groupId, uint256 memberId) external view returns (bool) {
-        return _states[groupId].memberIds.contains(memberId);
+        return _memberState[groupId].memberIds.contains(memberId);
     }
 
-    function isMemberIdBatch(uint256 groupId, uint256[] calldata memberIds_)
+    function isMemberIdBatch(uint256 groupId, uint256[] calldata checkedMemberIds)
         external
         view
         returns (bool[] memory listed)
     {
-        MemberState storage state = _states[groupId];
-        listed = new bool[](memberIds_.length);
-        for (uint256 i = 0; i < memberIds_.length; i++) {
-            listed[i] = state.memberIds.contains(memberIds_[i]);
+        MemberState storage state = _memberState[groupId];
+        listed = new bool[](checkedMemberIds.length);
+        for (uint256 i = 0; i < checkedMemberIds.length; i++) {
+            listed[i] = state.memberIds.contains(checkedMemberIds[i]);
         }
     }
 
-    function memberIdsCount(uint256 groupId) external view returns (uint256) {
-        return _states[groupId].memberIds.count();
+    function memberIds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
+        external
+        view
+        returns (uint256[] memory memberIdList, uint256 totalCount)
+    {
+        (memberIdList, totalCount) = _memberState[groupId].memberIds.values(offset, limit, reverse);
     }
 
-    function memberIds(uint256 groupId, uint256 offset, uint256 limit) external view returns (uint256[] memory) {
-        (uint256[] memory page,) = _states[groupId].memberIds.values(offset, limit, false);
-        return page;
-    }
-
-    function _setMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_, bool listed)
+    function _setMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList, bool listed)
         internal
     {
-        MemberState storage state = _states[groupId];
-        for (uint256 i = 0; i < memberIds_.length; i++) {
-            uint256 memberId = memberIds_[i];
+        MemberState storage state = _memberState[groupId];
+        for (uint256 i = 0; i < memberIdList.length; i++) {
+            uint256 memberId = memberIdList[i];
             IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
             for (uint256 j = 0; j < i; j++) {
-                if (memberIds_[j] == memberId) {
+                if (memberIdList[j] == memberId) {
                     revert DuplicateMemberId(memberId);
                 }
             }
@@ -105,7 +105,7 @@ contract GroupMember is IGroupMember {
 
     function _isOperator(uint256 groupId, uint256 operatorId) private view returns (bool) {
         uint256 resolvedOperatorId =
-            IGroupChatDelegate(_groupDelegateAddress).ownerOrDelegateIdOf(groupId, msg.sender);
+            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
         if (operatorId != 0 && resolvedOperatorId == operatorId) {
             return true;
         }

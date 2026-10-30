@@ -53,7 +53,7 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(senderOwner);
         _post(groupId, senderId, "joined-group");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
 
         groupActionExecutor.setGroupMember(groupId, senderId, false);
 
@@ -85,7 +85,7 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
 
         vm.prank(other);
         _post(groupId, senderId, "new-owner");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
     }
 
     function testT132_groupJoinScopeCombinesWithAdminBanSource() public {

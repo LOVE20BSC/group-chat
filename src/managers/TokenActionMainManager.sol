@@ -6,20 +6,20 @@ import {TokenActionScopeManagerBase} from "./TokenActionScopeManagerBase.sol";
 
 contract TokenActionMainManager is TokenActionScopeManagerBase {
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_,
-        uint256 recentRounds_
+        address groupChatAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress,
+        address actionTargetAddress,
+        uint256 recentRounds
     )
         TokenActionScopeManagerBase(
-            groupChat_,
-            banSource_,
-            beforePostPlugin_,
-            afterPostPlugin_,
-            actionTarget_,
-            recentRounds_
+            groupChatAddress,
+            banSourceAddress,
+            beforePostPluginAddress,
+            afterPostPluginAddress,
+            actionTargetAddress,
+            recentRounds
         )
     {}
 
@@ -27,25 +27,25 @@ contract TokenActionMainManager is TokenActionScopeManagerBase {
         return "am";
     }
 
-    function activate(address token, uint256 actionId) external returns (uint256 groupId) {
-        return _activateManagedAction(token, actionId);
+    function activate(address tokenAddress, uint256 actionId) external returns (uint256 groupId) {
+        return _activateManagedAction(tokenAddress, actionId);
     }
 
-    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
-        ManagedAction storage action = _actionOfGroup[groupId];
-        address token = action.token;
-        return token != address(0)
+    function isSenderAllowed(uint256 groupId, uint256 senderId) external view returns (bool) {
+        ManagedAction storage action = _managedActionByGroupId[groupId];
+        address tokenAddress = action.tokenAddress;
+        return tokenAddress != address(0)
             && (
-                _hasRecentActionVote(token, action.actionId, senderId)
-                    || _hasActionParticipation(token, action.actionId, senderId)
+                _hasRecentActionVote(tokenAddress, action.actionId, senderId)
+                    || _hasActionParticipation(tokenAddress, action.actionId, senderId)
             );
     }
 
-    function _hasActionParticipation(address token, uint256 actionId, uint256 memberId)
+    function _hasActionParticipation(address tokenAddress, uint256 actionId, uint256 memberId)
         internal
         view
         returns (bool)
     {
-        return IActionTarget(ACTION_TARGET_ADDRESS).isJoined(token, actionId, memberId);
+        return IActionTarget(ACTION_TARGET_ADDRESS).isJoined(tokenAddress, actionId, memberId);
     }
 }

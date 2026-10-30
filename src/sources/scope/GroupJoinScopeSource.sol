@@ -10,12 +10,12 @@ contract GroupJoinScopeSource is IGroupJoinScopeSource {
     address public immutable GROUP_ACTION_EXECUTOR_ADDRESS;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupMember_, address groupActionExecutor_) {
-        GROUP_MEMBER_ADDRESS = groupMember_;
-        GROUP_ACTION_EXECUTOR_ADDRESS = groupActionExecutor_;
+    constructor(address groupMemberAddress, address groupActionExecutorAddress) {
+        GROUP_MEMBER_ADDRESS = groupMemberAddress;
+        GROUP_ACTION_EXECUTOR_ADDRESS = groupActionExecutorAddress;
     }
 
-    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
+    function isSenderAllowed(uint256 groupId, uint256 senderId) external view returns (bool) {
         if (IGroupMember(GROUP_MEMBER_ADDRESS).isMemberId(groupId, senderId)) {
             return true;
         }

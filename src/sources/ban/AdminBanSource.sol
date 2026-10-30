@@ -8,8 +8,8 @@ contract AdminBanSource is IAdminBanSource {
     address public immutable GROUP_BAN_LIST_ADDRESS;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupBanList_) {
-        GROUP_BAN_LIST_ADDRESS = groupBanList_;
+    constructor(address groupBanListAddress) {
+        GROUP_BAN_LIST_ADDRESS = groupBanListAddress;
     }
 
     function isBanned(uint256 groupId, uint256 senderId) external view returns (bool) {

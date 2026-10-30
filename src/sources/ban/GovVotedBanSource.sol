@@ -24,43 +24,46 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 supportWeight;
         uint256 opposeWeight;
         Uint256Set.Storage voters;
+        // groupId => senderId => voterId => that voter's settled vote on this target
         mapping(uint256 => VoteState) votes;
     }
 
     struct ChatState {
         Uint256Set.Storage senderIdTargets;
+        // groupId => senderId => settled weights and votes against it
         mapping(uint256 => TargetState) senderIdTargetStates;
         Uint256Set.Storage senderIdBanList;
     }
 
-    mapping(uint256 => ChatState) internal _states;
+    // groupId => ban vote state
+    mapping(uint256 => ChatState) internal _chatState;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupAddress_, uint256 minSupportToOpposeMultiplier_, uint256 banThresholdRatio_) {
-        GROUP_ADDRESS = groupAddress_;
-        MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = minSupportToOpposeMultiplier_;
-        BAN_THRESHOLD_RATIO = banThresholdRatio_;
+    constructor(address groupAddress, uint256 minSupportToOpposeMultiplier, uint256 banThresholdRatio) {
+        GROUP_ADDRESS = groupAddress;
+        MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = minSupportToOpposeMultiplier;
+        BAN_THRESHOLD_RATIO = banThresholdRatio;
     }
 
-    function voteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan)
+    function voteByTargetSenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan)
         external
         onlyVoterOwner(voterId)
     {
         _setSenderIdVote(groupId, targetSenderId, voterId, supportBan);
     }
 
-    function clearVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId)
+    function clearVoteByTargetSenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId)
         external
         onlyVoterOwner(voterId)
     {
         _clearSenderIdVote(groupId, targetSenderId, voterId);
     }
 
-    function refreshVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external {
+    function refreshVoteByTargetSenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external {
         _refreshSenderIdVote(groupId, targetSenderId, voterId);
     }
 
-    function voteWeightsBySenderIdsByVoter(uint256 groupId, uint256[] calldata senderIds, uint256 voterId)
+    function voteWeightsBySenderIdsByVoterId(uint256 groupId, uint256[] calldata senderIds, uint256 voterId)
         external
         view
         returns (uint256[] memory supportWeights, uint256[] memory opposeWeights)
@@ -70,7 +73,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (!_sourceHasCode(groupId)) {
             return (supportWeights, opposeWeights);
         }
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         for (uint256 i = 0; i < senderIds.length; i++) {
             VoteState storage vote = state.senderIdTargetStates[senderIds[i]].votes[voterId];
             (supportWeights[i], opposeWeights[i]) = _voteWeights(vote);
@@ -86,34 +89,28 @@ contract GovVotedBanSource is IGovVotedBanSource {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, 0, 0);
         }
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         TargetState storage target = state.senderIdTargetStates[senderId];
         return (state.senderIdBanList.contains(senderId), target.supportWeight, target.opposeWeight);
     }
 
-    function votedSenderIdsCount(uint256 groupId) external view returns (uint256) {
-        if (!_sourceHasCode(groupId)) {
-            return 0;
-        }
-        return _states[groupId].senderIdTargets.count();
-    }
-
-    function votedSenderIds(uint256 groupId, uint256 offset, uint256 limit)
+    function votedSenderIds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
         returns (
             uint256[] memory senderIds,
             uint256[] memory supportWeights,
             uint256[] memory opposeWeights,
-            uint256[] memory voterCounts
+            uint256[] memory voterCounts,
+            uint256 totalCount
         )
     {
         if (!_sourceHasCode(groupId)) {
-            return (new uint256[](0), new uint256[](0), new uint256[](0), new uint256[](0));
+            return (new uint256[](0), new uint256[](0), new uint256[](0), new uint256[](0), 0);
         }
 
-        ChatState storage state = _states[groupId];
-        (senderIds,) = state.senderIdTargets.values(offset, limit, false);
+        ChatState storage state = _chatState[groupId];
+        (senderIds, totalCount) = state.senderIdTargets.values(offset, limit, reverse);
         uint256 count = senderIds.length;
         supportWeights = new uint256[](count);
         opposeWeights = new uint256[](count);
@@ -128,26 +125,24 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
     }
 
-    function votersBySenderIdCount(uint256 groupId, uint256 senderId) external view returns (uint256) {
-        if (!_sourceHasCode(groupId)) {
-            return 0;
-        }
-        return _states[groupId].senderIdTargetStates[senderId].voters.count();
-    }
-
-    function votersBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit)
+    function votersBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights)
+        returns (
+            uint256[] memory voterIds,
+            uint256[] memory supportWeights,
+            uint256[] memory opposeWeights,
+            uint256 totalCount
+        )
     {
         if (!_sourceHasCode(groupId)) {
-            return (new uint256[](0), new uint256[](0), new uint256[](0));
+            return (new uint256[](0), new uint256[](0), new uint256[](0), 0);
         }
-        return _votersPage(_states[groupId].senderIdTargetStates[senderId], offset, limit);
+        return _votersPage(_chatState[groupId].senderIdTargetStates[senderId], offset, limit, reverse);
     }
 
     function isBanned(uint256 groupId, uint256 senderId) external view returns (bool) {
-        return _states[groupId].senderIdBanList.contains(senderId);
+        return _chatState[groupId].senderIdBanList.contains(senderId);
     }
 
     function isSenderIdBannedBatch(uint256 groupId, uint256[] calldata senderIds)
@@ -155,7 +150,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         view
         returns (bool[] memory banned)
     {
-        Uint256Set.Storage storage banList = _states[groupId].senderIdBanList;
+        Uint256Set.Storage storage banList = _chatState[groupId].senderIdBanList;
         banned = new bool[](senderIds.length);
         for (uint256 i = 0; i < senderIds.length; i++) {
             banned[i] = banList.contains(senderIds[i]);
@@ -167,7 +162,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         view
         returns (bool[] memory banned, uint256[] memory supportWeights, uint256[] memory opposeWeights)
     {
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         banned = new bool[](senderIds.length);
         supportWeights = new uint256[](senderIds.length);
         opposeWeights = new uint256[](senderIds.length);
@@ -205,7 +200,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         TargetState storage target = _targetState(state, targetSenderId);
         VoteState storage vote = target.votes[voterId];
         bool voteExists = vote.settledWeight != 0;
@@ -238,7 +233,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         address source = _sourceOrRevert(groupId);
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         TargetState storage target = _targetState(state, targetSenderId);
         VoteState storage vote = target.votes[voterId];
         if (vote.settledWeight == 0) {
@@ -264,7 +259,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         address source = _sourceOrRevert(groupId);
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         TargetState storage target = _targetState(state, targetSenderId);
         VoteState storage vote = target.votes[voterId];
         if (vote.settledWeight == 0) {
@@ -347,7 +342,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         view
         returns (uint256 weight)
     {
-        try IBanVoteWeightSource(source).voteWeightOf(groupId, voterId) returns (uint256 resolved) {
+        try IBanVoteWeightSource(source).voteWeight(groupId, voterId) returns (uint256 resolved) {
             return resolved;
         } catch {
             revert BanVoteWeightSourceUnavailable(groupId, source);
@@ -442,12 +437,17 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
     }
 
-    function _votersPage(TargetState storage target, uint256 offset, uint256 limit)
+    function _votersPage(TargetState storage target, uint256 offset, uint256 limit, bool reverse)
         internal
         view
-        returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights)
+        returns (
+            uint256[] memory voterIds,
+            uint256[] memory supportWeights,
+            uint256[] memory opposeWeights,
+            uint256 total
+        )
     {
-        (voterIds,) = target.voters.values(offset, limit, false);
+        (voterIds, total) = target.voters.values(offset, limit, reverse);
         uint256 count = voterIds.length;
         supportWeights = new uint256[](count);
         opposeWeights = new uint256[](count);

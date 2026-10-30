@@ -57,7 +57,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.prank(senderOwner);
         _post(groupId, senderId, "default-open");
 
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
     }
 
     function testT070A_scopeSourceControlsPostAndCanPost() public {
@@ -89,7 +89,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         scope.setAllowed(true);
         vm.prank(senderOwner);
         _post(groupId, senderId, "allowed-by-scope");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
     }
 
     function testT070B_banSourceControlsPostAndCanPost() public {
@@ -116,7 +116,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         banSource.setBanned(false);
         vm.prank(senderOwner);
         _post(groupId, senderId, "allowed-by-ban");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
     }
 
     function testT070C_canPostReturnsCoreAndSourceFailureReasons() public {
@@ -390,7 +390,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.roll(originBlocks);
         vm.prank(chatOwner);
         _post(groupId, groupId, "owner-bypasses-sources");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
 
         scope.setAllowed(true);
 
@@ -405,7 +405,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         vm.prank(delegateIdOwner);
         _post(groupId, delegateId, "delegate-bypasses-sources");
-        assertEq(chat.messagesCount(groupId), 2);
+        assertEq(messagesTotal(chat, groupId), 2);
     }
 
     function testT071_beforePostRejectRevertsWholePost() public {
@@ -419,7 +419,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.expectRevert(abi.encodeWithSelector(MockBeforePostRejectPlugin.BeforePostRejected.selector));
         _post(groupId, senderId, "banned");
 
-        assertEq(chat.messagesCount(groupId), 0);
+        assertEq(messagesTotal(chat, groupId), 0);
     }
 
     function testT072_afterPostFailureDoesNotRollbackAndEventOrderIsCorrect() public {
@@ -434,7 +434,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _post(groupId, senderId, "ok");
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
         assertEq(logs.length, 2);
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(logs[0].topics[2], bytes32(uint256(1)));
@@ -503,7 +503,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _post(groupId, senderId, "outer");
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(chat.messagesCount(groupId), 2);
+        assertEq(messagesTotal(chat, groupId), 2);
         assertEq(logs.length, 2);
         assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
         assertEq(logs[1].topics[1], bytes32(groupId));
@@ -524,8 +524,8 @@ contract GroupChatPluginsTest is GroupChatFixture {
         _post(groupId, senderId, "outer");
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(chat.messagesCount(groupId), 1);
-        assertTrue(chat.postingAllowed(groupId));
+        assertEq(messagesTotal(chat, groupId), 1);
+        assertTrue(chat.isPostingAllowed(groupId));
         assertEq(logs.length, 2);
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
@@ -557,8 +557,8 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(captured[1], delegateId);
         assertEq(beforePlugin.lastQuotedMessageId(), 0);
 
-        assertEq(chat.messagesCount(groupId), 1);
-        assertTrue(chat.messages(groupId, 0, 1, false)[0].mentionAll);
+        assertEq(messagesTotal(chat, groupId), 1);
+        assertTrue(messagesOf(chat, groupId, 0, 1, false)[0].mentionAll);
     }
 
     function testT078_beforePostPluginCanJudgeMentionAll() public {
@@ -575,8 +575,8 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.expectRevert(abi.encodeWithSelector(MockBeforePostRejectMentionAllPlugin.MentionAllRejected.selector));
         _postWithMentionedSenderIds(groupId, groupId, "@all", _emptyMentionedSenderIds(), true);
 
-        assertEq(chat.messagesCount(groupId), 1);
-        assertTrue(!chat.messages(groupId, 0, 1, false)[0].mentionAll);
+        assertEq(messagesTotal(chat, groupId), 1);
+        assertTrue(!messagesOf(chat, groupId, 0, 1, false)[0].mentionAll);
     }
 
     function testT079_beforeAndAfterPostPluginsReceiveQuoteAndMessageContext() public {

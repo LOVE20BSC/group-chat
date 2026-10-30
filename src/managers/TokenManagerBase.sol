@@ -14,20 +14,26 @@ abstract contract TokenManagerBase is ManagerBase {
     address public immutable PHASE_ADDRESS;
 
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_
-    ) ManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
+        address groupChatAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress,
+        address actionTargetAddress
+    ) ManagerBase(
+        groupChatAddress,
+        banSourceAddress,
+        beforePostPluginAddress,
+        afterPostPluginAddress,
+        actionTargetAddress
+    ) {
         STAKE_ADDRESS = IVote(VOTE_ADDRESS).STAKE_ADDRESS();
         LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).LAUNCH_ADDRESS();
         PHASE_ADDRESS = IStake(STAKE_ADDRESS).PHASE_ADDRESS();
     }
 
-    function _requireLOVE20Token(address token) internal view {
-        if (token.code.length == 0 || !ILaunch(LAUNCH_ADDRESS).isLOVE20Token(token)) {
-            revert TokenNotLOVE20(token);
+    function _requireLOVE20Token(address tokenAddress) internal view {
+        if (tokenAddress.code.length == 0 || !ILaunch(LAUNCH_ADDRESS).isLOVE20Token(tokenAddress)) {
+            revert TokenNotLOVE20(tokenAddress);
         }
     }
 
@@ -37,8 +43,8 @@ abstract contract TokenManagerBase is ManagerBase {
         return IPhase(PHASE_ADDRESS).currentPhase();
     }
 
-    function _tokenNamePayload(address token) internal view returns (string memory) {
-        return string(_sanitizeNameSymbol(IERC20Metadata(token).symbol()));
+    function _tokenNamePayload(address tokenAddress) internal view returns (string memory) {
+        return string(_sanitizeNameSymbol(IERC20Metadata(tokenAddress).symbol()));
     }
 
     function _sanitizeNameSymbol(string memory rawSymbol) internal pure returns (bytes memory) {

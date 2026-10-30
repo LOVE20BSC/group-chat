@@ -31,7 +31,7 @@ interface IGroupChatPluginView {
 }
 
 interface IGroupDelegatePluginView {
-    function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256);
+    function ownerOrDelegateId(uint256 groupId, address operatorAddress) external view returns (uint256);
 }
 
 contract MockBeforePostRejectPlugin {
@@ -97,7 +97,7 @@ contract MockPostScopeSource {
         allowed = allowed_;
     }
 
-    function canPost(uint256, uint256) external view returns (bool) {
+    function isSenderAllowed(uint256, uint256) external view returns (bool) {
         return allowed;
     }
 }
@@ -105,7 +105,7 @@ contract MockPostScopeSource {
 contract MockPostScopeFailSource {
     error ScopeSourceBoom();
 
-    function canPost(uint256, uint256) external pure returns (bool) {
+    function isSenderAllowed(uint256, uint256) external pure returns (bool) {
         revert ScopeSourceBoom();
     }
 }
@@ -198,10 +198,10 @@ contract MockAfterPostReenterPlugin {
     uint256 internal immutable _reenterGroupId;
     uint256 internal immutable _reenterSenderId;
 
-    constructor(address chat_, uint256 reenterGroupId_, uint256 reenterSenderId_) {
-        _chat = IGroupChatPluginView(chat_);
-        _reenterGroupId = reenterGroupId_;
-        _reenterSenderId = reenterSenderId_;
+    constructor(address chat, uint256 reenterGroupId, uint256 reenterSenderId) {
+        _chat = IGroupChatPluginView(chat);
+        _reenterGroupId = reenterGroupId;
+        _reenterSenderId = reenterSenderId;
     }
 
     function afterPost(
@@ -224,8 +224,8 @@ contract MockAfterPostReenterPlugin {
 contract MockAfterPostSetPostingAllowedPlugin {
     IGroupChatPluginView internal immutable _chat;
 
-    constructor(address chat_) {
-        _chat = IGroupChatPluginView(chat_);
+    constructor(address chat) {
+        _chat = IGroupChatPluginView(chat);
     }
 
     function afterPost(
@@ -251,13 +251,13 @@ contract MockManagedPlugin {
     address public immutable GROUP_DELEGATE_ADDRESS;
     mapping(uint256 => bytes) public configValue;
 
-    constructor(address chat_, address groupDelegate_) {
-        CHAT_ADDRESS = chat_;
-        GROUP_DELEGATE_ADDRESS = groupDelegate_;
+    constructor(address chat, address groupDelegate) {
+        CHAT_ADDRESS = chat;
+        GROUP_DELEGATE_ADDRESS = groupDelegate;
     }
 
     function configure(uint256 groupId, bytes calldata value) external {
-        if (IGroupDelegatePluginView(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender) == 0) {
+        if (IGroupDelegatePluginView(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender) == 0) {
             revert UnauthorizedPluginManager();
         }
         configValue[groupId] = value;

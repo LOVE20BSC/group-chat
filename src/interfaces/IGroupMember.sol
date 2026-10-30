@@ -24,18 +24,21 @@ interface IGroupMember is IGroupMemberErrors, IGroupMemberEvents {
 
     function GROUP_ADDRESS() external view returns (address);
 
-    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_) external;
+    function GROUP_DELEGATE_ADDRESS() external view returns (address);
 
-    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIds_) external;
+    function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external;
+
+    function removeMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external;
 
     function isMemberId(uint256 groupId, uint256 memberId) external view returns (bool);
 
-    function isMemberIdBatch(uint256 groupId, uint256[] calldata memberIds_)
+    function isMemberIdBatch(uint256 groupId, uint256[] calldata checkedMemberIds)
         external
         view
         returns (bool[] memory listed);
 
-    function memberIdsCount(uint256 groupId) external view returns (uint256);
-
-    function memberIds(uint256 groupId, uint256 offset, uint256 limit) external view returns (uint256[] memory);
+    function memberIds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
+        external
+        view
+        returns (uint256[] memory memberIdList, uint256 totalCount);
 }

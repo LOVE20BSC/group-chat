@@ -8,43 +8,43 @@ import {TokenScopeManagerBase} from "./TokenScopeManagerBase.sol";
 
 contract TokenMainManager is TokenScopeManagerBase {
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_
+        address groupChatAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress,
+        address actionTargetAddress
     ) TokenScopeManagerBase(
-        groupChat_,
-        banSource_,
-        beforePostPlugin_,
-        afterPostPlugin_,
-        actionTarget_
+        groupChatAddress,
+        banSourceAddress,
+        beforePostPluginAddress,
+        afterPostPluginAddress,
+        actionTargetAddress
     ) {}
 
     function _typeCode() internal pure override returns (string memory) {
         return "tm";
     }
 
-    function activate(address token) external returns (uint256 groupId) {
-        return _activateToken(token);
+    function activate(address tokenAddress) external returns (uint256 groupId) {
+        return _activateToken(tokenAddress);
     }
 
-    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
-        address token = _tokenOfGroup[groupId];
-        return token != address(0)
+    function isSenderAllowed(uint256 groupId, uint256 senderId) external view returns (bool) {
+        address tokenAddress = _tokenAddressByGroupId[groupId];
+        return tokenAddress != address(0)
             && (
-                _hasTokenBalance(token, senderId) || _voteWeightOf(token, senderId) != 0
-                    || _hasTokenActionParticipation(token, senderId)
+                _hasTokenBalance(tokenAddress, senderId) || _voteWeight(tokenAddress, senderId) != 0
+                    || _hasTokenActionParticipation(tokenAddress, senderId)
             );
     }
 
-    function _hasTokenBalance(address token, uint256 memberId) internal view returns (bool) {
-        return IERC20(token).balanceOf(MemberOwner.ownerOrZero(GROUP_ADDRESS, memberId)) > 0;
+    function _hasTokenBalance(address tokenAddress, uint256 memberId) internal view returns (bool) {
+        return IERC20(tokenAddress).balanceOf(MemberOwner.ownerOrZero(GROUP_ADDRESS, memberId)) > 0;
     }
 
-    function _hasTokenActionParticipation(address token, uint256 memberId) internal view returns (bool) {
+    function _hasTokenActionParticipation(address tokenAddress, uint256 memberId) internal view returns (bool) {
         (, uint256 joinedActionTotal) =
-            IActionTarget(ACTION_TARGET_ADDRESS).actionIdsByMemberId(token, memberId, 0, 1, false);
+            IActionTarget(ACTION_TARGET_ADDRESS).actionIdsByMemberId(tokenAddress, memberId, 0, 1, false);
         return joinedActionTotal != 0;
     }
 }

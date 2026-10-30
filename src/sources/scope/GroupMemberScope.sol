@@ -8,11 +8,11 @@ contract GroupMemberScope is IGroupMemberScope {
     address public immutable GROUP_MEMBER_ADDRESS;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupMember_) {
-        GROUP_MEMBER_ADDRESS = groupMember_;
+    constructor(address groupMemberAddress) {
+        GROUP_MEMBER_ADDRESS = groupMemberAddress;
     }
 
-    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
+    function isSenderAllowed(uint256 groupId, uint256 senderId) external view returns (bool) {
         return IGroupMember(GROUP_MEMBER_ADDRESS).isMemberId(groupId, senderId);
     }
 }

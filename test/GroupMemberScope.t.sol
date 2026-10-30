@@ -39,14 +39,19 @@ contract GroupMemberScopeTest is GroupChatFixture {
         member.addMemberIds(groupId, adminId, _uints(senderId, otherGroupId));
         assertTrue(member.isMemberId(groupId, senderId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
-        assertEq(member.memberIdsCount(groupId), 2);
+        assertEq(memberIdsTotal(member, groupId), 2);
 
         vm.prank(adminOwner);
         member.addMemberIds(groupId, adminId, _uints(senderId));
 
-        uint256[] memory page = member.memberIds(groupId, 1, 1);
+        uint256[] memory page = memberIdsOf(member, groupId, 1, 1, false);
         assertEq(page.length, 1);
         assertEq(page[0], otherGroupId);
+
+        uint256[] memory reversePage = memberIdsOf(member, groupId, 0, 2, true);
+        assertEq(reversePage.length, 2);
+        assertEq(reversePage[0], otherGroupId);
+        assertEq(reversePage[1], senderId);
 
         bool[] memory listed = member.isMemberIdBatch(groupId, _uints(senderId, groupId));
         assertTrue(listed[0]);
@@ -130,7 +135,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
 
         vm.prank(other);
         _post(groupId, senderId, "new-owner");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
     }
 
     function testT133D_permissionsTargetsAndGroupIsolation() public {

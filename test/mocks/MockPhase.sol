@@ -5,14 +5,14 @@ contract MockPhase {
     uint256 public ORIGIN_BLOCKS;
     uint256 public ORIGIN_PHASE_BLOCKS;
 
-    constructor(uint256 originBlocks_, uint256 phaseBlocks_) {
-        ORIGIN_BLOCKS = originBlocks_;
-        ORIGIN_PHASE_BLOCKS = phaseBlocks_;
+    constructor(uint256 originBlocks, uint256 phaseBlocks) {
+        ORIGIN_BLOCKS = originBlocks;
+        ORIGIN_PHASE_BLOCKS = phaseBlocks;
     }
 
-    function setPhase(uint256 originBlocks_, uint256 phaseBlocks_) external {
-        ORIGIN_BLOCKS = originBlocks_;
-        ORIGIN_PHASE_BLOCKS = phaseBlocks_;
+    function setPhase(uint256 originBlocks, uint256 phaseBlocks) external {
+        ORIGIN_BLOCKS = originBlocks;
+        ORIGIN_PHASE_BLOCKS = phaseBlocks;
     }
 
     function currentPhase() external view returns (uint256) {

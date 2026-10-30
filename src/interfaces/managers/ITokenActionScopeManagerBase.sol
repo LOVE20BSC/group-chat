@@ -26,26 +26,24 @@ interface ITokenActionScopeManagerBase is
 {
     function RECENT_ROUNDS() external view returns (uint256);
 
-    function activate(address token, uint256 actionId) external returns (uint256 groupId);
+    function activate(address tokenAddress, uint256 actionId) external returns (uint256 groupId);
 
-    function actionOfGroup(uint256 groupId) external view returns (address token, uint256 actionId);
+    function actionByGroupId(uint256 groupId) external view returns (address tokenAddress, uint256 actionId);
 
-    function groupIdOfAction(address token, uint256 actionId) external view returns (uint256);
+    function groupIdByActionId(address tokenAddress, uint256 actionId) external view returns (uint256);
 
-    function groupIdsOfActions(address token, uint256[] calldata actionIds)
+    function groupIdsByActionIds(address tokenAddress, uint256[] calldata actionIds)
         external
         view
         returns (uint256[] memory groupIds);
 
-    function actionsOfGroups(uint256[] calldata groupIds)
+    function actionsByGroupIds(uint256[] calldata groupIds)
         external
         view
         returns (address[] memory tokens, uint256[] memory actionIds);
 
-    function actionsByTokenCount(address token) external view returns (uint256);
-
-    function actionsByToken(address token, uint256 offset, uint256 limit, bool reverse)
+    function actions(address tokenAddress, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory actionIds, uint256[] memory groupIds);
+        returns (uint256[] memory actionIds, uint256[] memory groupIds, uint256 totalCount);
 }

@@ -47,16 +47,17 @@ interface IGroupChatDelegate is IGroupChatDelegateErrors, IGroupChatDelegateEven
 
     function isDelegationAcceptanceEnabled(uint256 delegateId) external view returns (bool);
 
-    function delegateIdOf(uint256 groupId) external view returns (uint256);
+    function effectiveDelegateId(uint256 groupId) external view returns (uint256);
 
-    function delegateIdsOf(uint256[] calldata groupIds) external view returns (uint256[] memory delegateIds);
-
-    function delegatedGroupIds(uint256 delegateId, uint256 offset, uint256 limit)
+    function effectiveDelegateIdsByGroupIds(uint256[] calldata groupIds)
         external
         view
-        returns (uint256[] memory groupIds, bool[] memory isEffective, uint256 total);
+        returns (uint256[] memory delegateIds);
 
-    function delegatedGroupIdsCount(uint256 delegateId) external view returns (uint256);
+    function delegatedGroupIds(uint256 delegateId, uint256 offset, uint256 limit, bool reverse)
+        external
+        view
+        returns (uint256[] memory groupIdList, bool[] memory isEffective, uint256 totalCount);
 
-    function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256);
+    function ownerOrDelegateId(uint256 groupId, address operatorAddress) external view returns (uint256);
 }

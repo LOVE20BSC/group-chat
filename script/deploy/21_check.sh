@@ -143,6 +143,8 @@ check_equal "GroupMember: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GROUP_MEMBER_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GovVotedBanSource: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GOV_VOTED_BAN_SOURCE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChatBanList: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_BAN_LIST_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 
 # 名称空间下限按各 Manager 的 TYPE_CODE() 派生，在下方 Manager 循环中校验。
 member_love20_address=$(cast_call "$MEMBER_NFT_ADDRESS" "LOVE20_TOKEN_ADDRESS()(address)")
@@ -174,6 +176,10 @@ else
 fi
 check_equal "GroupAdmin: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
     "$(cast_call "$GROUP_ADMIN_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupMember: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
+    "$(cast_call "$GROUP_MEMBER_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "GroupChatBanList: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
+    "$(cast_call "$GROUP_CHAT_BAN_LIST_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: MAX_ADMIN_IDS" "$GROUP_CHAT_MAX_ADMIN_IDS" \
     "$(cast_call "$GROUP_ADMIN_ADDRESS" "MAX_ADMIN_IDS()(uint256)")" || ((failed_checks += 1))
 echo ""

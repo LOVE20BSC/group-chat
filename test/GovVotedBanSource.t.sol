@@ -19,7 +19,7 @@ contract MissingTotalBanVoteWeightSource {
         _voteWeight = voteWeight_;
     }
 
-    function voteWeightOf(uint256, uint256) external view returns (uint256) {
+    function voteWeight(uint256, uint256) external view returns (uint256) {
         return _voteWeight;
     }
 }
@@ -27,6 +27,7 @@ contract MissingTotalBanVoteWeightSource {
 contract GovVotedBanSourceTest is GroupChatFixture {
     uint256 internal constant BAN_THRESHOLD_RATIO = 3e15;
     uint256 internal constant MIN_SUPPORT_TO_OPPOSE_MULTIPLIER = 10;
+    uint256 internal constant THIRD_TARGET_SENDER_ID = 0xAA01;
 
     MockLOVE20Protocols internal protocol;
     GovVotedBanSource internal banSource;
@@ -59,7 +60,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, otherGroupId, 5);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         (bool banned, uint256 supportWeight, uint256 opposeWeight) =
             banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
@@ -73,7 +74,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(reason, IGroupChat.PostRejectionReason.BanRejected);
 
         vm.prank(voter2Owner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, voter2Id, false);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, voter2Id, false);
 
         (banned, supportWeight, opposeWeight) = banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
         assertTrue(!banned);
@@ -88,9 +89,9 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, voter2Id, 10);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         vm.prank(voter2Owner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, voter2Id, false);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, voter2Id, false);
 
         (bool banned, uint256 supportWeight, uint256 opposeWeight) =
             banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
@@ -99,7 +100,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(opposeWeight, 10);
 
         protocol.setGovVotes(token, senderId, 101);
-        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.refreshVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
 
         (banned, supportWeight, opposeWeight) = banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
         assertTrue(banned);
@@ -114,7 +115,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
 
         vm.recordLogs();
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 2);
@@ -141,26 +142,26 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, senderId, 7);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
-        assertEq(banSource.votersBySenderIdCount(managerGroupId, otherGroupId), 1);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 1);
 
         protocol.setGovVotes(token, senderId, 9);
-        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.refreshVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
         (, uint256 supportWeight,) = banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
         assertEq(supportWeight, 9);
 
         protocol.setGovVotes(token, senderId, 0);
-        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
-        assertEq(banSource.votersBySenderIdCount(managerGroupId, otherGroupId), 0);
+        banSource.refreshVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 0);
         assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
-        assertEq(banSource.votedSenderIdsCount(managerGroupId), 0);
+        assertEq(votedSenderIdsTotal(banSource, managerGroupId), 0);
 
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         vm.prank(senderOwner);
-        banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
-        assertEq(banSource.votersBySenderIdCount(managerGroupId, otherGroupId), 0);
+        banSource.clearVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 0);
         assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
     }
 
@@ -169,11 +170,11 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, senderId, 7);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
 
         vm.recordLogs();
-        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.refreshVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
         assertEq(vm.getRecordedLogs().length, 0);
 
         // Live total weight moved so a sync would unlist; the identical re-cast must still revert.
@@ -184,10 +185,10 @@ contract GovVotedBanSourceTest is GroupChatFixture {
                 IGovVotedBanSourceErrors.VoteUnchanged.selector, managerGroupId, otherGroupId, senderId
             )
         );
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
 
-        banSource.refreshVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.refreshVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
         assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
     }
 
@@ -198,7 +199,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
 
         vm.recordLogs();
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         // Below the 0.3% threshold: the ban list does not flip, so only the vote event is emitted.
@@ -214,7 +215,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         vm.expectRevert(
             abi.encodeWithSelector(IGovVotedBanSourceErrors.ZeroVoteWeight.selector, managerGroupId, senderId)
         );
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
@@ -223,10 +224,10 @@ contract GovVotedBanSourceTest is GroupChatFixture {
                 IGovVotedBanSourceErrors.VoteNotFound.selector, managerGroupId, otherGroupId, senderId
             )
         );
-        banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.clearVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         vm.prank(senderOwner);
         vm.expectRevert(
@@ -234,11 +235,11 @@ contract GovVotedBanSourceTest is GroupChatFixture {
                 IGovVotedBanSourceErrors.VoteUnchanged.selector, managerGroupId, otherGroupId, senderId
             )
         );
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         vm.prank(senderOwner);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, uint256(999999)));
-        banSource.voteBySenderId(managerGroupId, otherGroupId, 999999, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, 999999, true);
     }
 
     function testT132B_voteOnMissingGroupReportsGroupNotExist() public {
@@ -246,20 +247,20 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         vm.expectRevert(
             abi.encodeWithSelector(IGovVotedBanSourceErrors.GroupNotExist.selector, uint256(999_999))
         );
-        banSource.voteBySenderId(999_999, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(999_999, otherGroupId, senderId, true);
     }
 
     function testT132C_zeroTargetSenderIdRejected() public {
         vm.prank(senderOwner);
         vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.ZeroTargetSenderId.selector));
-        banSource.voteBySenderId(groupId, 0, senderId, true);
+        banSource.voteByTargetSenderId(groupId, 0, senderId, true);
     }
 
     function testT133_readerDegradesWhenSourceUnavailable() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         groupNft.transferFrom(address(tokenGovManager), other, managerGroupId);
 
@@ -275,7 +276,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         groupNft.transferFrom(address(tokenGovManager), other, managerGroupId);
 
@@ -285,7 +286,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
                 IGovVotedBanSourceErrors.BanVoteWeightSourceUnavailable.selector, managerGroupId, other
             )
         );
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
     }
 
     function testT134_actionGovManagerActsAsWeightSource() public {
@@ -295,7 +296,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, senderId, 4);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         (bool banned, uint256 supportWeight,) = banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
         assertTrue(banned);
@@ -308,7 +309,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, voter2Id, 1000);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         (bool banned, uint256 supportWeight,) = banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
         assertTrue(!banned);
@@ -321,29 +322,107 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         protocol.setGovVotes(token, voter2Id, 5);
 
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
         vm.prank(voter2Owner);
-        banSource.voteBySenderId(managerGroupId, groupId, voter2Id, true);
+        banSource.voteByTargetSenderId(managerGroupId, groupId, voter2Id, true);
 
-        assertEq(banSource.votedSenderIdsCount(managerGroupId), 2);
-        (uint256[] memory targets,,, uint256[] memory voterCounts) =
-            banSource.votedSenderIds(managerGroupId, 0, 10);
+        assertEq(votedSenderIdsTotal(banSource, managerGroupId), 2);
+        (uint256[] memory targets,,, uint256[] memory voterCounts, uint256 targetTotal) =
+            banSource.votedSenderIds(managerGroupId, 0, 10, false);
+        assertEq(targetTotal, 2);
         assertEq(targets.length, 2);
         assertEq(voterCounts[0], 1);
         assertEq(voterCounts[1], 1);
 
-        (uint256[] memory voters, uint256[] memory supportWeights,) =
-            banSource.votersBySenderId(managerGroupId, otherGroupId, 0, 10);
+        (uint256[] memory voters, uint256[] memory supportWeights,, uint256 voterTotal) =
+            banSource.votersBySenderId(managerGroupId, otherGroupId, 0, 10, false);
+        assertEq(voterTotal, 1);
         assertEq(voters.length, 1);
         assertEq(voters[0], senderId);
         assertEq(supportWeights[0], 7);
+    }
+
+    function testT135B_votedSenderIdsReverseWalksCurrentStorageOrder() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 7);
+        protocol.setGovVotes(token, voter2Id, 5);
+
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, groupId, senderId, true);
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, THIRD_TARGET_SENDER_ID, senderId, true);
+        // The second voter only backs `groupId`, so `voterCounts` can tell the two orders apart.
+        vm.prank(voter2Owner);
+        banSource.voteByTargetSenderId(managerGroupId, groupId, voter2Id, true);
+        assertEq(votedSenderIdsTotal(banSource, managerGroupId), 3);
+
+        // Clearing the first target's only vote fills its slot with the last element, so storage
+        // order becomes [THIRD_TARGET_SENDER_ID, groupId].
+        vm.prank(senderOwner);
+        banSource.clearVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
+
+        (uint256[] memory forward,,, uint256[] memory forwardVoterCounts, uint256 forwardTotal) =
+            banSource.votedSenderIds(managerGroupId, 0, 10, false);
+        assertEq(forwardTotal, 2);
+        assertEq(forward[0], THIRD_TARGET_SENDER_ID);
+        assertEq(forward[1], groupId);
+        assertEq(forwardVoterCounts[0], 1);
+        assertEq(forwardVoterCounts[1], 2);
+
+        (uint256[] memory reversed,,, uint256[] memory reversedVoterCounts, uint256 reversedTotal) =
+            banSource.votedSenderIds(managerGroupId, 0, 10, true);
+        assertEq(reversedTotal, 2);
+        assertEq(reversed[0], groupId);
+        assertEq(reversed[1], THIRD_TARGET_SENDER_ID);
+        assertEq(reversedVoterCounts[0], 2);
+        assertEq(reversedVoterCounts[1], 1);
+    }
+
+    function testT135C_votersBySenderIdReverseWalksCurrentStorageOrder() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        address voter3Owner = address(0xB0B3);
+        uint256 voter3Id = groupNft.mint(voter3Owner);
+        protocol.setGovVotes(token, senderId, 7);
+        protocol.setGovVotes(token, voter2Id, 5);
+        protocol.setGovVotes(token, voter3Id, 3);
+
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+        vm.prank(voter2Owner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, voter2Id, true);
+        vm.prank(voter3Owner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, voter3Id, true);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 3);
+
+        // Clearing the first voter fills its slot with the last one, so storage order becomes
+        // [voter3Id, voter2Id]; the weights pin the alignment of each page row.
+        vm.prank(senderOwner);
+        banSource.clearVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
+
+        (uint256[] memory forward, uint256[] memory forwardWeights,, uint256 forwardTotal) =
+            banSource.votersBySenderId(managerGroupId, otherGroupId, 0, 10, false);
+        assertEq(forwardTotal, 2);
+        assertEq(forward[0], voter3Id);
+        assertEq(forward[1], voter2Id);
+        assertEq(forwardWeights[0], 3);
+        assertEq(forwardWeights[1], 5);
+
+        (uint256[] memory reversed, uint256[] memory reversedWeights,, uint256 reversedTotal) =
+            banSource.votersBySenderId(managerGroupId, otherGroupId, 0, 10, true);
+        assertEq(reversedTotal, 2);
+        assertEq(reversed[0], voter2Id);
+        assertEq(reversed[1], voter3Id);
+        assertEq(reversedWeights[0], 5);
+        assertEq(reversedWeights[1], 3);
     }
 
     function testT136_voterSnapshotSurvivesNftTransfer() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         groupNft.transferFrom(senderOwner, other, senderId);
 
@@ -353,10 +432,10 @@ contract GovVotedBanSourceTest is GroupChatFixture {
 
         vm.prank(senderOwner);
         vm.expectRevert(abi.encodeWithSelector(IGovVotedBanSourceErrors.NotMemberOwner.selector, senderId));
-        banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.clearVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
 
         vm.prank(other);
-        banSource.clearVoteBySenderId(managerGroupId, otherGroupId, senderId);
+        banSource.clearVoteByTargetSenderId(managerGroupId, otherGroupId, senderId);
         assertTrue(!banSource.isBanned(managerGroupId, otherGroupId));
     }
 
@@ -364,7 +443,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         (bool[] memory banned, uint256[] memory supportWeights, uint256[] memory opposeWeights) =
             banSource.voteStatusBySenderIds(managerGroupId, _uints(otherGroupId, groupId));
@@ -380,7 +459,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
-        banSource.voteBySenderId(managerGroupId, otherGroupId, senderId, true);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         (bool banned, uint256 supportWeight, uint256 opposeWeight) =
             banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
@@ -389,7 +468,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(opposeWeight, 0);
 
         (uint256[] memory supportWeights, uint256[] memory opposeWeights) =
-            banSource.voteWeightsBySenderIdsByVoter(managerGroupId, _uints(otherGroupId), senderId);
+            banSource.voteWeightsBySenderIdsByVoterId(managerGroupId, _uints(otherGroupId), senderId);
         assertEq(supportWeights[0], 7);
         assertEq(opposeWeights[0], 0);
     }

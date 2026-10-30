@@ -59,7 +59,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertEq(info.owner, chatOwner);
         assertTrue(info.activated);
         assertTrue(info.postingAllowed);
-        assertTrue(chat.postingAllowed(groupId));
+        assertTrue(chat.isPostingAllowed(groupId));
         assertEq(info.scopeSource, address(0));
         assertEq(info.banSource, address(0));
         assertEq(info.beforePostPlugin, address(0));
@@ -68,9 +68,9 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertEq(info.firstActivatedBlockNumber, block.number);
         assertEq(info.firstActivatedTimestamp, block.timestamp);
 
-        assertEq(chat.groupIdsCount(), 1);
+        assertEq(groupIdsTotal(chat), 1);
 
-        uint256[] memory allChats = chat.groupIds(0, 10, false);
+        uint256[] memory allChats = groupIdsOf(chat, 0, 10, false);
         assertEq(allChats.length, 1);
         assertEq(allChats[0], groupId);
     }
@@ -78,7 +78,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
     function testT011B_chatInfosReturnsBatchInInputOrder() public {
         _activateEmpty();
 
-        IGroupChat.ChatInfo[] memory infos = chat.chatInfos(_uints(groupId, senderId));
+        IGroupChat.ChatInfo[] memory infos = chat.chatInfosByGroupIds(_uints(groupId, senderId));
         assertEq(infos.length, 2);
 
         assertEq(infos[0].groupId, groupId);
@@ -94,6 +94,13 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertEq(infos[1].firstActivatedOwner, address(0));
     }
 
+    function testT011C_chatInfosByGroupIdsRevertsOnMissingGroup() public {
+        _activateEmpty();
+
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.GroupNotExist.selector, uint256(999999)));
+        chat.chatInfosByGroupIds(_uints(groupId, 999999));
+    }
+
     function testT012_activateCannotRepeat() public {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
@@ -102,7 +109,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.ChatAlreadyActivated.selector, groupId));
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
 
-        assertEq(chat.groupIdsCount(), 1);
+        assertEq(groupIdsTotal(chat), 1);
     }
 
     function testT013_postingAllowedStopsAndResumesPostingOnly() public {
@@ -118,7 +125,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, false);
 
-        assertTrue(!chat.postingAllowed(groupId));
+        assertTrue(!chat.isPostingAllowed(groupId));
         assertTrue(!_canPostAllowed(groupId, senderId));
         vm.prank(senderOwner);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.PostingNotAllowed.selector, groupId));
@@ -126,23 +133,23 @@ contract GroupChatLifecycleTest is GroupChatFixture {
 
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, true);
-        assertTrue(chat.postingAllowed(groupId));
+        assertTrue(chat.isPostingAllowed(groupId));
 
         IGroupChat.ChatInfo memory secondInfo = chat.chatInfo(groupId);
         assertEq(secondInfo.firstActivatedOwner, firstInfo.firstActivatedOwner);
         assertEq(secondInfo.firstActivatedBlockNumber, firstInfo.firstActivatedBlockNumber);
         assertEq(secondInfo.firstActivatedTimestamp, firstInfo.firstActivatedTimestamp);
-        assertEq(chat.messagesCount(groupId), 1);
-        IGroupChat.Message[] memory fetched = chat.messages(groupId, 0, 1, false);
+        assertEq(messagesTotal(chat, groupId), 1);
+        IGroupChat.Message[] memory fetched = messagesOf(chat, groupId, 0, 1, false);
         assertEq(fetched.length, 1);
         assertEq(fetched[0].content, "old-message");
         assertEq(fetched[0].mentionedSenderIds.length, 0);
         assertTrue(!fetched[0].mentionAll);
-        assertEq(chat.groupIdsCount(), 1);
+        assertEq(groupIdsTotal(chat), 1);
 
         vm.prank(senderOwner);
         _post(groupId, senderId, "resumed");
-        assertEq(chat.messagesCount(groupId), 2);
+        assertEq(messagesTotal(chat, groupId), 2);
     }
 
     function testT014_postingAllowedPermissionsAndNoop() public {
@@ -187,7 +194,7 @@ contract GroupChatLifecycleTest is GroupChatFixture {
     }
 
     function testT016_groupDiscoveryIndexesTrackActivatedChats() public {
-        assertEq(chat.groupIdsCount(), 0);
+        assertEq(groupIdsTotal(chat), 0);
 
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
@@ -195,12 +202,12 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         vm.prank(senderOwner);
         chat.activateChat(senderId, address(0), address(0), address(0), address(0));
 
-        uint256[] memory allChats = chat.groupIds(0, 10, false);
+        uint256[] memory allChats = groupIdsOf(chat, 0, 10, false);
         assertEq(allChats.length, 2);
         assertEq(allChats[0], groupId);
         assertEq(allChats[1], senderId);
 
-        uint256[] memory allChatsReverse = chat.groupIds(0, 10, true);
+        uint256[] memory allChatsReverse = groupIdsOf(chat, 0, 10, true);
         assertEq(allChatsReverse.length, 2);
         assertEq(allChatsReverse[0], senderId);
         assertEq(allChatsReverse[1], groupId);
@@ -208,9 +215,9 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, false);
 
-        assertEq(chat.groupIdsCount(), 2);
+        assertEq(groupIdsTotal(chat), 2);
 
-        uint256[] memory allAfterStop = chat.groupIds(0, 10, false);
+        uint256[] memory allAfterStop = groupIdsOf(chat, 0, 10, false);
         assertEq(allAfterStop.length, 2);
         assertEq(allAfterStop[0], groupId);
         assertEq(allAfterStop[1], senderId);

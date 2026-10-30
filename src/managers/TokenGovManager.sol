@@ -5,28 +5,28 @@ import {TokenScopeManagerBase} from "./TokenScopeManagerBase.sol";
 
 contract TokenGovManager is TokenScopeManagerBase {
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_
+        address groupChatAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress,
+        address actionTargetAddress
     ) TokenScopeManagerBase(
-        groupChat_,
-        banSource_,
-        beforePostPlugin_,
-        afterPostPlugin_,
-        actionTarget_
+        groupChatAddress,
+        banSourceAddress,
+        beforePostPluginAddress,
+        afterPostPluginAddress,
+        actionTargetAddress
     ) {}
 
     function _typeCode() internal pure override returns (string memory) {
         return "tg";
     }
 
-    function activate(address token) external returns (uint256 groupId) {
-        return _activateToken(token);
+    function activate(address tokenAddress) external returns (uint256 groupId) {
+        return _activateToken(tokenAddress);
     }
 
-    function canPost(uint256 groupId, uint256 senderId) external view returns (bool) {
-        return voteWeightOf(groupId, senderId) != 0;
+    function isSenderAllowed(uint256 groupId, uint256 senderId) external view returns (bool) {
+        return voteWeight(groupId, senderId) != 0;
     }
 }

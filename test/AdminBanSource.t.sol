@@ -137,7 +137,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.prank(chatOwner);
         localChat.post(groupId, groupId, "owner", _emptyMentionedSenderIds(), false, 0);
 
-        assertEq(localChat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(localChat, groupId), 1);
     }
 
     function testT122_banSourceRejectsPostsAndUnbanRestoresPosting() public {
@@ -165,7 +165,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(!banList.isSenderIdBanned(groupId, senderId));
         vm.prank(senderOwner);
         _post(groupId, senderId, "allowed");
-        assertEq(chat.messagesCount(groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 1);
     }
 
     function testT123_banListsAreIsolatedAndPaged() public {
@@ -173,13 +173,18 @@ contract AdminBanSourceTest is GroupChatFixture {
 
         vm.prank(adminOwner);
         banList.banBySenderIds(groupId, adminId, _uints(0x101, 0x102, 0x103));
-        assertEq(banList.senderIdBanListCount(groupId), 3);
+        assertEq(senderIdBanListTotal(banList, groupId), 3);
 
         vm.prank(adminOwner);
         banList.banBySenderIds(groupId, adminId, _uints(0x101));
 
-        (uint256[] memory page, address[] memory operatorAddresses, uint256[] memory operatorIds) =
-            banList.senderIdBanList(groupId, 1, 2);
+        (
+            uint256[] memory page,
+            address[] memory operatorAddresses,
+            uint256[] memory operatorIds,
+            uint256 pageTotal
+        ) = banList.senderIdBanList(groupId, 1, 2, false);
+        assertEq(pageTotal, 3);
         assertEq(page.length, 2);
         assertEq(operatorAddresses.length, 2);
         assertEq(operatorIds.length, 2);
@@ -190,17 +195,50 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertEq(operatorIds[0], adminId);
         assertEq(operatorIds[1], adminId);
 
-        (uint256[] memory empty, address[] memory emptyOperatorAddresses, uint256[] memory emptyOperatorIds) =
-            banList.senderIdBanList(groupId, 99, 1);
+        (
+            uint256[] memory empty,
+            address[] memory emptyOperatorAddresses,
+            uint256[] memory emptyOperatorIds,
+            uint256 emptyTotal
+        ) = banList.senderIdBanList(groupId, 99, 1, false);
+        assertEq(emptyTotal, 3);
         assertEq(empty.length, 0);
         assertEq(emptyOperatorAddresses.length, 0);
         assertEq(emptyOperatorIds.length, 0);
-        assertEq(banList.senderIdBanListCount(otherGroupId), 0);
+        assertEq(senderIdBanListTotal(banList, otherGroupId), 0);
 
         vm.prank(adminOwner);
         banList.unbanBySenderIds(groupId, adminId, _uints(0x102, 0x999));
-        assertEq(banList.senderIdBanListCount(groupId), 2);
+        assertEq(senderIdBanListTotal(banList, groupId), 2);
         assertTrue(!banList.isSenderIdBanned(groupId, 0x102));
+    }
+
+    function testT123B_banListReverseWalksCurrentStorageOrder() public {
+        _configureAdmin();
+
+        vm.prank(adminOwner);
+        banList.banBySenderIds(groupId, adminId, _uints(0x101, 0x102, 0x103));
+
+        // Removing the first entry swaps the last one into its slot, so storage order becomes
+        // [0x103, 0x102] — neither insertion order nor insertion order minus the removed id.
+        vm.prank(adminOwner);
+        banList.unbanBySenderIds(groupId, adminId, _uints(0x101));
+        assertEq(senderIdBanListTotal(banList, groupId), 2);
+
+        (uint256[] memory forward,,, uint256 forwardTotal) = banList.senderIdBanList(groupId, 0, 10, false);
+        assertEq(forwardTotal, 2);
+        assertEq(forward[0], 0x103);
+        assertEq(forward[1], 0x102);
+
+        (uint256[] memory reversed,,, uint256 reversedTotal) = banList.senderIdBanList(groupId, 0, 10, true);
+        assertEq(reversedTotal, 2);
+        assertEq(reversed[0], 0x102);
+        assertEq(reversed[1], 0x103);
+
+        (uint256[] memory reversedPage,,, uint256 reversedPageTotal) = banList.senderIdBanList(groupId, 1, 1, true);
+        assertEq(reversedPageTotal, 2);
+        assertEq(reversedPage.length, 1);
+        assertEq(reversedPage[0], 0x103);
     }
 
     function testT124_addRemoveAdminsValidateAndTransferInvalidatesAdmin() public {
@@ -315,8 +353,10 @@ contract AdminBanSourceTest is GroupChatFixture {
         (
             uint256[] memory senderIdPage,
             address[] memory senderIdPageOperatorAddresses,
-            uint256[] memory senderIdPageOperatorIds
-        ) = banList.senderIdBanList(groupId, 0, 2);
+            uint256[] memory senderIdPageOperatorIds,
+            uint256 senderIdPageTotal
+        ) = banList.senderIdBanList(groupId, 0, 2, false);
+        assertEq(senderIdPageTotal, 2);
         assertEq(senderIdPage.length, 2);
         assertEq(senderIdPageOperatorAddresses.length, 2);
         assertEq(senderIdPageOperatorIds.length, 2);
@@ -333,8 +373,9 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.prank(secondAdminOwner);
         banList.banBySenderIds(groupId, secondAdminId, _uints(otherGroupId));
 
-        (senderIdPage, senderIdPageOperatorAddresses, senderIdPageOperatorIds) =
-            banList.senderIdBanList(groupId, 1, 1);
+        (senderIdPage, senderIdPageOperatorAddresses, senderIdPageOperatorIds, senderIdPageTotal) =
+            banList.senderIdBanList(groupId, 1, 1, false);
+        assertEq(senderIdPageTotal, 2);
         assertEq(senderIdPage[0], otherGroupId);
         assertEq(senderIdPageOperatorAddresses[0], adminOwner);
         assertEq(senderIdPageOperatorIds[0], adminId);
@@ -345,8 +386,9 @@ contract AdminBanSourceTest is GroupChatFixture {
         vm.prank(secondAdminOwner);
         banList.banBySenderIds(groupId, secondAdminId, _uints(senderId));
 
-        (senderIdPage, senderIdPageOperatorAddresses, senderIdPageOperatorIds) =
-            banList.senderIdBanList(groupId, 0, 2);
+        (senderIdPage, senderIdPageOperatorAddresses, senderIdPageOperatorIds, senderIdPageTotal) =
+            banList.senderIdBanList(groupId, 0, 2, false);
+        assertEq(senderIdPageTotal, 2);
         assertEq(senderIdPage.length, 2);
         _assertPageOperator(senderIdPage, senderIdPageOperatorAddresses, senderIdPageOperatorIds, otherGroupId, adminOwner, adminId);
         _assertPageOperator(

@@ -24,8 +24,8 @@ contract MockLOVE20Group {
         mintCost = mintCost_;
     }
 
-    function setMaxGroupNameLength(uint256 maxGroupNameLength_) external {
-        MAX_GROUP_NAME_LENGTH = maxGroupNameLength_;
+    function setMaxGroupNameLength(uint256 maxGroupNameLength) external {
+        MAX_GROUP_NAME_LENGTH = maxGroupNameLength;
     }
 
     function mint(address to) external returns (uint256 tokenId) {

@@ -33,21 +33,21 @@ abstract contract ManagerBase is IManagerBase {
 
     // forge-lint: disable-next-item(missing-zero-check)
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_
+        address groupChatAddress,
+        address banSourceAddress,
+        address beforePostPluginAddress,
+        address afterPostPluginAddress,
+        address actionTargetAddress
     ) {
-        address memberNFT = IGroupChat(groupChat_).GROUP_ADDRESS();
-        address vote = IActionTarget(actionTarget_).VOTE_ADDRESS();
-        GROUP_CHAT_ADDRESS = groupChat_;
+        address memberNFT = IGroupChat(groupChatAddress).GROUP_ADDRESS();
+        address vote = IActionTarget(actionTargetAddress).VOTE_ADDRESS();
+        GROUP_CHAT_ADDRESS = groupChatAddress;
         GROUP_ADDRESS = memberNFT;
         MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();
-        BAN_SOURCE_ADDRESS = banSource_;
-        BEFORE_POST_PLUGIN_ADDRESS = beforePostPlugin_;
-        AFTER_POST_PLUGIN_ADDRESS = afterPostPlugin_;
-        ACTION_TARGET_ADDRESS = actionTarget_;
+        BAN_SOURCE_ADDRESS = banSourceAddress;
+        BEFORE_POST_PLUGIN_ADDRESS = beforePostPluginAddress;
+        AFTER_POST_PLUGIN_ADDRESS = afterPostPluginAddress;
+        ACTION_TARGET_ADDRESS = actionTargetAddress;
         VOTE_ADDRESS = vote;
     }
 

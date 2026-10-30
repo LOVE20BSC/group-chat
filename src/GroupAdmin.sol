@@ -16,59 +16,62 @@ contract GroupAdmin is IGroupAdmin {
 
     struct AdminState {
         Uint256Set.Storage adminIds;
+        // groupId => adminId => group owner address at the time the admin was added
         mapping(uint256 => address) groupOwnerSnapshots;
+        // groupId => adminId => admin NFT owner address at the time the admin was added
         mapping(uint256 => address) adminOwnerSnapshots;
     }
 
-    mapping(uint256 => AdminState) internal _states;
+    // groupId => admin state
+    mapping(uint256 => AdminState) internal _adminState;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupDelegate_, uint256 maxAdminIds_) {
-        address love20Group = IGroupChatDelegate(groupDelegate_).GROUP_ADDRESS();
-        GROUP_DELEGATE_ADDRESS = groupDelegate_;
+    constructor(address groupDelegateAddress, uint256 maxAdminIds) {
+        address love20Group = IGroupChatDelegate(groupDelegateAddress).GROUP_ADDRESS();
+        GROUP_DELEGATE_ADDRESS = groupDelegateAddress;
         GROUP_ADDRESS = love20Group;
-        MAX_ADMIN_IDS = maxAdminIds_;
+        MAX_ADMIN_IDS = maxAdminIds;
     }
 
-    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_)
+    function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIdList)
         external
         onlyOwnerOrDelegate(groupId, operatorId)
     {
-        _validateAdminIds(adminIds_);
-        _requireAdminIdsLimit(_states[groupId], groupId, adminIds_);
+        _validateAdminIds(adminIdList);
+        _requireAdminIdsLimit(_adminState[groupId], groupId, adminIdList);
 
-        AdminState storage state = _states[groupId];
-        address groupOwnerSnapshot = _groupOwnerOfOrRevert(groupId);
-        for (uint256 i = 0; i < adminIds_.length; i++) {
-            _addAdminId(state, groupId, operatorId, groupOwnerSnapshot, adminIds_[i]);
+        AdminState storage state = _adminState[groupId];
+        address groupOwnerSnapshot = _groupOwnerOrRevert(groupId);
+        for (uint256 i = 0; i < adminIdList.length; i++) {
+            _addAdminId(state, groupId, operatorId, groupOwnerSnapshot, adminIdList[i]);
         }
     }
 
-    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIds_)
+    function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIdList)
         external
         onlyOwnerOrDelegate(groupId, operatorId)
     {
-        _validateAdminIds(adminIds_);
+        _validateAdminIds(adminIdList);
 
-        AdminState storage state = _states[groupId];
-        for (uint256 i = 0; i < adminIds_.length; i++) {
-            uint256 adminId = adminIds_[i];
+        AdminState storage state = _adminState[groupId];
+        for (uint256 i = 0; i < adminIdList.length; i++) {
+            uint256 adminId = adminIdList[i];
             _removeAdminId(state, groupId, operatorId, adminId);
         }
     }
 
     function isAdminId(uint256 groupId, uint256 adminId) external view returns (bool) {
-        AdminState storage state = _states[groupId];
+        AdminState storage state = _adminState[groupId];
         return state.adminIds.contains(adminId) && _isEffectiveAdminId(state, groupId, adminId);
     }
 
-    function adminIds(uint256 groupId) external view returns (uint256[] memory ids, bool[] memory isEffective) {
-        AdminState storage state = _states[groupId];
-        (ids,) = state.adminIds.values(0, type(uint256).max, false);
-        uint256 length = ids.length;
+    function adminIds(uint256 groupId) external view returns (uint256[] memory adminIdList, bool[] memory isEffective) {
+        AdminState storage state = _adminState[groupId];
+        (adminIdList,) = state.adminIds.values(0, type(uint256).max, false);
+        uint256 length = adminIdList.length;
         isEffective = new bool[](length);
         for (uint256 i = 0; i < length; i++) {
-            isEffective[i] = _isEffectiveAdminId(state, groupId, ids[i]);
+            isEffective[i] = _isEffectiveAdminId(state, groupId, adminIdList[i]);
         }
     }
 
@@ -137,34 +140,34 @@ contract GroupAdmin is IGroupAdmin {
         });
     }
 
-    function _validateAdminIds(uint256[] calldata adminIds_) internal view {
-        for (uint256 i = 0; i < adminIds_.length; i++) {
-            IMemberNFT(GROUP_ADDRESS).ownerOf(adminIds_[i]);
+    function _validateAdminIds(uint256[] calldata adminIdList) internal view {
+        for (uint256 i = 0; i < adminIdList.length; i++) {
+            IMemberNFT(GROUP_ADDRESS).ownerOf(adminIdList[i]);
             for (uint256 j = 0; j < i; j++) {
-                if (adminIds_[i] == adminIds_[j]) {
-                    revert DuplicateMemberId(adminIds_[i]);
+                if (adminIdList[i] == adminIdList[j]) {
+                    revert DuplicateMemberId(adminIdList[i]);
                 }
             }
         }
     }
 
-    function _newAdminIdsCount(AdminState storage state, uint256[] calldata adminIds_)
+    function _newAdminIdsCount(AdminState storage state, uint256[] calldata adminIdList)
         internal
         view
         returns (uint256 count)
     {
-        for (uint256 i = 0; i < adminIds_.length; i++) {
-            if (!state.adminIds.contains(adminIds_[i])) {
+        for (uint256 i = 0; i < adminIdList.length; i++) {
+            if (!state.adminIds.contains(adminIdList[i])) {
                 count++;
             }
         }
     }
 
-    function _requireAdminIdsLimit(AdminState storage state, uint256 groupId, uint256[] calldata adminIds_)
+    function _requireAdminIdsLimit(AdminState storage state, uint256 groupId, uint256[] calldata adminIdList)
         internal
         view
     {
-        uint256 count = state.adminIds.count() + _newAdminIdsCount(state, adminIds_);
+        uint256 count = state.adminIds.count() + _newAdminIdsCount(state, adminIdList);
         if (count > MAX_ADMIN_IDS) {
             revert AdminIdsLimitExceeded(groupId, count, MAX_ADMIN_IDS);
         }
@@ -187,14 +190,14 @@ contract GroupAdmin is IGroupAdmin {
         uint256 operatorId
     ) {
         uint256 resolvedOperatorId =
-            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateIdOf(groupId, msg.sender);
+            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
         if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
             revert NotGroupOperator(groupId, operatorId);
         }
         _;
     }
 
-    function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {
+    function _groupOwnerOrRevert(uint256 groupId) internal view returns (address owner) {
         owner = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist(groupId);

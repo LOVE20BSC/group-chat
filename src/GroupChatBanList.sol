@@ -12,8 +12,8 @@ contract GroupChatBanList is IGroupChatBanList {
 
     address public immutable GROUP_ADMIN_ADDRESS;
 
-    address internal immutable _groupAddress;
-    address internal immutable _groupDelegateAddress;
+    address public immutable GROUP_ADDRESS;
+    address public immutable GROUP_DELEGATE_ADDRESS;
 
     struct BanOperatorState {
         address operatorAddress;
@@ -22,16 +22,18 @@ contract GroupChatBanList is IGroupChatBanList {
 
     struct ChatState {
         Uint256Set.Storage senderIdBanList;
+        // groupId => senderId => operator that last banned it
         mapping(uint256 => BanOperatorState) senderIdBanOperatorStates;
     }
 
-    mapping(uint256 => ChatState) internal _states;
+    // groupId => ban list state
+    mapping(uint256 => ChatState) internal _chatState;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupAdmin_) {
-        GROUP_ADMIN_ADDRESS = groupAdmin_;
-        _groupAddress = IGroupAdmin(groupAdmin_).GROUP_ADDRESS();
-        _groupDelegateAddress = IGroupAdmin(groupAdmin_).GROUP_DELEGATE_ADDRESS();
+    constructor(address groupAdminAddress) {
+        GROUP_ADMIN_ADDRESS = groupAdminAddress;
+        GROUP_ADDRESS = IGroupAdmin(groupAdminAddress).GROUP_ADDRESS();
+        GROUP_DELEGATE_ADDRESS = IGroupAdmin(groupAdminAddress).GROUP_DELEGATE_ADDRESS();
     }
 
     function banBySenderIds(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds)
@@ -49,7 +51,7 @@ contract GroupChatBanList is IGroupChatBanList {
     }
 
     function isSenderIdBanned(uint256 groupId, uint256 senderId) external view returns (bool) {
-        return _states[groupId].senderIdBanList.contains(senderId);
+        return _chatState[groupId].senderIdBanList.contains(senderId);
     }
 
     function isSenderIdBannedBatch(uint256 groupId, uint256[] calldata senderIds)
@@ -57,7 +59,7 @@ contract GroupChatBanList is IGroupChatBanList {
         view
         returns (bool[] memory banned)
     {
-        Uint256Set.Storage storage banList = _states[groupId].senderIdBanList;
+        Uint256Set.Storage storage banList = _chatState[groupId].senderIdBanList;
         banned = new bool[](senderIds.length);
         for (uint256 i = 0; i < senderIds.length; i++) {
             banned[i] = banList.contains(senderIds[i]);
@@ -69,7 +71,7 @@ contract GroupChatBanList is IGroupChatBanList {
         view
         returns (bool[] memory banned, address[] memory operatorAddresses, uint256[] memory operatorIds)
     {
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         banned = new bool[](senderIds.length);
         operatorAddresses = new address[](senderIds.length);
         operatorIds = new uint256[](senderIds.length);
@@ -81,21 +83,23 @@ contract GroupChatBanList is IGroupChatBanList {
         }
     }
 
-    function senderIdBanListCount(uint256 groupId) external view returns (uint256) {
-        return _states[groupId].senderIdBanList.count();
-    }
-
-    function senderIdBanList(uint256 groupId, uint256 offset, uint256 limit)
+    function senderIdBanList(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory senderIds, address[] memory operatorAddresses, uint256[] memory operatorIds)
+        returns (
+            uint256[] memory senderIdList,
+            address[] memory operatorAddresses,
+            uint256[] memory operatorIds,
+            uint256 totalCount
+        )
     {
-        ChatState storage state = _states[groupId];
-        (senderIds,) = state.senderIdBanList.values(offset, limit, false);
-        operatorAddresses = new address[](senderIds.length);
-        operatorIds = new uint256[](senderIds.length);
-        for (uint256 i = 0; i < senderIds.length; i++) {
-            BanOperatorState storage operatorState = state.senderIdBanOperatorStates[senderIds[i]];
+        ChatState storage state = _chatState[groupId];
+        (senderIdList, totalCount) = state.senderIdBanList.values(offset, limit, reverse);
+        uint256 length = senderIdList.length;
+        operatorAddresses = new address[](length);
+        operatorIds = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            BanOperatorState storage operatorState = state.senderIdBanOperatorStates[senderIdList[i]];
             operatorAddresses[i] = operatorState.operatorAddress;
             operatorIds[i] = operatorState.operatorId;
         }
@@ -104,7 +108,7 @@ contract GroupChatBanList is IGroupChatBanList {
     function _setSenderIdBanTargets(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds, bool listed)
         internal
     {
-        ChatState storage state = _states[groupId];
+        ChatState storage state = _chatState[groupId];
         for (uint256 i = 0; i < senderIds.length; i++) {
             uint256 senderId = senderIds[i];
             _requireSenderIdTarget(senderId);
@@ -155,14 +159,14 @@ contract GroupChatBanList is IGroupChatBanList {
 
     function _isOperator(uint256 groupId, uint256 operatorId) private view returns (bool) {
         uint256 resolvedOperatorId =
-            IGroupChatDelegate(_groupDelegateAddress).ownerOrDelegateIdOf(groupId, msg.sender);
+            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
         if (operatorId != 0 && resolvedOperatorId == operatorId) {
             return true;
         }
         // Load-bearing: a nonexistent operatorId collapses into the unauthorized revert instead of
         // reverting separately, so the caller cannot use the error to probe whether a member id exists.
         if (operatorId != 0 && IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
-            && MemberOwner.ownerOrZero(_groupAddress, operatorId) == msg.sender) {
+            && MemberOwner.ownerOrZero(GROUP_ADDRESS, operatorId) == msg.sender) {
             return true;
         }
         return false;

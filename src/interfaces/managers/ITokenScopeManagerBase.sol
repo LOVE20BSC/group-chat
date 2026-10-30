@@ -12,16 +12,14 @@ interface ITokenScopeManagerBaseEvents {
 }
 
 interface ITokenScopeManagerBase is IManagerBase, ITokenScopeManagerBaseEvents {
-    function activate(address token) external returns (uint256 groupId);
+    function activate(address tokenAddress) external returns (uint256 groupId);
 
-    function tokenOfGroup(uint256 groupId) external view returns (address);
+    function tokenAddressByGroupId(uint256 groupId) external view returns (address);
 
-    function groupIdOfToken(address token) external view returns (uint256);
-
-    function tokensCount() external view returns (uint256);
+    function groupIdByTokenAddress(address tokenAddress) external view returns (uint256);
 
     function tokens(uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (address[] memory tokenList, uint256[] memory groupIds);
+        returns (address[] memory tokenList, uint256[] memory groupIds, uint256 totalCount);
 }

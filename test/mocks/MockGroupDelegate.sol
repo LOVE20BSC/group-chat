@@ -17,12 +17,12 @@ contract MockGroupDelegate {
 
     mapping(uint256 => DelegateState) internal _states;
 
-    constructor(address groupAddress_) {
-        GROUP_ADDRESS = groupAddress_;
+    constructor(address groupAddress) {
+        GROUP_ADDRESS = groupAddress;
     }
 
     function setDelegateId(uint256 groupId, uint256 delegateId) external {
-        address owner = _groupOwnerOfOrRevert(groupId);
+        address owner = _groupOwnerOrRevert(groupId);
         if (msg.sender != owner) {
             revert NotGroupOwner(groupId);
         }
@@ -30,7 +30,7 @@ contract MockGroupDelegate {
             revert DelegateIsSelfGroup(groupId);
         }
         if (delegateId != 0) {
-            _memberOwnerOfOrRevert(delegateId);
+            _memberOwnerOrRevert(delegateId);
         }
 
         DelegateState storage state = _states[groupId];
@@ -46,35 +46,35 @@ contract MockGroupDelegate {
         // lives on the real GroupChatDelegate.
     }
 
-    function ownerOrDelegateIdOf(uint256 groupId, address account) external view returns (uint256) {
-        return _ownerOrDelegateIdOf(groupId, account);
+    function ownerOrDelegateId(uint256 groupId, address operatorAddress) external view returns (uint256) {
+        return _ownerOrDelegateId(groupId, operatorAddress);
     }
 
-    function delegateIdOf(uint256 groupId) external view returns (uint256) {
-        return _delegateIdOf(_states[groupId], _groupOwnerOfOrRevert(groupId));
+    function effectiveDelegateId(uint256 groupId) external view returns (uint256) {
+        return _effectiveDelegateId(_states[groupId], _groupOwnerOrRevert(groupId));
     }
 
-    function _ownerOrDelegateIdOf(uint256 groupId, address account) internal view returns (uint256) {
-        address owner = _groupOwnerOfOrRevert(groupId);
-        if (account == owner) {
+    function _ownerOrDelegateId(uint256 groupId, address operatorAddress) internal view returns (uint256) {
+        address owner = _groupOwnerOrRevert(groupId);
+        if (operatorAddress == owner) {
             return groupId;
         }
 
-        uint256 delegateId = _delegateIdOf(_states[groupId], owner);
-        if (delegateId != 0 && account == _memberOwnerOfOrZero(delegateId)) {
+        uint256 delegateId = _effectiveDelegateId(_states[groupId], owner);
+        if (delegateId != 0 && operatorAddress == _memberOwnerOrZero(delegateId)) {
             return delegateId;
         }
         return 0;
     }
 
-    function _delegateIdOf(DelegateState storage state, address owner) internal view returns (uint256) {
+    function _effectiveDelegateId(DelegateState storage state, address owner) internal view returns (uint256) {
         if (state.ownerSnapshot != owner) {
             return 0;
         }
         return state.delegateId;
     }
 
-    function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {
+    function _groupOwnerOrRevert(uint256 groupId) internal view returns (address owner) {
         try IMemberNFT(GROUP_ADDRESS).ownerOf(groupId) returns (address resolved) {
             return resolved;
         } catch {
@@ -82,11 +82,11 @@ contract MockGroupDelegate {
         }
     }
 
-    function _memberOwnerOfOrRevert(uint256 memberId) internal view returns (address) {
+    function _memberOwnerOrRevert(uint256 memberId) internal view returns (address) {
         return IMemberNFT(GROUP_ADDRESS).ownerOf(memberId);
     }
 
-    function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {
+    function _memberOwnerOrZero(uint256 memberId) internal view returns (address) {
         try IMemberNFT(GROUP_ADDRESS).ownerOf(memberId) returns (address resolved) {
             return resolved;
         } catch {

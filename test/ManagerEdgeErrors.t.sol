@@ -14,10 +14,10 @@ contract MockManagerMemberNFT {
     bool internal immutable _nameUsed;
     uint256 internal immutable _actualCost;
 
-    constructor(bool nameUsed_, uint256 actualCost_) {
+    constructor(bool nameUsed, uint256 actualCost) {
         LOVE20_TOKEN_ADDRESS = address(new MockERC20Payment());
-        _nameUsed = nameUsed_;
-        _actualCost = actualCost_;
+        _nameUsed = nameUsed;
+        _actualCost = actualCost;
     }
 
     function isNameUsed(string calldata) external view returns (bool) {

@@ -23,6 +23,10 @@ interface IGroupChatBanListEvents {
 interface IGroupChatBanList is IGroupChatBanListErrors, IGroupChatBanListEvents {
     function GROUP_ADMIN_ADDRESS() external view returns (address);
 
+    function GROUP_ADDRESS() external view returns (address);
+
+    function GROUP_DELEGATE_ADDRESS() external view returns (address);
+
     function isSenderIdBanned(uint256 groupId, uint256 senderId) external view returns (bool);
 
     function isSenderIdBannedBatch(uint256 groupId, uint256[] calldata senderIds)
@@ -39,10 +43,13 @@ interface IGroupChatBanList is IGroupChatBanListErrors, IGroupChatBanListEvents 
 
     function unbanBySenderIds(uint256 groupId, uint256 operatorId, uint256[] calldata senderIds) external;
 
-    function senderIdBanListCount(uint256 groupId) external view returns (uint256);
-
-    function senderIdBanList(uint256 groupId, uint256 offset, uint256 limit)
+    function senderIdBanList(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory senderIds, address[] memory operatorAddresses, uint256[] memory operatorIds);
+        returns (
+            uint256[] memory senderIdList,
+            address[] memory operatorAddresses,
+            uint256[] memory operatorIds,
+            uint256 totalCount
+        );
 }

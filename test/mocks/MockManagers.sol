@@ -4,16 +4,16 @@ pragma solidity =0.8.37;
 import {ManagerBase} from "../../src/managers/ManagerBase.sol";
 
 contract MockManager is ManagerBase {
-    bool public postAllowed = true;
-    uint256 public voteWeight = 1;
+    bool public mockPostAllowed = true;
+    uint256 public mockVoteWeight = 1;
 
     constructor(
-        address groupChat_,
-        address banSource_,
-        address beforePostPlugin_,
-        address afterPostPlugin_,
-        address actionTarget_
-    ) ManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {}
+        address groupChat,
+        address banSource,
+        address beforePostPlugin,
+        address afterPostPlugin,
+        address actionTarget
+    ) ManagerBase(groupChat, banSource, beforePostPlugin, afterPostPlugin, actionTarget) {}
 
     function _typeCode() internal pure override returns (string memory) {
         return "mk";
@@ -24,23 +24,23 @@ contract MockManager is ManagerBase {
         _activateManagedGroup(groupId);
     }
 
-    function setMockPostAllowed(bool postAllowed_) external {
-        postAllowed = postAllowed_;
+    function setMockPostAllowed(bool postAllowed) external {
+        mockPostAllowed = postAllowed;
     }
 
-    function setMockVoteWeight(uint256 voteWeight_) external {
-        voteWeight = voteWeight_;
+    function setMockVoteWeight(uint256 mockVoteWeightValue) external {
+        mockVoteWeight = mockVoteWeightValue;
     }
 
-    function canPost(uint256, uint256) external view returns (bool) {
-        return postAllowed;
+    function isSenderAllowed(uint256, uint256) external view returns (bool) {
+        return mockPostAllowed;
     }
 
-    function voteWeightOf(uint256, uint256) external view returns (uint256) {
-        return voteWeight;
+    function voteWeight(uint256, uint256) external view returns (uint256) {
+        return mockVoteWeight;
     }
 
     function totalVoteWeight(uint256) external view returns (uint256) {
-        return voteWeight;
+        return mockVoteWeight;
     }
 }

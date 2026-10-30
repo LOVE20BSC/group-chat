@@ -54,13 +54,13 @@ interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVo
 
     function BAN_THRESHOLD_RATIO() external view returns (uint256);
 
-    function voteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) external;
+    function voteByTargetSenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId, bool supportBan) external;
 
-    function clearVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external;
+    function clearVoteByTargetSenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external;
 
-    function refreshVoteBySenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external;
+    function refreshVoteByTargetSenderId(uint256 groupId, uint256 targetSenderId, uint256 voterId) external;
 
-    function voteWeightsBySenderIdsByVoter(uint256 groupId, uint256[] calldata senderIds, uint256 voterId)
+    function voteWeightsBySenderIdsByVoterId(uint256 groupId, uint256[] calldata senderIds, uint256 voterId)
         external
         view
         returns (uint256[] memory supportWeights, uint256[] memory opposeWeights);
@@ -80,22 +80,24 @@ interface IGovVotedBanSource is IPostBanSource, IGovVotedBanSourceErrors, IGovVo
         view
         returns (bool[] memory banned);
 
-    function votedSenderIdsCount(uint256 groupId) external view returns (uint256);
-
-    function votedSenderIds(uint256 groupId, uint256 offset, uint256 limit)
+    function votedSenderIds(uint256 groupId, uint256 offset, uint256 limit, bool reverse)
         external
         view
         returns (
             uint256[] memory senderIds,
             uint256[] memory supportWeights,
             uint256[] memory opposeWeights,
-            uint256[] memory voterCounts
+            uint256[] memory voterCounts,
+            uint256 totalCount
         );
 
-    function votersBySenderIdCount(uint256 groupId, uint256 senderId) external view returns (uint256);
-
-    function votersBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit)
+    function votersBySenderId(uint256 groupId, uint256 senderId, uint256 offset, uint256 limit, bool reverse)
         external
         view
-        returns (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights);
+        returns (
+            uint256[] memory voterIds,
+            uint256[] memory supportWeights,
+            uint256[] memory opposeWeights,
+            uint256 totalCount
+        );
 }
