@@ -178,8 +178,8 @@ contract GroupAdmin is IGroupAdmin {
         address ownerSnapshot = state.groupOwnerSnapshots[adminId];
         address adminOwnerSnapshot = state.adminOwnerSnapshots[adminId];
         return ownerSnapshot != address(0) && adminOwnerSnapshot != address(0)
-            && MemberOwner.ofOrZero(GROUP_ADDRESS, groupId) == ownerSnapshot
-            && MemberOwner.ofOrZero(GROUP_ADDRESS, adminId) == adminOwnerSnapshot;
+            && MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId) == ownerSnapshot
+            && MemberOwner.ownerOrZero(GROUP_ADDRESS, adminId) == adminOwnerSnapshot;
     }
 
     modifier onlyOwnerOrDelegate(
@@ -195,7 +195,7 @@ contract GroupAdmin is IGroupAdmin {
     }
 
     function _groupOwnerOfOrRevert(uint256 groupId) internal view returns (address owner) {
-        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
+        owner = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist(groupId);
         }

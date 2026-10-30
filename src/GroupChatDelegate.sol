@@ -239,13 +239,13 @@ contract GroupChatDelegate is IGroupChatDelegate {
     }
 
     function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
-        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
+        owner = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist(groupId);
         }
     }
 
     function _memberOwnerOfOrZero(uint256 memberId) internal view returns (address) {
-        return MemberOwner.ofOrZero(GROUP_ADDRESS, memberId);
+        return MemberOwner.ownerOrZero(GROUP_ADDRESS, memberId);
     }
 }

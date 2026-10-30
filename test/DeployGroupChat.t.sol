@@ -91,7 +91,7 @@ contract DeployGroupChatTest is TestBase {
         core.submit = address(otherSubmit);
 
         DeployGroupChatHarness harness = new DeployGroupChatHarness();
-        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.submitAddress mismatch"));
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.SUBMIT_ADDRESS mismatch"));
         harness.validateDependenciesForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), core);
     }
 

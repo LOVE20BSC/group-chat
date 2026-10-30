@@ -125,30 +125,30 @@ contract DeployGroupChat is Script {
         require(deps.groupActionExecutor.code.length != 0, "GroupActionExecutor must be a deployed contract");
         require(IPhase(deps.phase).ORIGIN_PHASE_BLOCKS() != 0, "Phase.ORIGIN_PHASE_BLOCKS must be > 0");
         require(
-            IActionTarget(deps.actionTarget).memberNFTAddress() == deps.groupNft,
-            "ActionTarget.memberNFTAddress mismatch"
+            IActionTarget(deps.actionTarget).MEMBER_NFT_ADDRESS() == deps.groupNft,
+            "ActionTarget.MEMBER_NFT_ADDRESS mismatch"
         );
         require(
-            IActionTarget(deps.actionTarget).phaseAddress() == deps.phase,
-            "ActionTarget.phaseAddress mismatch"
+            IActionTarget(deps.actionTarget).PHASE_ADDRESS() == deps.phase,
+            "ActionTarget.PHASE_ADDRESS mismatch"
         );
 
         address love20 = IMemberNFT(deps.groupNft).LOVE20_TOKEN_ADDRESS();
         require(love20.code.length != 0, "MemberNFT.LOVE20_TOKEN_ADDRESS must be a contract");
         require(love20 == core.love20, "MemberNFT root token mismatch");
 
-        address submit = IActionTarget(deps.actionTarget).submitAddress();
-        address vote = IActionTarget(deps.actionTarget).voteAddress();
-        require(submit.code.length != 0, "ActionTarget.submitAddress must be a contract");
-        require(vote.code.length != 0, "ActionTarget.voteAddress must be a contract");
+        address submit = IActionTarget(deps.actionTarget).SUBMIT_ADDRESS();
+        address vote = IActionTarget(deps.actionTarget).VOTE_ADDRESS();
+        require(submit.code.length != 0, "ActionTarget.SUBMIT_ADDRESS must be a contract");
+        require(vote.code.length != 0, "ActionTarget.VOTE_ADDRESS must be a contract");
         address stake = IVote(vote).STAKE_ADDRESS();
-        require(stake.code.length != 0, "Vote.stakeAddress must be a contract");
+        require(stake.code.length != 0, "Vote.STAKE_ADDRESS must be a contract");
         address launch = IStake(stake).LAUNCH_ADDRESS();
-        require(launch.code.length != 0, "Stake.launchAddress must be a contract");
-        require(submit == core.submit, "ActionTarget.submitAddress mismatch");
-        require(vote == core.vote, "ActionTarget.voteAddress mismatch");
-        require(stake == core.stake, "Vote.stakeAddress mismatch");
-        require(launch == core.launch, "Stake.launchAddress mismatch");
+        require(launch.code.length != 0, "Stake.LAUNCH_ADDRESS must be a contract");
+        require(submit == core.submit, "ActionTarget.SUBMIT_ADDRESS mismatch");
+        require(vote == core.vote, "ActionTarget.VOTE_ADDRESS mismatch");
+        require(stake == core.stake, "Vote.STAKE_ADDRESS mismatch");
+        require(launch == core.launch, "Stake.LAUNCH_ADDRESS mismatch");
     }
 
     function _validateConfig(Dependencies memory deps, DeployConfig memory config) internal view {

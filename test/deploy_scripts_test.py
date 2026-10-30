@@ -73,12 +73,12 @@ def fake_tool(tool, args):
             call_values = {
                 "LOVE20_TOKEN_ADDRESS()(address)": data["core"]["LOVE20_TOKEN_ADDRESS"],
                 "ORIGIN_PHASE_BLOCKS()(uint256)": "100",
-                "submitAddress()(address)": data["core"]["SUBMIT_ADDRESS"],
-                "voteAddress()(address)": data["core"]["VOTE_ADDRESS"],
-                "stakeAddress()(address)": data["core"]["STAKE_ADDRESS"],
-                "launchAddress()(address)": data["core"]["LAUNCH_ADDRESS"],
-                "memberNFTAddress()(address)": data["core"]["MEMBER_NFT_ADDRESS"],
-                "phaseAddress()(address)": data["core"]["PHASE_ADDRESS"],
+                "SUBMIT_ADDRESS()(address)": data["core"]["SUBMIT_ADDRESS"],
+                "VOTE_ADDRESS()(address)": data["core"]["VOTE_ADDRESS"],
+                "STAKE_ADDRESS()(address)": data["core"]["STAKE_ADDRESS"],
+                "LAUNCH_ADDRESS()(address)": data["core"]["LAUNCH_ADDRESS"],
+                "MEMBER_NFT_ADDRESS()(address)": data["core"]["MEMBER_NFT_ADDRESS"],
+                "PHASE_ADDRESS()(address)": data["core"]["PHASE_ADDRESS"],
                 "MAX_NAME_LENGTH()(uint256)": "32",
             }
             if signature == "TYPE_CODE()(string)":

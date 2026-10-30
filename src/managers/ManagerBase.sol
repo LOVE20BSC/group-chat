@@ -40,7 +40,7 @@ abstract contract ManagerBase is IManagerBase {
         address actionTarget_
     ) {
         address memberNFT = IGroupChat(groupChat_).GROUP_ADDRESS();
-        address vote = IActionTarget(actionTarget_).voteAddress();
+        address vote = IActionTarget(actionTarget_).VOTE_ADDRESS();
         GROUP_CHAT_ADDRESS = groupChat_;
         GROUP_ADDRESS = memberNFT;
         MAX_NAME_LENGTH = IMemberNFT(memberNFT).MAX_NAME_LENGTH();

@@ -58,7 +58,7 @@ MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).l
 
 构造期静态校验已按 dev-standards §5.7 从合约移除，统一放在部署脚本：
 
-- `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.memberNFTAddress/phaseAddress` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 名称空间下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Delegate/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。
+- `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.MEMBER_NFT_ADDRESS/PHASE_ADDRESS` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 名称空间下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Delegate/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。
 - `11_deploy.sh` 只负责自包含加载、链/账户/密码、调用 forge 与地址文件原子写入，不重复上述校验。
 - `21_check.sh` 部署后独立复核绑定、参数与各 Manager 的 `TYPE_CODE()` 名称空间；运行期输入/状态校验（token/action/member/auth/content）仍由合约执行。
 

@@ -40,7 +40,7 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         address actionTarget_,
         uint256 recentRounds_
     ) TokenManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
-        SUBMIT_ADDRESS = IActionTarget(ACTION_TARGET_ADDRESS).submitAddress();
+        SUBMIT_ADDRESS = IActionTarget(ACTION_TARGET_ADDRESS).SUBMIT_ADDRESS();
         RECENT_ROUNDS = recentRounds_;
     }
 

@@ -329,7 +329,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     }
 
     function _sourceOrRevert(uint256 groupId) internal view returns (address source) {
-        source = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
+        source = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
         if (source == address(0)) {
             revert GroupNotExist(groupId);
         }
@@ -339,7 +339,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     }
 
     function _sourceHasCode(uint256 groupId) internal view returns (bool) {
-        return MemberOwner.ofOrZero(GROUP_ADDRESS, groupId).code.length != 0;
+        return MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId).code.length != 0;
     }
 
     function _voteWeightOrRevert(address source, uint256 groupId, uint256 voterId)

@@ -807,7 +807,7 @@ contract GroupChat is IGroupChat {
         view
         returns (bool allowed, PostRejectionReason reason)
     {
-        if (MemberOwner.ofOrZero(GROUP_ADDRESS, groupId) == address(0)) {
+        if (MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId) == address(0)) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, PostRejectionReason.GroupNotExist);
         }
@@ -822,7 +822,7 @@ contract GroupChat is IGroupChat {
             return (false, PostRejectionReason.PostingNotAllowed);
         }
 
-        if (MemberOwner.ofOrZero(GROUP_ADDRESS, senderId) == address(0)) {
+        if (MemberOwner.ownerOrZero(GROUP_ADDRESS, senderId) == address(0)) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, PostRejectionReason.SenderNotExist);
         }
@@ -844,7 +844,7 @@ contract GroupChat is IGroupChat {
     }
 
     function _ownerOfOrRevertGroupNotExist(uint256 groupId) internal view returns (address owner) {
-        owner = MemberOwner.ofOrZero(GROUP_ADDRESS, groupId);
+        owner = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
         if (owner == address(0)) {
             revert GroupNotExist(groupId);
         }

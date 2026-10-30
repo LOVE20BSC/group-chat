@@ -101,11 +101,15 @@ contract MockLOVE20Protocols {
         return phaseAddress;
     }
 
-    function voteAddress() external view returns (address) {
+    function MEMBER_NFT_ADDRESS() external view returns (address) {
+        return memberNFTAddress;
+    }
+
+    function VOTE_ADDRESS() external view returns (address) {
         return address(this);
     }
 
-    function submitAddress() external view returns (address) {
+    function SUBMIT_ADDRESS() external view returns (address) {
         return address(this);
     }
 

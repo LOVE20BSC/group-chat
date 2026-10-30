@@ -112,7 +112,7 @@ contract GroupMember is IGroupMember {
         // Load-bearing: a nonexistent operatorId collapses into the unauthorized revert instead of
         // reverting separately, so the caller cannot use the error to probe whether a member id exists.
         if (operatorId != 0 && IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
-            && MemberOwner.ofOrZero(GROUP_ADDRESS, operatorId) == msg.sender) {
+            && MemberOwner.ownerOrZero(GROUP_ADDRESS, operatorId) == msg.sender) {
             return true;
         }
         return false;

@@ -39,7 +39,7 @@ contract TokenMainManager is TokenScopeManagerBase {
     }
 
     function _hasTokenBalance(address token, uint256 memberId) internal view returns (bool) {
-        return IERC20(token).balanceOf(MemberOwner.ofOrZero(GROUP_ADDRESS, memberId)) > 0;
+        return IERC20(token).balanceOf(MemberOwner.ownerOrZero(GROUP_ADDRESS, memberId)) > 0;
     }
 
     function _hasTokenActionParticipation(address token, uint256 memberId) internal view returns (bool) {

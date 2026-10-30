@@ -229,27 +229,27 @@ echo ""
 echo "Verifying ActionTarget bindings..."
 check_contract_code "ActionTarget" "$ACTION_TARGET_ADDRESS" || ((failed_checks += 1))
 check_contract_code "GroupActionExecutor" "$GROUP_ACTION_EXECUTOR_ADDRESS" || ((failed_checks += 1))
-# ActionTarget 暴露 memberNFT/phase/submit/vote 四个地址；四个都应与 core 地址文件一致，
-# 并继续校验 Vote.stakeAddress / Stake.launchAddress 的派生链。
-check_equal "ActionTarget: memberNFTAddress" "$MEMBER_NFT_ADDRESS" \
-    "$(cast_call "$ACTION_TARGET_ADDRESS" "memberNFTAddress()(address)")" || ((failed_checks += 1))
-check_equal "ActionTarget: phaseAddress" "$PHASE_ADDRESS" \
-    "$(cast_call "$ACTION_TARGET_ADDRESS" "phaseAddress()(address)")" || ((failed_checks += 1))
-action_target_submit_address=$(cast_call "$ACTION_TARGET_ADDRESS" "submitAddress()(address)")
-action_target_vote_address=$(cast_call "$ACTION_TARGET_ADDRESS" "voteAddress()(address)")
-check_contract_code "ActionTarget: submitAddress" "$action_target_submit_address" || ((failed_checks += 1))
-check_contract_code "ActionTarget: voteAddress" "$action_target_vote_address" || ((failed_checks += 1))
-check_equal "ActionTarget: submitAddress == SUBMIT_ADDRESS" "$SUBMIT_ADDRESS" \
+# ActionTarget 暴露 MEMBER_NFT_ADDRESS/PHASE_ADDRESS/SUBMIT_ADDRESS/VOTE_ADDRESS 四个地址；
+# 四个都应与 core 地址文件一致，并继续校验 Vote.STAKE_ADDRESS / Stake.LAUNCH_ADDRESS 的派生链。
+check_equal "ActionTarget: MEMBER_NFT_ADDRESS" "$MEMBER_NFT_ADDRESS" \
+    "$(cast_call "$ACTION_TARGET_ADDRESS" "MEMBER_NFT_ADDRESS()(address)")" || ((failed_checks += 1))
+check_equal "ActionTarget: PHASE_ADDRESS" "$PHASE_ADDRESS" \
+    "$(cast_call "$ACTION_TARGET_ADDRESS" "PHASE_ADDRESS()(address)")" || ((failed_checks += 1))
+action_target_submit_address=$(cast_call "$ACTION_TARGET_ADDRESS" "SUBMIT_ADDRESS()(address)")
+action_target_vote_address=$(cast_call "$ACTION_TARGET_ADDRESS" "VOTE_ADDRESS()(address)")
+check_contract_code "ActionTarget: SUBMIT_ADDRESS" "$action_target_submit_address" || ((failed_checks += 1))
+check_contract_code "ActionTarget: VOTE_ADDRESS" "$action_target_vote_address" || ((failed_checks += 1))
+check_equal "ActionTarget: SUBMIT_ADDRESS == core" "$SUBMIT_ADDRESS" \
     "$action_target_submit_address" || ((failed_checks += 1))
-check_equal "ActionTarget: voteAddress == VOTE_ADDRESS" "$VOTE_ADDRESS" \
+check_equal "ActionTarget: VOTE_ADDRESS == core" "$VOTE_ADDRESS" \
     "$action_target_vote_address" || ((failed_checks += 1))
-vote_stake_address=$(cast_call "$VOTE_ADDRESS" "stakeAddress()(address)")
-check_equal "Vote: stakeAddress == STAKE_ADDRESS" "$STAKE_ADDRESS" "$vote_stake_address" || ((failed_checks += 1))
-stake_launch_address=$(cast_call "$STAKE_ADDRESS" "launchAddress()(address)")
-check_equal "Stake: launchAddress == LAUNCH_ADDRESS" "$LAUNCH_ADDRESS" \
+vote_stake_address=$(cast_call "$VOTE_ADDRESS" "STAKE_ADDRESS()(address)")
+check_equal "Vote: STAKE_ADDRESS == core" "$STAKE_ADDRESS" "$vote_stake_address" || ((failed_checks += 1))
+stake_launch_address=$(cast_call "$STAKE_ADDRESS" "LAUNCH_ADDRESS()(address)")
+check_equal "Stake: LAUNCH_ADDRESS == core" "$LAUNCH_ADDRESS" \
     "$stake_launch_address" || ((failed_checks += 1))
-stake_phase_address=$(cast_call "$STAKE_ADDRESS" "phaseAddress()(address)")
-check_equal "Stake: phaseAddress == PHASE_ADDRESS" "$PHASE_ADDRESS" \
+stake_phase_address=$(cast_call "$STAKE_ADDRESS" "PHASE_ADDRESS()(address)")
+check_equal "Stake: PHASE_ADDRESS == core" "$PHASE_ADDRESS" \
     "$stake_phase_address" || ((failed_checks += 1))
 echo -e "  SUBMIT_ADDRESS: $action_target_submit_address"
 echo -e "  VOTE_ADDRESS:   $action_target_vote_address"
