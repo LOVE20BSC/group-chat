@@ -141,9 +141,9 @@ contract DeployGroupChat is Script {
         address vote = IActionTarget(deps.actionTarget).voteAddress();
         require(submit.code.length != 0, "ActionTarget.submitAddress must be a contract");
         require(vote.code.length != 0, "ActionTarget.voteAddress must be a contract");
-        address stake = IVote(vote).stakeAddress();
+        address stake = IVote(vote).STAKE_ADDRESS();
         require(stake.code.length != 0, "Vote.stakeAddress must be a contract");
-        address launch = IStake(stake).launchAddress();
+        address launch = IStake(stake).LAUNCH_ADDRESS();
         require(launch.code.length != 0, "Stake.launchAddress must be a contract");
         require(submit == core.submit, "ActionTarget.submitAddress mismatch");
         require(vote == core.vote, "ActionTarget.voteAddress mismatch");

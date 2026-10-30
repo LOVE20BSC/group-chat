@@ -143,7 +143,7 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
     function _hasRecentActionVote(address token, uint256 actionId, uint256 memberId) internal view returns (bool) {
         uint256 round = IVote(VOTE_ADDRESS).currentRound();
         for (uint256 i = 0; i < RECENT_ROUNDS; i++) {
-            if (IVote(VOTE_ADDRESS).votesNumByMemberIdByProposalId(token, round, memberId, actionId) != 0) {
+            if (IVote(VOTE_ADDRESS).voteAmountByMemberIdByProposalId(token, round, memberId, actionId) != 0) {
                 return true;
             }
             if (round <= 1) {
@@ -161,7 +161,7 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         view
         returns (uint256)
     {
-        return IVote(VOTE_ADDRESS).votesNumByMemberIdByProposalId(
+        return IVote(VOTE_ADDRESS).voteAmountByMemberIdByProposalId(
             token, IVote(VOTE_ADDRESS).currentRound(), memberId, actionId
         );
     }

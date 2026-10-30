@@ -89,12 +89,16 @@ contract MockLOVE20Protocols {
         return true;
     }
 
-    function stakeAddress() external view returns (address) {
+    function STAKE_ADDRESS() external view returns (address) {
         return address(this);
     }
 
-    function launchAddress() external view returns (address) {
+    function LAUNCH_ADDRESS() external view returns (address) {
         return address(this);
+    }
+
+    function PHASE_ADDRESS() external view returns (address) {
+        return phaseAddress;
     }
 
     function voteAddress() external view returns (address) {
@@ -131,7 +135,7 @@ contract MockLOVE20Protocols {
         return _currentRound;
     }
 
-    function votesNumByMemberIdByProposalId(
+    function voteAmountByMemberIdByProposalId(
         address tokenAddress,
         uint256 round,
         uint256 memberId,

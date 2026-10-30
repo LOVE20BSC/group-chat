@@ -20,9 +20,9 @@ abstract contract TokenManagerBase is ManagerBase {
         address afterPostPlugin_,
         address actionTarget_
     ) ManagerBase(groupChat_, banSource_, beforePostPlugin_, afterPostPlugin_, actionTarget_) {
-        STAKE_ADDRESS = IVote(VOTE_ADDRESS).stakeAddress();
-        LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).launchAddress();
-        PHASE_ADDRESS = IStake(STAKE_ADDRESS).phaseAddress();
+        STAKE_ADDRESS = IVote(VOTE_ADDRESS).STAKE_ADDRESS();
+        LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).LAUNCH_ADDRESS();
+        PHASE_ADDRESS = IStake(STAKE_ADDRESS).PHASE_ADDRESS();
     }
 
     function _requireLOVE20Token(address token) internal view {
