@@ -115,9 +115,9 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
     }
 
     function _activateManagedAction(address tokenAddress, uint256 actionId) internal returns (uint256 groupId) {
-        _requireLOVE20Token(tokenAddress);
-        _requireExistingAction(tokenAddress, actionId);
-        _requireNotManaged(_groupIdByActionId[tokenAddress][actionId]);
+        _checkLOVE20Token(tokenAddress);
+        _checkExistingAction(tokenAddress, actionId);
+        _checkNotManaged(_groupIdByActionId[tokenAddress][actionId]);
 
         bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
         string memory symbol = _tokenNamePayload(tokenAddress);
@@ -139,7 +139,7 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         });
     }
 
-    function _requireExistingAction(address tokenAddress, uint256 actionId) internal view {
+    function _checkExistingAction(address tokenAddress, uint256 actionId) internal view {
         (, uint256 proposalCount) = ISubmit(SUBMIT_ADDRESS).proposalIds(tokenAddress, 0, 0, false);
         if (actionId == 0 || actionId > proposalCount) {
             revert ActionNotExist(tokenAddress, actionId);

@@ -107,7 +107,7 @@ contract GroupChatBanList is IGroupChatBanList {
         ChatState storage state = _chatState[groupId];
         for (uint256 i = 0; i < senderIds.length; i++) {
             uint256 senderId = senderIds[i];
-            _requireSenderIdTarget(senderId);
+            _checkTargetSenderId(senderId);
             for (uint256 j = 0; j < i; j++) {
                 if (senderIds[j] == senderId) {
                     revert DuplicateMemberId(senderId);
@@ -137,8 +137,8 @@ contract GroupChatBanList is IGroupChatBanList {
         }
     }
 
-    function _requireSenderIdTarget(uint256 senderId) internal pure {
-        if (senderId == 0) {
+    function _checkTargetSenderId(uint256 targetSenderId) internal pure {
+        if (targetSenderId == 0) {
             revert ZeroTargetSenderId();
         }
     }

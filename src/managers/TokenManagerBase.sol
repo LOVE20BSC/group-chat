@@ -31,7 +31,7 @@ abstract contract TokenManagerBase is ManagerBase {
         PHASE_ADDRESS = IStake(STAKE_ADDRESS).PHASE_ADDRESS();
     }
 
-    function _requireLOVE20Token(address tokenAddress) internal view {
+    function _checkLOVE20Token(address tokenAddress) internal view {
         if (tokenAddress.code.length == 0 || !ILaunch(LAUNCH_ADDRESS).isLOVE20Token(tokenAddress)) {
             revert TokenNotLOVE20(tokenAddress);
         }

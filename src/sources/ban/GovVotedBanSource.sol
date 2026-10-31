@@ -138,7 +138,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (!_sourceHasCode(groupId)) {
             return (new uint256[](0), new uint256[](0), new uint256[](0), 0);
         }
-        return _votersPage(_chatState[groupId].senderIdTargetStates[senderId], offset, limit, reverse);
+        return _voters(_chatState[groupId].senderIdTargetStates[senderId], offset, limit, reverse);
     }
 
     function isBanned(uint256 groupId, uint256 senderId) external view returns (bool) {
@@ -192,7 +192,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         internal
         returns (bool changed)
     {
-        _requireTarget(targetSenderId);
+        _checkTargetSenderId(targetSenderId);
         address source = _sourceOrRevert(groupId);
         uint256 weight = _voteWeightOrRevert(source, groupId, voterId);
         if (weight == 0) {
@@ -229,7 +229,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
     }
 
     function _clearVoteIfFound(uint256 groupId, uint256 targetSenderId, uint256 voterId) internal returns (bool found) {
-        _requireTarget(targetSenderId);
+        _checkTargetSenderId(targetSenderId);
         address source = _sourceOrRevert(groupId);
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
@@ -255,7 +255,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         internal
         returns (bool found)
     {
-        _requireTarget(targetSenderId);
+        _checkTargetSenderId(targetSenderId);
         address source = _sourceOrRevert(groupId);
         uint256 totalWeight = _totalVoteWeightOrRevert(source, groupId);
 
@@ -378,7 +378,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         return target.supportWeight * PRECISION >= totalWeight * BAN_THRESHOLD_RATIO;
     }
 
-    function _requireTarget(uint256 targetSenderId) internal pure {
+    function _checkTargetSenderId(uint256 targetSenderId) internal pure {
         if (targetSenderId == 0) {
             revert ZeroTargetSenderId();
         }
@@ -437,7 +437,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
     }
 
-    function _votersPage(TargetState storage target, uint256 offset, uint256 limit, bool reverse)
+    function _voters(TargetState storage target, uint256 offset, uint256 limit, bool reverse)
         internal
         view
         returns (

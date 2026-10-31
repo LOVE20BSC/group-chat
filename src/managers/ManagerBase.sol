@@ -94,7 +94,7 @@ abstract contract ManagerBase is IManagerBase {
         );
     }
 
-    function _requireNotManaged(uint256 managedGroupId) internal pure {
+    function _checkNotManaged(uint256 managedGroupId) internal pure {
         if (managedGroupId != 0) {
             revert AlreadyManaged(managedGroupId);
         }

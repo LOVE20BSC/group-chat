@@ -73,8 +73,8 @@ abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerB
     }
 
     function _activateToken(address tokenAddress) internal returns (uint256 groupId) {
-        _requireLOVE20Token(tokenAddress);
-        _requireNotManaged(_groupIdByTokenAddress[tokenAddress]);
+        _checkLOVE20Token(tokenAddress);
+        _checkNotManaged(_groupIdByTokenAddress[tokenAddress]);
 
         bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
         (string memory stem, uint256 randomHexLength) =

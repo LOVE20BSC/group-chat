@@ -33,8 +33,8 @@ contract GroupAdmin is IGroupAdmin {
         external
         onlyGroupOwner(groupId, operatorId)
     {
-        _validateAdminIds(adminIdList);
-        _requireAdminIdsLimit(_adminState[groupId], groupId, adminIdList);
+        _checkAdminIdList(adminIdList);
+        _checkAdminIdsLimit(_adminState[groupId], groupId, adminIdList);
 
         AdminState storage state = _adminState[groupId];
         address groupOwnerSnapshot = _groupOwnerOrRevert(groupId);
@@ -47,7 +47,7 @@ contract GroupAdmin is IGroupAdmin {
         external
         onlyGroupOwner(groupId, operatorId)
     {
-        _validateAdminIds(adminIdList);
+        _checkAdminIdList(adminIdList);
 
         AdminState storage state = _adminState[groupId];
         for (uint256 i = 0; i < adminIdList.length; i++) {
@@ -136,7 +136,7 @@ contract GroupAdmin is IGroupAdmin {
         });
     }
 
-    function _validateAdminIds(uint256[] calldata adminIdList) internal view {
+    function _checkAdminIdList(uint256[] calldata adminIdList) internal view {
         for (uint256 i = 0; i < adminIdList.length; i++) {
             IMemberNFT(GROUP_ADDRESS).ownerOf(adminIdList[i]);
             for (uint256 j = 0; j < i; j++) {
@@ -159,7 +159,7 @@ contract GroupAdmin is IGroupAdmin {
         }
     }
 
-    function _requireAdminIdsLimit(AdminState storage state, uint256 groupId, uint256[] calldata adminIdList)
+    function _checkAdminIdsLimit(AdminState storage state, uint256 groupId, uint256[] calldata adminIdList)
         internal
         view
     {
