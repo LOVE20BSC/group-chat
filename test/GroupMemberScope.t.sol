@@ -21,7 +21,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
     function setUp() public override {
         super.setUp();
         adminId = groupNft.mint(adminOwner);
-        groupAdmin = new GroupAdmin(address(groupDelegate), 20);
+        groupAdmin = new GroupAdmin(address(groupNft), 20);
         member = new GroupMember(address(groupAdmin));
         scope = new GroupMemberScope(address(member));
     }
@@ -94,20 +94,19 @@ contract GroupMemberScopeTest is GroupChatFixture {
         assertTrue(!listed);
     }
 
-    function testT133B2_ownerAndDelegateCanManageMemberIds() public {
+    function testT133B2_ownerAndAdminCanManageMemberIds() public {
         vm.prank(chatOwner);
         member.addMemberIds(groupId, groupId, _uints(senderId));
         assertTrue(member.isMemberId(groupId, senderId));
 
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
+        _configureAdmin();
 
-        vm.prank(delegateIdOwner);
-        member.addMemberIds(groupId, delegateId, _uints(otherGroupId));
+        vm.prank(adminOwner);
+        member.addMemberIds(groupId, adminId, _uints(otherGroupId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
 
-        vm.prank(delegateIdOwner);
-        member.removeMemberIds(groupId, delegateId, _uints(senderId));
+        vm.prank(adminOwner);
+        member.removeMemberIds(groupId, adminId, _uints(senderId));
         assertTrue(!member.isMemberId(groupId, senderId));
         assertTrue(member.isMemberId(groupId, otherGroupId));
     }

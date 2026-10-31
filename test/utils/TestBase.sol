@@ -3,7 +3,6 @@ pragma solidity =0.8.37;
 
 import {IGroupChat} from "../../src/interfaces/IGroupChat.sol";
 import {IGroupChatBanList} from "../../src/interfaces/IGroupChatBanList.sol";
-import {IGroupChatDelegate} from "../../src/interfaces/IGroupChatDelegate.sol";
 import {IGroupMember} from "../../src/interfaces/IGroupMember.sol";
 import {IGovVotedBanSource} from "../../src/interfaces/sources/ban/IGovVotedBanSource.sol";
 import {ITokenActionScopeManagerBase} from "../../src/interfaces/managers/ITokenActionScopeManagerBase.sol";
@@ -106,14 +105,6 @@ contract TestBase {
 
     function memberIdsTotal(IGroupMember target, uint256 groupId) internal view returns (uint256 total) {
         (, total) = target.memberIds(groupId, 0, 0, false);
-    }
-
-    function delegatedGroupIdsTotal(IGroupChatDelegate target, uint256 delegateId)
-        internal
-        view
-        returns (uint256 total)
-    {
-        (, , total) = target.delegatedGroupIds(delegateId, 0, 0, false);
     }
 
     function senderIdBanListTotal(IGroupChatBanList target, uint256 groupId) internal view returns (uint256 total) {

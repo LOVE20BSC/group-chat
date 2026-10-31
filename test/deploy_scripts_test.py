@@ -19,7 +19,6 @@ from pathlib import Path
 SECRET_PASSWORD = "do-not-print-this-password"
 
 ADDRESS_FIELDS = [
-    "GROUP_CHAT_DELEGATE_ADDRESS",
     "GROUP_ADMIN_ADDRESS",
     "GROUP_CHAT_ADDRESS",
     "GROUP_CHAT_BAN_LIST_ADDRESS",
@@ -395,7 +394,7 @@ def main():
                 params.write_text(params_text)
 
         cases = [
-            ("01 成功：13 键写盘、密码临时文件 600 且清理", assert_success_writes_all),
+            ("01 成功：12 键写盘、密码临时文件 600 且清理", assert_success_writes_all),
             ("02 .account 密码直接使用，不弹窗", assert_account_password),
             ("03 空密码仍只弹一次窗", assert_empty_password_prompts),
             ("04 广播前失败：不误报已上链、不留日志", assert_pre_broadcast_failure_is_quiet),

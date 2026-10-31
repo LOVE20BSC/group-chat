@@ -6,14 +6,14 @@
 script/
 ├── deploy/
 │   ├── one_click_deploy.sh      # 入口：纯编排（解析 keystore 密码、按序调用三个步骤、校验失败回滚地址文件）
-│   ├── 11_deploy.sh             # 步骤一：部署 13 个合约并写入 addresses.group-chat.params
+│   ├── 11_deploy.sh             # 步骤一：部署 12 个合约并写入 addresses.group-chat.params
 │   ├── 21_check.sh               # 步骤二：只读校验部署与参数绑定，可重复运行
 │   ├── 31_verify.sh              # 步骤三：开源验证，链未配 verifier 时跳过
 │   └── DeployGroupChat.s.sol     # Foundry 部署脚本（输出 KEY=VALUE 地址行，由 11_deploy.sh 落盘）
 └── network/<链名><链id>_<部署类型>/
     ├── .account                  # KEYSTORE_ACCOUNT / ACCOUNT_ADDRESS / KEYSTORE_PASSWORD（可选），已 gitignore
     ├── network.params            # CHAIN_ID / RPC_URL（接入浏览器的链另带 VERIFIER / VERIFIER_URL）
-    ├── group-chat.params         # 本库 13 个合约的构造参数
+    ├── group-chat.params         # 本库 12 个合约的构造参数
     ├── addresses.group-chat.params  # 本库已部署地址，11_deploy.sh 写入
     ├── addresses.core.params     # 被依赖方：MemberNFT、Phase（从 core 对应网络复制）
     └── addresses.action.params   # 被依赖方：ActionTarget、GroupActionExecutor（从 action 对应网络复制）
@@ -39,7 +39,7 @@ keystore 密码不继承调用方环境变量，非交互场景请写进 `.accou
 
 ## 部署内容
 
-`DeployGroupChat.s.sol` 依次部署本库全部 13 个合约：`GroupChatDelegate` → `GroupAdmin` → `GroupChat` →
+`DeployGroupChat.s.sol` 依次部署本库全部 12 个合约：`GroupAdmin` → `GroupChat` →
 `GroupChatBanList` / `AdminBanSource` / `GovVotedBanSource` / `GroupMember` / `GroupMemberScope` /
 `GroupJoinScopeSource` → 四个 Manager（`TokenMainManager`、`TokenGovManager`、`TokenActionGovManager`、
 `TokenActionMainManager`）。
@@ -58,7 +58,7 @@ MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).l
 
 构造期静态校验已按 dev-standards §5.7 从合约移除，统一放在部署脚本：
 
-- `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.MEMBER_NFT_ADDRESS/PHASE_ADDRESS` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 名称空间下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Delegate/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。
+- `DeployGroupChat.s.sol` 广播前：被依赖方与派生依赖（submit/vote/stake/launch）有代码且与 core 地址文件一致，`ActionTarget.MEMBER_NFT_ADDRESS/PHASE_ADDRESS` 与 core 一致，MemberNFT 根代币与 `LOVE20_TOKEN_ADDRESS` 一致，`Phase.ORIGIN_PHASE_BLOCKS() > 0`、MemberNFT `MAX_NAME_LENGTH` 名称空间下限、group-chat 参数（`BAN_THRESHOLD_RATIO` 允许 0，仅要求 ≤1e18；其余非零）、插件地址非零时有代码；部署后 `_validateDeployment` 校验完整绑定图（Group/Admin/Chat/Member/Scope/Source/Manager 的地址、上限与 recentRounds）。
 - `11_deploy.sh` 只负责自包含加载、链/账户/密码、调用 forge 与地址文件原子写入，不重复上述校验。
 - `21_check.sh` 部署后独立复核绑定、参数与各 Manager 的 `TYPE_CODE()` 名称空间；运行期输入/状态校验（token/action/member/auth/content）仍由合约执行。
 

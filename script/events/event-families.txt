@@ -9,9 +9,6 @@ ScopeSourceChanged gc.management
 BanSourceChanged gc.management
 BeforePostPluginChanged gc.management
 AfterPostPluginChanged gc.management
-DelegateChanged gc.management
-DelegationCleared gc.management
-DelegationAcceptanceChanged gc.delegation
 SenderBanVoteCast gc.ban-vote
 GovSenderBanChanged gc.ban-vote
 MessagePosted gc.message

@@ -53,8 +53,8 @@ if [ -z "${VERIFIER:-}" ] || [ -z "${VERIFIER_URL:-}" ]; then
     exit 0
 fi
 
-# 13 个合约地址缺项即失败：forge verify-contract 对空地址只会报难以定位的错误。
-for field in GROUP_CHAT_DELEGATE_ADDRESS GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
+# 12 个合约地址缺项即失败：forge verify-contract 对空地址只会报难以定位的错误。
+for field in GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
     GROUP_CHAT_BAN_LIST_ADDRESS ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS \
     GROUP_MEMBER_ADDRESS GROUP_MEMBER_SCOPE_ADDRESS GROUP_JOIN_SCOPE_SOURCE_ADDRESS \
     TOKEN_MAIN_MANAGER_ADDRESS TOKEN_GOV_MANAGER_ADDRESS TOKEN_ACTION_GOV_MANAGER_ADDRESS \
@@ -80,9 +80,7 @@ encode_args() {
     fi
 }
 
-encode_args "GroupChatDelegate" "constructor(address)" "$MEMBER_NFT_ADDRESS"
-DELEGATE_ARGS="$ENCODED"
-encode_args "GroupAdmin" "constructor(address,uint256)" "$GROUP_CHAT_DELEGATE_ADDRESS" "$GROUP_CHAT_MAX_ADMIN_IDS"
+encode_args "GroupAdmin" "constructor(address,uint256)" "$MEMBER_NFT_ADDRESS" "$GROUP_CHAT_MAX_ADMIN_IDS"
 ADMIN_ARGS="$ENCODED"
 encode_args "GroupChat" "constructor(address,address,uint256,uint256)" \
     "$GROUP_ADMIN_ADDRESS" "$PHASE_ADDRESS" "$GROUP_CHAT_MAX_CONTENT_LENGTH" "$GROUP_CHAT_MAX_MENTIONED_SENDER_IDS"
@@ -126,8 +124,7 @@ verify_contract() {
     forge verify-contract "$address" "$path:$name" "${COMMON_ARGS[@]}" --constructor-args "$args"
 }
 
-# GroupChatDelegate 与 GroupChatBanList 是本库新加入部署流程的合约。
-verify_contract "$GROUP_CHAT_DELEGATE_ADDRESS" GroupChatDelegate "src/GroupChatDelegate.sol" "$DELEGATE_ARGS"
+# GroupChatBanList 是本库新加入部署流程的合约。
 verify_contract "$GROUP_ADMIN_ADDRESS" GroupAdmin "src/GroupAdmin.sol" "$ADMIN_ARGS"
 verify_contract "$GROUP_CHAT_ADDRESS" GroupChat "src/GroupChat.sol" "$CHAT_ARGS"
 verify_contract "$GROUP_CHAT_BAN_LIST_ADDRESS" GroupChatBanList "src/GroupChatBanList.sol" "$BANLIST_ARGS"
@@ -141,4 +138,4 @@ verify_contract "$TOKEN_GOV_MANAGER_ADDRESS" TokenGovManager "src/managers/Token
 verify_contract "$TOKEN_ACTION_GOV_MANAGER_ADDRESS" TokenActionGovManager "src/managers/TokenActionGovManager.sol" "$ACTIONGOVMANAGER_ARGS"
 verify_contract "$TOKEN_ACTION_MAIN_MANAGER_ADDRESS" TokenActionMainManager "src/managers/TokenActionMainManager.sol" "$ACTIONMAINMANAGER_ARGS"
 
-echo "✓ Source verification succeeded for all 13 contracts"
+echo "✓ Source verification succeeded for all 12 contracts"

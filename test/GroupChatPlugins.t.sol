@@ -21,7 +21,7 @@ import {Vm} from "./utils/TestBase.sol";
 
 contract GroupChatPluginsTest is GroupChatFixture {
     function testT013T074_stoppedChatPreventsPostingButAllowsConfigWrites() public {
-        MockManagedPlugin managedPlugin = new MockManagedPlugin(address(chat), address(groupDelegate));
+        MockManagedPlugin managedPlugin = new MockManagedPlugin(address(chat), address(groupNft));
 
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(0), address(0), address(managedPlugin), address(0));
@@ -42,12 +42,9 @@ contract GroupChatPluginsTest is GroupChatFixture {
         managedPlugin.configure(groupId, bytes("owner-ok"));
         assertEq(managedPlugin.configValue(groupId), bytes("owner-ok"));
 
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
-        vm.prank(delegateIdOwner);
-        managedPlugin.configure(groupId, bytes("delegate-ok"));
-        assertEq(managedPlugin.configValue(groupId), bytes("delegate-ok"));
+        vm.prank(senderOwner);
+        vm.expectRevert(MockManagedPlugin.UnauthorizedPluginManager.selector);
+        managedPlugin.configure(groupId, bytes("not-owner"));
     }
 
     function testT070_crossGroupPostWithoutPluginIsAllowedByDefault() public {
@@ -177,20 +174,17 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setScopeSource(groupId, groupId, address(scope1));
 
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        chat.setScopeSource(groupId, delegateId, address(scope1));
+        vm.prank(chatOwner);
+        chat.setScopeSource(groupId, groupId, address(scope1));
         Vm.Log[] memory scopeLogs1 = vm.getRecordedLogs();
         (address scopeOperator1, address prevScope1) = abi.decode(scopeLogs1[0].data, (address, address));
         assertEq(scopeLogs1.length, 1);
         assertEq(scopeLogs1[0].topics[0], SCOPE_SOURCE_CHANGED_SIG);
         assertEq(scopeLogs1[0].topics[1], bytes32(groupId));
         assertEq(scopeLogs1[0].topics[2], bytes32(uint256(uint160(address(scope1)))));
-        assertEq(scopeLogs1[0].topics[3], bytes32(delegateId));
-        assertEq(scopeOperator1, delegateIdOwner);
+        assertEq(scopeLogs1[0].topics[3], bytes32(groupId));
+        assertEq(scopeOperator1, chatOwner);
         assertEq(prevScope1, address(0));
         assertEq(chat.scopeSource(groupId), address(scope1));
 
@@ -234,20 +228,17 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, groupId));
         chat.setBanSource(groupId, groupId, address(ban1));
 
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        chat.setBanSource(groupId, delegateId, address(ban1));
+        vm.prank(chatOwner);
+        chat.setBanSource(groupId, groupId, address(ban1));
         Vm.Log[] memory banLogs1 = vm.getRecordedLogs();
         (address banOperator1, address prevBan1) = abi.decode(banLogs1[0].data, (address, address));
         assertEq(banLogs1.length, 1);
         assertEq(banLogs1[0].topics[0], BAN_SOURCE_CHANGED_SIG);
         assertEq(banLogs1[0].topics[1], bytes32(groupId));
         assertEq(banLogs1[0].topics[2], bytes32(uint256(uint160(address(ban1)))));
-        assertEq(banLogs1[0].topics[3], bytes32(delegateId));
-        assertEq(banOperator1, delegateIdOwner);
+        assertEq(banLogs1[0].topics[3], bytes32(groupId));
+        assertEq(banOperator1, chatOwner);
         assertEq(prevBan1, address(0));
         assertEq(chat.banSource(groupId), address(ban1));
 
@@ -337,41 +328,37 @@ contract GroupChatPluginsTest is GroupChatFixture {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(0), address(0), address(beforePlugin), address(afterPlugin));
 
-        // The delegate operates the group, so `groupId` and `operatorId` stay distinguishable.
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        chat.setBeforePostPlugin(groupId, delegateId, address(0));
+        vm.prank(chatOwner);
+        chat.setBeforePostPlugin(groupId, groupId, address(0));
         Vm.Log[] memory beforePluginLogs = vm.getRecordedLogs();
 
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        chat.setAfterPostPlugin(groupId, delegateId, address(0));
+        vm.prank(chatOwner);
+        chat.setAfterPostPlugin(groupId, groupId, address(0));
         Vm.Log[] memory afterPluginLogs = vm.getRecordedLogs();
 
         assertEq(beforePluginLogs.length, 1);
         assertEq(beforePluginLogs[0].topics[0], BEFORE_POST_PLUGIN_CHANGED_SIG);
         assertEq(beforePluginLogs[0].topics[1], bytes32(groupId));
         assertEq(beforePluginLogs[0].topics[2], bytes32(uint256(0)));
-        assertEq(beforePluginLogs[0].topics[3], bytes32(delegateId));
+        assertEq(beforePluginLogs[0].topics[3], bytes32(groupId));
         assertEq(afterPluginLogs.length, 1);
         assertEq(afterPluginLogs[0].topics[0], AFTER_POST_PLUGIN_CHANGED_SIG);
         assertEq(afterPluginLogs[0].topics[1], bytes32(groupId));
         assertEq(afterPluginLogs[0].topics[2], bytes32(uint256(0)));
-        assertEq(afterPluginLogs[0].topics[3], bytes32(delegateId));
+        assertEq(afterPluginLogs[0].topics[3], bytes32(groupId));
         (address beforeOperator, address prevBeforePlugin) =
             abi.decode(beforePluginLogs[0].data, (address, address));
         (address afterOperator, address prevAfterPlugin) =
             abi.decode(afterPluginLogs[0].data, (address, address));
-        assertEq(beforeOperator, delegateIdOwner);
-        assertEq(afterOperator, delegateIdOwner);
+        assertEq(beforeOperator, chatOwner);
+        assertEq(afterOperator, chatOwner);
         assertEq(prevBeforePlugin, address(beforePlugin));
         assertEq(prevAfterPlugin, address(afterPlugin));
     }
 
-    function testT070G_ownerAndDelegateBypassScopeAndBanSources() public {
+    function testT070G_ownerBypassesScopeAndBanSources() public {
         MockPostScopeSource scope = new MockPostScopeSource();
         MockPostBanSource banSource = new MockPostBanSource();
 
@@ -397,15 +384,6 @@ contract GroupChatPluginsTest is GroupChatFixture {
         (allowed, reason) = _canPost(groupId, senderId);
         assertTrue(!allowed);
         assertEq(reason, IGroupChat.PostRejectionReason.BanRejected);
-
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
-        assertTrue(_canPostAllowed(groupId, delegateId));
-
-        vm.prank(delegateIdOwner);
-        _post(groupId, delegateId, "delegate-bypasses-sources");
-        assertEq(messagesTotal(chat, groupId), 2);
     }
 
     function testT071_beforePostRejectRevertsWholePost() public {
@@ -512,7 +490,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(errorSelector, IGroupChatErrors.Reentrant.selector);
     }
 
-    function testT076_afterPostDelegateCannotMutateCoreState() public {
+    function testT076_afterPostPluginCannotMutateCoreState() public {
         MockAfterPostSetPostingAllowedPlugin afterPlugin = new MockAfterPostSetPostingAllowedPlugin(address(chat));
 
         vm.prank(chatOwner);
@@ -539,7 +517,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         uint256[] memory mentionedSenderIds = new uint256[](2);
         mentionedSenderIds[0] = otherGroupId;
-        mentionedSenderIds[1] = delegateId;
+        mentionedSenderIds[1] = thirdMemberId;
 
         vm.roll(originBlocks);
         vm.prank(chatOwner);
@@ -554,7 +532,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         uint256[] memory captured = beforePlugin.lastMentionedSenderIds();
         assertEq(captured.length, 2);
         assertEq(captured[0], otherGroupId);
-        assertEq(captured[1], delegateId);
+        assertEq(captured[1], thirdMemberId);
         assertEq(beforePlugin.lastQuotedMessageId(), 0);
 
         assertEq(messagesTotal(chat, groupId), 1);

@@ -37,8 +37,6 @@ abstract contract TokenManagerBase is ManagerBase {
         }
     }
 
-    /// @dev The vote weight a manager reports is the one the community holds now, matching the old
-    ///      protocol's live reads, so every consumer resolves the phase's current round through here.
     function currentPhase() public view returns (uint256) {
         return IPhase(PHASE_ADDRESS).currentPhase();
     }

@@ -5,7 +5,6 @@ import {GroupAdmin} from "../../src/GroupAdmin.sol";
 import {GroupChat} from "../../src/GroupChat.sol";
 import {IGroupChat} from "../../src/interfaces/IGroupChat.sol";
 
-import {MockGroupDelegate} from "../mocks/MockGroupDelegate.sol";
 import {MockLOVE20Group} from "../mocks/MockLOVE20Group.sol";
 import {MockPhase} from "../mocks/MockPhase.sol";
 import {TestBase, Vm} from "./TestBase.sol";
@@ -13,19 +12,18 @@ import {TestBase, Vm} from "./TestBase.sol";
 abstract contract GroupChatFixture is TestBase {
     MockLOVE20Group internal groupNft;
     MockPhase internal phase;
-    MockGroupDelegate internal groupDelegate;
     GroupAdmin internal baseGroupAdmin;
     GroupChat internal chat;
 
     address internal chatOwner = address(0xA11CE);
     address internal senderOwner = address(0xB0B);
     address internal other = address(0xCAFE);
-    address internal delegateIdOwner = address(0xD36E6A7E);
+    address internal thirdMemberOwner = address(0xD36E6A7E);
 
     uint256 internal groupId;
     uint256 internal senderId;
     uint256 internal otherGroupId;
-    uint256 internal delegateId;
+    uint256 internal thirdMemberId;
     uint256 internal originBlocks;
     uint256 internal phaseBlocks = 100;
     uint256 internal maxContentLength = 4096;
@@ -53,12 +51,11 @@ abstract contract GroupChatFixture is TestBase {
         groupId = groupNft.mint(chatOwner);
         senderId = groupNft.mint(senderOwner);
         otherGroupId = groupNft.mint(other);
-        delegateId = groupNft.mint(delegateIdOwner);
+        thirdMemberId = groupNft.mint(thirdMemberOwner);
 
         originBlocks = block.number + 50;
         phase = new MockPhase(originBlocks, phaseBlocks);
-        groupDelegate = new MockGroupDelegate(address(groupNft));
-        baseGroupAdmin = new GroupAdmin(address(groupDelegate), 20);
+        baseGroupAdmin = new GroupAdmin(address(groupNft), 20);
         chat = new GroupChat(address(baseGroupAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
     }
 

@@ -2,7 +2,6 @@
 pragma solidity =0.8.37;
 
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
-import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {MemberOwner} from "@action/MemberOwner.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {Uint256Set} from "@libs/Uint256Set.sol";
@@ -10,7 +9,6 @@ import {Uint256Set} from "@libs/Uint256Set.sol";
 contract GroupAdmin is IGroupAdmin {
     using Uint256Set for Uint256Set.Storage;
 
-    address public immutable GROUP_DELEGATE_ADDRESS;
     address public immutable GROUP_ADDRESS;
     uint256 public immutable MAX_ADMIN_IDS;
 
@@ -26,16 +24,14 @@ contract GroupAdmin is IGroupAdmin {
     mapping(uint256 => AdminState) internal _adminState;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(address groupDelegateAddress, uint256 maxAdminIds) {
-        address love20Group = IGroupChatDelegate(groupDelegateAddress).GROUP_ADDRESS();
-        GROUP_DELEGATE_ADDRESS = groupDelegateAddress;
-        GROUP_ADDRESS = love20Group;
+    constructor(address groupAddress, uint256 maxAdminIds) {
+        GROUP_ADDRESS = groupAddress;
         MAX_ADMIN_IDS = maxAdminIds;
     }
 
     function addAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIdList)
         external
-        onlyOwnerOrDelegate(groupId, operatorId)
+        onlyGroupOwner(groupId, operatorId)
     {
         _validateAdminIds(adminIdList);
         _requireAdminIdsLimit(_adminState[groupId], groupId, adminIdList);
@@ -49,7 +45,7 @@ contract GroupAdmin is IGroupAdmin {
 
     function removeAdmins(uint256 groupId, uint256 operatorId, uint256[] calldata adminIdList)
         external
-        onlyOwnerOrDelegate(groupId, operatorId)
+        onlyGroupOwner(groupId, operatorId)
     {
         _validateAdminIds(adminIdList);
 
@@ -185,13 +181,12 @@ contract GroupAdmin is IGroupAdmin {
             && MemberOwner.ownerOrZero(GROUP_ADDRESS, adminId) == adminOwnerSnapshot;
     }
 
-    modifier onlyOwnerOrDelegate(
+    modifier onlyGroupOwner(
         uint256 groupId,
         uint256 operatorId
     ) {
-        uint256 resolvedOperatorId =
-            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
-        if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
+        address owner = _groupOwnerOrRevert(groupId);
+        if (operatorId != groupId || msg.sender != owner) {
             revert NotGroupOperator(groupId, operatorId);
         }
         _;

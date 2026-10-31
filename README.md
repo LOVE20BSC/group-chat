@@ -1,8 +1,8 @@
 # LOVE20BSC Group Chat
 
-Group Chat 负责公开链上群聊业务（`GroupChat`、`GroupAdmin`、`GroupMember`、`GroupChatBanList`、规则 source、typed Manager）与 **Group Chat Delegate**，依赖 `core` 和 `action`。
+Group Chat 负责公开链上群聊业务（`GroupChat`、`GroupAdmin`、`GroupMember`、`GroupChatBanList`、规则 source、typed Manager），依赖 `core` 和 `action`。
 
-迁移方式：每个合约先以固定旧提交建立原始快照，再按小步提交改造成 BSC 版本。旧代码来源：`LOVE20TKM/group-chat`（提交 `ce21ea8`）、`LOVE20TKM/group`（提交 `2eb6d6c`，仅 `GroupDelegate`），见 [repositories.md](https://github.com/LOVE20BSC/matt-gov/blob/main/docs/repositories.md#旧代码基线)。
+迁移方式：每个合约先以固定旧提交建立原始快照，再按小步提交改造成 BSC 版本。旧代码来源：`LOVE20TKM/group-chat`（提交 `ce21ea8`）、`LOVE20TKM/group`（提交 `2eb6d6c`；其 `GroupDelegate` 已确认移除、不再迁移），见 [repositories.md](https://github.com/LOVE20BSC/matt-gov/blob/main/docs/repositories.md#旧代码基线)。
 
 ## 依赖
 

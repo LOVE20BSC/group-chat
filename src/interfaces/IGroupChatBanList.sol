@@ -6,6 +6,7 @@ interface IGroupChatBanListErrors {
         uint256 groupId,
         uint256 operatorId
     );
+    error GroupNotExist(uint256 groupId);
     error ZeroTargetSenderId();
     error DuplicateMemberId(uint256 memberId);
 }
@@ -24,8 +25,6 @@ interface IGroupChatBanList is IGroupChatBanListErrors, IGroupChatBanListEvents 
     function GROUP_ADMIN_ADDRESS() external view returns (address);
 
     function GROUP_ADDRESS() external view returns (address);
-
-    function GROUP_DELEGATE_ADDRESS() external view returns (address);
 
     function isSenderIdBanned(uint256 groupId, uint256 senderId) external view returns (bool);
 

@@ -9,7 +9,6 @@ contract GroupChatLifecycleTest is GroupChatFixture {
     function testT001_constructorStoresConfigAndRoundNotStarted() public {
         assertEq(chat.GROUP_ADMIN_ADDRESS(), address(baseGroupAdmin));
         assertEq(chat.GROUP_ADDRESS(), address(groupNft));
-        assertEq(chat.GROUP_DELEGATE_ADDRESS(), address(groupDelegate));
         assertEq(chat.PHASE_ADDRESS(), address(phase));
         assertEq(chat.MAX_CONTENT_LENGTH(), maxContentLength);
         assertEq(chat.MAX_MENTIONED_SENDER_IDS(), maxMentionedSenderIds);
@@ -165,19 +164,16 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         Vm.Log[] memory noopLogs = vm.getRecordedLogs();
         assertEq(noopLogs.length, 0);
 
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        chat.setPostingAllowed(groupId, delegateId, false);
+        vm.prank(chatOwner);
+        chat.setPostingAllowed(groupId, groupId, false);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
         assertEq(logs[0].topics[0], POSTING_ALLOWED_CHANGED_SIG);
         assertEq(logs[0].topics[1], bytes32(groupId));
-        assertEq(logs[0].topics[2], bytes32(delegateId));
-        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateIdOwner))));
+        assertEq(logs[0].topics[2], bytes32(groupId));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(chatOwner))));
         assertTrue(!abi.decode(logs[0].data, (bool)));
         IGroupChat.ChatInfo memory info = chat.chatInfo(groupId);
         assertTrue(!info.postingAllowed);

@@ -32,21 +32,21 @@ contract AdminBanSourceTest is GroupChatFixture {
         super.setUp();
         adminId = groupNft.mint(adminOwner);
         secondAdminId = groupNft.mint(secondAdminOwner);
-        groupAdmin = new GroupAdmin(address(groupDelegate), MAX_ADMIN_IDS);
+        groupAdmin = new GroupAdmin(address(groupNft), MAX_ADMIN_IDS);
         banList = new GroupChatBanList(address(groupAdmin));
         banSource = new AdminBanSource(address(banList));
     }
 
-    function testT120_ownerAndDelegateCanManageBanLists() public {
+    function testT120_ownerAndAdminCanManageBanLists() public {
         vm.prank(chatOwner);
         banList.banBySenderIds(groupId, groupId, _uints(senderId));
         assertTrue(banList.isSenderIdBanned(groupId, senderId));
 
         vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
 
-        vm.prank(delegateIdOwner);
-        banList.banBySenderIds(groupId, delegateId, _uints(otherGroupId));
+        vm.prank(adminOwner);
+        banList.banBySenderIds(groupId, adminId, _uints(otherGroupId));
 
         (bool[] memory banned, address[] memory operatorAddresses, uint256[] memory operatorIds) =
             banList.senderIdBanDetails(groupId, _uints(senderId, otherGroupId));
@@ -54,38 +54,37 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(banned[1]);
         assertEq(operatorAddresses[0], chatOwner);
         assertEq(operatorIds[0], groupId);
-        assertEq(operatorAddresses[1], delegateIdOwner);
-        assertEq(operatorIds[1], delegateId);
+        assertEq(operatorAddresses[1], adminOwner);
+        assertEq(operatorIds[1], adminId);
     }
 
     function testT120B_senderBanChangedCarriesOperatorAndListed() public {
-        // The delegate operates the group, so `groupId` and `operatorId` stay distinguishable.
         vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
 
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        banList.banBySenderIds(groupId, delegateId, _uints(senderId));
+        vm.prank(adminOwner);
+        banList.banBySenderIds(groupId, adminId, _uints(senderId));
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
         assertEq(logs[0].topics[0], SENDER_BAN_CHANGED_SIG);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(senderId));
-        assertEq(logs[0].topics[3], bytes32(uint256(uint160(delegateIdOwner))));
+        assertEq(logs[0].topics[3], bytes32(uint256(uint160(adminOwner))));
         (uint256 operatorId, bool listed) = abi.decode(logs[0].data, (uint256, bool));
-        assertEq(operatorId, delegateId);
+        assertEq(operatorId, adminId);
         assertTrue(listed);
 
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        banList.unbanBySenderIds(groupId, delegateId, _uints(senderId));
+        vm.prank(adminOwner);
+        banList.unbanBySenderIds(groupId, adminId, _uints(senderId));
         logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
         assertEq(logs[0].topics[0], SENDER_BAN_CHANGED_SIG);
         (operatorId, listed) = abi.decode(logs[0].data, (uint256, bool));
-        assertEq(operatorId, delegateId);
+        assertEq(operatorId, adminId);
         assertTrue(!listed);
     }
 

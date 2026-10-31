@@ -19,7 +19,7 @@ contract ManagerTest is GroupChatFixture {
         managerCenter = new MockLOVE20Protocols();
     }
 
-    function testT100_managerActivatesChatWithImmutableConfigAndNoDelegate() public {
+    function testT100_managerActivatesChatWithImmutableConfig() public {
         MockPostBanSource banSource = new MockPostBanSource();
         MockBeforePostRejectPlugin beforePlugin = new MockBeforePostRejectPlugin();
         MockManager manager = new MockManager(
@@ -71,7 +71,6 @@ contract ManagerTest is GroupChatFixture {
             address(manager),
             abi.encodeWithSignature("setAfterPostPlugin(uint256,uint256,address)", groupId, groupId, other)
         );
-        _expectUnknownSelector(address(manager), abi.encodeWithSignature("setDelegateId(uint256,uint256)", groupId, 0));
     }
 
     function testT103_managerDoesNotExposeGenericCallEntrypoints() public {

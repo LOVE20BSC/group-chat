@@ -49,7 +49,7 @@ fi
 # 逐项 cast 调用要到很后面才以难以定位的形式失败，故在此显式断言。
 address_file="$NETWORK_DIR/addresses.group-chat.params"
 expected_keys="ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS GROUP_ADMIN_ADDRESS \
-GROUP_CHAT_BAN_LIST_ADDRESS GROUP_CHAT_DELEGATE_ADDRESS GROUP_CHAT_ADDRESS \
+GROUP_CHAT_BAN_LIST_ADDRESS GROUP_CHAT_ADDRESS \
 GROUP_JOIN_SCOPE_SOURCE_ADDRESS GROUP_MEMBER_SCOPE_ADDRESS GROUP_MEMBER_ADDRESS \
 TOKEN_ACTION_GOV_MANAGER_ADDRESS TOKEN_ACTION_MAIN_MANAGER_ADDRESS TOKEN_GOV_MANAGER_ADDRESS \
 TOKEN_MAIN_MANAGER_ADDRESS"
@@ -122,7 +122,7 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 
 echo "Verifying deployed contract code..."
-for field in GROUP_CHAT_DELEGATE_ADDRESS GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
+for field in GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
     GROUP_CHAT_BAN_LIST_ADDRESS ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS \
     GROUP_MEMBER_ADDRESS GROUP_MEMBER_SCOPE_ADDRESS GROUP_JOIN_SCOPE_SOURCE_ADDRESS \
     TOKEN_MAIN_MANAGER_ADDRESS TOKEN_GOV_MANAGER_ADDRESS TOKEN_ACTION_GOV_MANAGER_ADDRESS \
@@ -133,8 +133,6 @@ echo ""
 
 echo "Verifying core / action dependency bindings..."
 
-check_equal "GroupChatDelegate: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
-    "$(cast_call "$GROUP_CHAT_DELEGATE_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupChat: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
@@ -162,8 +160,6 @@ echo ""
 
 check_equal "GroupChat: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
     "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_ADMIN_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupChat: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
-    "$(cast_call "$GROUP_CHAT_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupChat: PHASE_ADDRESS" "$PHASE_ADDRESS" \
     "$(cast_call "$GROUP_CHAT_ADDRESS" "PHASE_ADDRESS()(address)")" || ((failed_checks += 1))
 phase_origin_blocks=$(cast_call "$PHASE_ADDRESS" "ORIGIN_PHASE_BLOCKS()(uint256)")
@@ -174,12 +170,6 @@ if [[ ! "$(strip_sci_notation "$phase_origin_blocks")" =~ ^[0-9]+$ ]] \
 else
     echo -e "${GREEN}✓${NC} Phase: ORIGIN_PHASE_BLOCKS (actual: $phase_origin_blocks)"
 fi
-check_equal "GroupAdmin: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
-    "$(cast_call "$GROUP_ADMIN_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupMember: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
-    "$(cast_call "$GROUP_MEMBER_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
-check_equal "GroupChatBanList: GROUP_DELEGATE_ADDRESS" "$GROUP_CHAT_DELEGATE_ADDRESS" \
-    "$(cast_call "$GROUP_CHAT_BAN_LIST_ADDRESS" "GROUP_DELEGATE_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "GroupAdmin: MAX_ADMIN_IDS" "$GROUP_CHAT_MAX_ADMIN_IDS" \
     "$(cast_call "$GROUP_ADMIN_ADDRESS" "MAX_ADMIN_IDS()(uint256)")" || ((failed_checks += 1))
 echo ""

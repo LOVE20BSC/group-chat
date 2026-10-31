@@ -31,8 +31,6 @@ interface IGroupAdminEvents {
 }
 
 interface IGroupAdmin is IGroupAdminErrors, IGroupAdminEvents {
-    function GROUP_DELEGATE_ADDRESS() external view returns (address);
-
     function GROUP_ADDRESS() external view returns (address);
 
     function MAX_ADMIN_IDS() external view returns (uint256);

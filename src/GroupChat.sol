@@ -3,7 +3,6 @@ pragma solidity =0.8.37;
 
 import {IGroupChat} from "./interfaces/IGroupChat.sol";
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
-import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {IAfterPostPlugin} from "./interfaces/plugins/IAfterPostPlugin.sol";
 import {IBeforePostPlugin} from "./interfaces/plugins/IBeforePostPlugin.sol";
 import {IPostBanSource} from "./interfaces/sources/IPostBanSource.sol";
@@ -19,7 +18,6 @@ contract GroupChat is IGroupChat {
 
     address public immutable GROUP_ADMIN_ADDRESS;
     address public immutable GROUP_ADDRESS;
-    address public immutable GROUP_DELEGATE_ADDRESS;
     address public immutable PHASE_ADDRESS;
 
     struct ChatConfig {
@@ -79,10 +77,8 @@ contract GroupChat is IGroupChat {
         uint256 maxContentLength,
         uint256 maxMentionedSenderIds
     ) {
-        address groupDelegateAddress = IGroupAdmin(groupAdminAddress).GROUP_DELEGATE_ADDRESS();
         address groupAddress = IGroupAdmin(groupAdminAddress).GROUP_ADDRESS();
         GROUP_ADMIN_ADDRESS = groupAdminAddress;
-        GROUP_DELEGATE_ADDRESS = groupDelegateAddress;
         GROUP_ADDRESS = groupAddress;
         PHASE_ADDRESS = phaseAddress;
         MAX_CONTENT_LENGTH = maxContentLength;
@@ -158,7 +154,7 @@ contract GroupChat is IGroupChat {
     function setPostingAllowed(uint256 groupId, uint256 operatorId, bool postingAllowed)
         external
         nonReentrant
-        onlyOwnerOrDelegate(groupId, operatorId)
+        onlyGroupOwner(groupId, operatorId)
     {
         _requireActivated(groupId);
 
@@ -181,7 +177,7 @@ contract GroupChat is IGroupChat {
         uint256 groupId,
         uint256 operatorId,
         address scopeSourceAddress
-    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
+    ) external nonReentrant onlyGroupOwner(groupId, operatorId) {
         _setSource(groupId, operatorId, scopeSourceAddress, true);
     }
 
@@ -189,7 +185,7 @@ contract GroupChat is IGroupChat {
         uint256 groupId,
         uint256 operatorId,
         address banSourceAddress
-    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
+    ) external nonReentrant onlyGroupOwner(groupId, operatorId) {
         _setSource(groupId, operatorId, banSourceAddress, false);
     }
 
@@ -197,7 +193,7 @@ contract GroupChat is IGroupChat {
         uint256 groupId,
         uint256 operatorId,
         address beforePostPluginAddress
-    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
+    ) external nonReentrant onlyGroupOwner(groupId, operatorId) {
         _setPostPlugin(groupId, operatorId, beforePostPluginAddress, true);
     }
 
@@ -205,7 +201,7 @@ contract GroupChat is IGroupChat {
         uint256 groupId,
         uint256 operatorId,
         address afterPostPluginAddress
-    ) external nonReentrant onlyOwnerOrDelegate(groupId, operatorId) {
+    ) external nonReentrant onlyGroupOwner(groupId, operatorId) {
         _setPostPlugin(groupId, operatorId, afterPostPluginAddress, false);
     }
 
@@ -244,14 +240,13 @@ contract GroupChat is IGroupChat {
             revert ContentTooLong(bytes(content).length, MAX_CONTENT_LENGTH);
         }
         _validateMentionedSenderIds(mentionedSenderIds);
-        uint256 delegateId = IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).effectiveDelegateId(groupId);
         if (mentionAll) {
-            _requireMentionAllOperator(groupId, senderId, delegateId);
+            _requireMentionAllOperator(groupId, senderId);
         }
         _validateQuotedMessageId(groupId, quotedMessageId);
 
         uint256 round = currentRound();
-        _requirePostSources(config, groupId, senderId, delegateId);
+        _requirePostSources(config, groupId, senderId);
         if (config.beforePostPlugin != address(0)) {
             IBeforePostPlugin(config.beforePostPlugin).beforePost(
                 groupId, senderId, msg.sender, content, mentionedSenderIds, mentionAll, quotedMessageId
@@ -566,11 +561,6 @@ contract GroupChat is IGroupChat {
         if (isScope) {
             // forge-lint: disable-next-item(missing-events-access-control)
             config.scopeSource = sourceAddress;
-        } else {
-            config.banSource = sourceAddress;
-        }
-
-        if (isScope) {
             emit ScopeSourceChanged({
                 groupId: groupId,
                 sourceAddress: sourceAddress,
@@ -579,6 +569,7 @@ contract GroupChat is IGroupChat {
                 prevSourceAddress: prevSourceAddress
             });
         } else {
+            config.banSource = sourceAddress;
             emit BanSourceChanged({
                 groupId: groupId,
                 sourceAddress: sourceAddress,
@@ -607,11 +598,6 @@ contract GroupChat is IGroupChat {
         if (isBefore) {
             // forge-lint: disable-next-item(missing-events-access-control)
             config.beforePostPlugin = pluginAddress;
-        } else {
-            config.afterPostPlugin = pluginAddress;
-        }
-
-        if (isBefore) {
             emit BeforePostPluginChanged({
                 groupId: groupId,
                 pluginAddress: pluginAddress,
@@ -620,6 +606,7 @@ contract GroupChat is IGroupChat {
                 prevPluginAddress: prevPluginAddress
             });
         } else {
+            config.afterPostPlugin = pluginAddress;
             emit AfterPostPluginChanged({
                 groupId: groupId,
                 pluginAddress: pluginAddress,
@@ -707,13 +694,12 @@ contract GroupChat is IGroupChat {
         return result;
     }
 
-    modifier onlyOwnerOrDelegate(
+    modifier onlyGroupOwner(
         uint256 groupId,
         uint256 operatorId
     ) {
-        uint256 resolvedOperatorId =
-            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
-        if (resolvedOperatorId == 0 || resolvedOperatorId != operatorId) {
+        address owner = _ownerOrRevertGroupNotExist(groupId);
+        if (operatorId != groupId || msg.sender != owner) {
             revert NotGroupOperator(groupId, operatorId);
         }
         _;
@@ -726,8 +712,8 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    function _requireMentionAllOperator(uint256 groupId, uint256 senderId, uint256 delegateId) internal view {
-        if (senderId == groupId || delegateId == senderId) {
+    function _requireMentionAllOperator(uint256 groupId, uint256 senderId) internal view {
+        if (senderId == groupId) {
             return;
         }
         if (IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, senderId)) {
@@ -736,22 +722,22 @@ contract GroupChat is IGroupChat {
         revert MentionAllUnauthorized(groupId, senderId);
     }
 
-    function _requirePostSources(ChatConfig storage config, uint256 groupId, uint256 senderId, uint256 delegateId)
+    function _requirePostSources(ChatConfig storage config, uint256 groupId, uint256 senderId)
         internal
         view
     {
-        PostRejectionReason reason = _postSourceRejection(config, groupId, senderId, delegateId);
+        PostRejectionReason reason = _postSourceRejection(config, groupId, senderId);
         if (reason != PostRejectionReason.None) {
             _revertPostSourceReason(config, reason, groupId, senderId);
         }
     }
 
-    function _postSourceRejection(ChatConfig storage config, uint256 groupId, uint256 senderId, uint256 delegateId)
+    function _postSourceRejection(ChatConfig storage config, uint256 groupId, uint256 senderId)
         internal
         view
         returns (PostRejectionReason reason)
     {
-        if (senderId == groupId || delegateId == senderId) {
+        if (senderId == groupId) {
             return PostRejectionReason.None;
         }
         if (config.scopeSource != address(0)) {
@@ -821,9 +807,7 @@ contract GroupChat is IGroupChat {
             return (false, PostRejectionReason.SenderNotExist);
         }
 
-        reason = _postSourceRejection(
-            config, groupId, senderId, IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).effectiveDelegateId(groupId)
-        );
+        reason = _postSourceRejection(config, groupId, senderId);
         if (reason != PostRejectionReason.None) {
             // forge-lint: disable-next-item(boolean-cst)
             return (false, reason);

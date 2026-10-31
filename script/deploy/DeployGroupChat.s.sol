@@ -12,12 +12,10 @@ import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 
 import {GroupAdmin} from "../../src/GroupAdmin.sol";
 import {GroupChatBanList} from "../../src/GroupChatBanList.sol";
-import {GroupChatDelegate} from "../../src/GroupChatDelegate.sol";
 import {GroupChat} from "../../src/GroupChat.sol";
 import {GroupMember} from "../../src/GroupMember.sol";
 import {IGroupAdmin} from "../../src/interfaces/IGroupAdmin.sol";
 import {IGroupChatBanList} from "../../src/interfaces/IGroupChatBanList.sol";
-import {IGroupChatDelegate} from "../../src/interfaces/IGroupChatDelegate.sol";
 import {IGroupChat} from "../../src/interfaces/IGroupChat.sol";
 import {IGroupMember} from "../../src/interfaces/IGroupMember.sol";
 import {IAdminBanSource} from "../../src/interfaces/sources/ban/IAdminBanSource.sol";
@@ -70,7 +68,6 @@ contract DeployGroupChat is Script {
     }
 
     struct DeployedAddresses {
-        address groupChatDelegate;
         address groupAdmin;
         address groupChat;
         address groupChatBanList;
@@ -193,8 +190,7 @@ contract DeployGroupChat is Script {
     function _deployCore(Dependencies memory deps, DeployConfig memory config, DeployedAddresses memory deployed)
         internal
     {
-        deployed.groupChatDelegate = address(new GroupChatDelegate(deps.groupNft));
-        deployed.groupAdmin = address(new GroupAdmin(deployed.groupChatDelegate, config.maxAdminIds));
+        deployed.groupAdmin = address(new GroupAdmin(deps.groupNft, config.maxAdminIds));
         deployed.groupChat = address(
             new GroupChat(deployed.groupAdmin, deps.phase, config.maxContentLength, config.maxMentionedSenderIds)
         );
@@ -257,23 +253,11 @@ contract DeployGroupChat is Script {
         DeployConfig memory config,
         DeployedAddresses memory deployed
     ) internal view {
-        require(
-            IGroupChatDelegate(deployed.groupChatDelegate).GROUP_ADDRESS() == deps.groupNft,
-            "delegate group mismatch"
-        );
-        require(
-            IGroupAdmin(deployed.groupAdmin).GROUP_DELEGATE_ADDRESS() == deployed.groupChatDelegate,
-            "admin delegate mismatch"
-        );
         require(IGroupAdmin(deployed.groupAdmin).GROUP_ADDRESS() == deps.groupNft, "admin group mismatch");
         require(IGroupAdmin(deployed.groupAdmin).MAX_ADMIN_IDS() == config.maxAdminIds, "admin max mismatch");
         require(
             IGroupChat(deployed.groupChat).GROUP_ADMIN_ADDRESS() == deployed.groupAdmin,
             "chat admin mismatch"
-        );
-        require(
-            IGroupChat(deployed.groupChat).GROUP_DELEGATE_ADDRESS() == deployed.groupChatDelegate,
-            "chat delegate mismatch"
         );
         require(IGroupChat(deployed.groupChat).GROUP_ADDRESS() == deps.groupNft, "chat group mismatch");
         require(IGroupChat(deployed.groupChat).PHASE_ADDRESS() == deps.phase, "chat phase mismatch");
@@ -362,7 +346,6 @@ contract DeployGroupChat is Script {
 
     function _logDeploymentSummary(DeployedAddresses memory deployed) internal pure {
         console2.log("\n=== Deployment Summary ===");
-        console2.log("GROUP_CHAT_DELEGATE_ADDRESS=", deployed.groupChatDelegate);
         console2.log("GROUP_ADMIN_ADDRESS=", deployed.groupAdmin);
         console2.log("GROUP_CHAT_ADDRESS=", deployed.groupChat);
         console2.log("GROUP_CHAT_BAN_LIST_ADDRESS=", deployed.groupChatBanList);

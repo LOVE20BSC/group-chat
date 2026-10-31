@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
+import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
+
 interface IGroupChatPluginView {
     struct ChatInfo {
         uint256 groupId;
@@ -28,10 +30,6 @@ interface IGroupChatPluginView {
     ) external;
 
     function setPostingAllowed(uint256 groupId, bool postingAllowed_) external;
-}
-
-interface IGroupDelegatePluginView {
-    function ownerOrDelegateId(uint256 groupId, address operatorAddress) external view returns (uint256);
 }
 
 contract MockBeforePostRejectPlugin {
@@ -248,16 +246,16 @@ contract MockManagedPlugin {
     error UnauthorizedPluginManager();
 
     address public immutable CHAT_ADDRESS;
-    address public immutable GROUP_DELEGATE_ADDRESS;
+    address public immutable GROUP_ADDRESS;
     mapping(uint256 => bytes) public configValue;
 
-    constructor(address chat, address groupDelegate) {
+    constructor(address chat, address group) {
         CHAT_ADDRESS = chat;
-        GROUP_DELEGATE_ADDRESS = groupDelegate;
+        GROUP_ADDRESS = group;
     }
 
     function configure(uint256 groupId, bytes calldata value) external {
-        if (IGroupDelegatePluginView(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender) == 0) {
+        if (IMemberNFT(GROUP_ADDRESS).ownerOf(groupId) != msg.sender) {
             revert UnauthorizedPluginManager();
         }
         configValue[groupId] = value;

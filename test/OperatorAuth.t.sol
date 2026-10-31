@@ -20,7 +20,7 @@ contract OperatorAuthTest is GroupChatFixture {
     function setUp() public override {
         super.setUp();
         adminId = groupNft.mint(adminOwner);
-        groupAdmin = new GroupAdmin(address(groupDelegate), 20);
+        groupAdmin = new GroupAdmin(address(groupNft), 20);
         banList = new GroupChatBanList(address(groupAdmin));
         member = new GroupMember(address(groupAdmin));
         _activateEmpty();
@@ -52,21 +52,27 @@ contract OperatorAuthTest is GroupChatFixture {
 
     function testT204_wrongOperatorIdRejected() public {
         vm.prank(chatOwner);
-        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, delegateId));
-        chat.setPostingAllowed(groupId, delegateId, false);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, thirdMemberId));
+        chat.setPostingAllowed(groupId, thirdMemberId, false);
     }
 
-    function testT205_ownerAndDelegateIdsAccepted() public {
+    function testT205_ownerIdAccepted() public {
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, false);
         assertTrue(!chat.isPostingAllowed(groupId));
 
         vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
-        vm.prank(delegateIdOwner);
-        chat.setPostingAllowed(groupId, delegateId, true);
+        chat.setPostingAllowed(groupId, groupId, true);
         assertTrue(chat.isPostingAllowed(groupId));
+    }
+
+    function testT209_adminCannotSetChatConfig() public {
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+
+        vm.prank(adminOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotGroupOperator.selector, groupId, adminId));
+        chat.setPostingAllowed(groupId, adminId, false);
     }
 
     function testT206_duplicateMemberIdsRejected() public {
@@ -85,6 +91,31 @@ contract OperatorAuthTest is GroupChatFixture {
         vm.prank(chatOwner);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.ZeroTargetSenderId.selector));
         banList.banBySenderIds(groupId, groupId, _uints(0));
+    }
+
+    function testT210_missingGroupRejectedByMemberWrite() public {
+        uint256 missingGroupId = 999_999;
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupNotExist.selector, missingGroupId));
+        member.addMemberIds(missingGroupId, missingGroupId, _uints(senderId));
+    }
+
+    function testT211_missingGroupRejectedByBanWrite() public {
+        uint256 missingGroupId = 999_999;
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.GroupNotExist.selector, missingGroupId));
+        banList.banBySenderIds(missingGroupId, missingGroupId, _uints(senderId));
+    }
+
+    function testT212_missingGroupCheckedBeforeZeroOperator() public {
+        uint256 missingGroupId = 999_999;
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(IGroupMemberErrors.GroupNotExist.selector, missingGroupId));
+        member.addMemberIds(missingGroupId, 0, _uints(senderId));
+
+        vm.prank(other);
+        vm.expectRevert(abi.encodeWithSelector(IGroupChatBanListErrors.GroupNotExist.selector, missingGroupId));
+        banList.banBySenderIds(missingGroupId, 0, _uints(senderId));
     }
 
     function _uints(uint256 value) internal pure returns (uint256[] memory values) {

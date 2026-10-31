@@ -35,8 +35,7 @@ REPO = EVENTS_DIR.parent.parent
 #   root: allowed first field names; empty means the emitter itself is the root key.
 #   round_after: `round` must follow at least one of these fields when present.
 FAMILIES = {
-    "gc.management": {"root": ("groupId", "delegateId"), "round_after": ()},
-    "gc.delegation": {"root": ("delegateId",), "round_after": ()},
+    "gc.management": {"root": ("groupId",), "round_after": ()},
     "gc.ban-vote": {"root": ("groupId",), "round_after": ()},
     "gc.message": {"root": ("groupId",), "round_after": ("sender",)},
     "gc.plugin": {"root": ("groupId",), "round_after": ("messageId",)},

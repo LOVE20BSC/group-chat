@@ -6,6 +6,7 @@ interface IGroupMemberErrors {
         uint256 groupId,
         uint256 operatorId
     );
+    error GroupNotExist(uint256 groupId);
     error DuplicateMemberId(uint256 memberId);
 }
 
@@ -23,8 +24,6 @@ interface IGroupMember is IGroupMemberErrors, IGroupMemberEvents {
     function GROUP_ADMIN_ADDRESS() external view returns (address);
 
     function GROUP_ADDRESS() external view returns (address);
-
-    function GROUP_DELEGATE_ADDRESS() external view returns (address);
 
     function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList) external;
 

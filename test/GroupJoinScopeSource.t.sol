@@ -30,7 +30,7 @@ contract GroupJoinScopeSourceTest is GroupChatFixture {
 
     function setUp() public override {
         super.setUp();
-        groupAdmin = new GroupAdmin(address(groupDelegate), 20);
+        groupAdmin = new GroupAdmin(address(groupNft), 20);
         member = new GroupMember(address(groupAdmin));
         groupActionExecutor = new MockGroupActionIndexes();
         scope = new GroupJoinScopeSource(address(member), address(groupActionExecutor));

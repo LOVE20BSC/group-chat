@@ -70,13 +70,11 @@ contract GroupChatMessagesTest is GroupChatFixture {
     function testT043T044T045T046T047_postInvalidCases() public {
         vm.prank(chatOwner);
         chat.activateChat(groupId, address(0), address(0), address(0), address(0));
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
 
         vm.roll(originBlocks);
-        vm.prank(delegateIdOwner);
+        vm.prank(thirdMemberOwner);
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.NotMemberOwner.selector, senderId));
-        _post(groupId, senderId, "delegate-send");
+        _post(groupId, senderId, "foreign-send");
 
         vm.prank(chatOwner);
         chat.setPostingAllowed(groupId, groupId, false);
@@ -119,7 +117,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         uint256 fourthMentionedSenderId = groupNft.mint(other);
         uint256[] memory mentionedSenderIds = new uint256[](4);
         mentionedSenderIds[0] = otherGroupId;
-        mentionedSenderIds[1] = delegateId;
+        mentionedSenderIds[1] = thirdMemberId;
         mentionedSenderIds[2] = thirdMentionedSenderId;
         mentionedSenderIds[3] = fourthMentionedSenderId;
 
@@ -167,17 +165,17 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(result.length, 1);
         assertEq(result[0].mentionedSenderIds.length, 4);
         assertEq(result[0].mentionedSenderIds[0], otherGroupId);
-        assertEq(result[0].mentionedSenderIds[1], delegateId);
+        assertEq(result[0].mentionedSenderIds[1], thirdMemberId);
         assertEq(result[0].mentionedSenderIds[2], thirdMentionedSenderId);
         assertEq(result[0].mentionedSenderIds[3], fourthMentionedSenderId);
         assertTrue(!result[0].mentionAll);
         assertEq(result[0].quotedMessageId, 0);
 
         assertEq(mentionedMessagesTotal(chat, groupId, otherGroupId), 1);
-        assertEq(mentionedMessagesTotal(chat, groupId, delegateId), 1);
+        assertEq(mentionedMessagesTotal(chat, groupId, thirdMemberId), 1);
         assertEq(mentionedMessagesTotal(chat, groupId, 999999), 0);
 
-        IGroupChat.Message[] memory byMention = messagesByMentionedSenderIdOf(chat, groupId, delegateId, 0, 10, false);
+        IGroupChat.Message[] memory byMention = messagesByMentionedSenderIdOf(chat, groupId, thirdMemberId, 0, 10, false);
         assertEq(byMention.length, 1);
         assertEq(byMention[0].messageId, 3);
         assertEq(byMention[0].mentionedSenderIds.length, 4);
@@ -231,11 +229,6 @@ contract GroupChatMessagesTest is GroupChatFixture {
         vm.prank(other);
         _post(groupId, otherGroupId, "plain");
 
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-        vm.prank(delegateIdOwner);
-        _postWithMentionedSenderIds(groupId, delegateId, "@all-delegate", _emptyMentionedSenderIds(), true);
-
         uint256 adminId = groupNft.mint(senderOwner);
         uint256[] memory adminIds = new uint256[](1);
         adminIds[0] = adminId;
@@ -245,33 +238,30 @@ contract GroupChatMessagesTest is GroupChatFixture {
         _postWithMentionedSenderIds(groupId, adminId, "@all-admin", _emptyMentionedSenderIds(), true);
 
         IGroupChat.Message[] memory result = messagesOf(chat, groupId, 0, 10, false);
-        assertEq(result.length, 4);
+        assertEq(result.length, 3);
         assertTrue(result[0].mentionAll);
         assertTrue(!result[1].mentionAll);
         assertTrue(result[2].mentionAll);
-        assertTrue(result[3].mentionAll);
 
-        assertEq(mentionAllMessagesTotal(chat, groupId), 3);
+        assertEq(mentionAllMessagesTotal(chat, groupId), 2);
 
         IGroupChat.Message[] memory byMentionAll = mentionAllMessagesOf(chat, groupId, 0, 10, false);
-        assertEq(byMentionAll.length, 3);
+        assertEq(byMentionAll.length, 2);
         assertEq(byMentionAll[0].messageId, 1);
         assertEq(byMentionAll[1].messageId, 3);
-        assertEq(byMentionAll[2].messageId, 4);
 
         IGroupChat.Message[] memory byMentionAllReverse = mentionAllMessagesOf(chat, groupId, 0, 1, true);
         assertEq(byMentionAllReverse.length, 1);
-        assertEq(byMentionAllReverse[0].messageId, 4);
+        assertEq(byMentionAllReverse[0].messageId, 3);
 
         uint256[] memory messageIds = mentionAllMessageIdsOf(chat, groupId, 0, 10, false);
-        assertEq(messageIds.length, 3);
+        assertEq(messageIds.length, 2);
         assertEq(messageIds[0], 1);
         assertEq(messageIds[1], 3);
-        assertEq(messageIds[2], 4);
 
         uint256[] memory reverseMessageIds = mentionAllMessageIdsOf(chat, groupId, 1, 1, true);
         assertEq(reverseMessageIds.length, 1);
-        assertEq(reverseMessageIds[0], 3);
+        assertEq(reverseMessageIds[0], 1);
     }
 
     function testT050_roundInfoAcrossRounds() public {

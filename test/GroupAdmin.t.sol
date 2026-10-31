@@ -34,16 +34,15 @@ contract GroupAdminTest is GroupChatFixture {
         super.setUp();
         adminId = groupNft.mint(adminOwner);
         secondAdminId = groupNft.mint(secondAdminOwner);
-        groupAdmin = new GroupAdmin(address(groupDelegate), MAX_ADMIN_IDS);
+        groupAdmin = new GroupAdmin(address(groupNft), MAX_ADMIN_IDS);
     }
 
     function testT129A_constructorStoresDependencies() public view {
-        assertEq(groupAdmin.GROUP_DELEGATE_ADDRESS(), address(groupDelegate));
         assertEq(groupAdmin.GROUP_ADDRESS(), address(groupNft));
         assertEq(groupAdmin.MAX_ADMIN_IDS(), MAX_ADMIN_IDS);
     }
 
-    function testT129B_ownerAndDelegateCanAddAndRemoveAdmins() public {
+    function testT129B_ownerCanAddAndRemoveAdmins() public {
         vm.recordLogs();
         vm.prank(chatOwner);
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
@@ -54,42 +53,15 @@ contract GroupAdminTest is GroupChatFixture {
         assertEq(logs.length, 1);
         assertTrue(groupAdmin.isAdminId(groupId, adminId));
 
-        vm.prank(chatOwner);
-        chat.activateChat(groupId, address(0), address(0), address(0), address(0));
-        vm.prank(chatOwner);
-        groupDelegate.setDelegateId(groupId, delegateId);
-
         vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        groupAdmin.addAdmins(groupId, delegateId, _uints(secondAdminId));
+        vm.prank(chatOwner);
+        groupAdmin.removeAdmins(groupId, groupId, _uints(adminId));
         logs = vm.getRecordedLogs();
         _assertAdminChangedLog(
-            logs[0],
-            groupId,
-            delegateIdOwner,
-            secondAdminId,
-            delegateId,
-            true,
-            false,
-            chatOwner,
-            secondAdminOwner,
-            address(0),
-            address(0)
-        );
-        assertEq(logs.length, 1);
-        assertTrue(groupAdmin.isAdminId(groupId, adminId));
-        assertTrue(groupAdmin.isAdminId(groupId, secondAdminId));
-
-        vm.recordLogs();
-        vm.prank(delegateIdOwner);
-        groupAdmin.removeAdmins(groupId, delegateId, _uints(adminId));
-        logs = vm.getRecordedLogs();
-        _assertAdminChangedLog(
-            logs[0], groupId, delegateIdOwner, adminId, delegateId, false, true, address(0), address(0), chatOwner, adminOwner
+            logs[0], groupId, chatOwner, adminId, groupId, false, true, address(0), address(0), chatOwner, adminOwner
         );
         assertEq(logs.length, 1);
         assertTrue(!groupAdmin.isAdminId(groupId, adminId));
-        assertTrue(groupAdmin.isAdminId(groupId, secondAdminId));
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, groupId, groupId));
@@ -97,7 +69,16 @@ contract GroupAdminTest is GroupChatFixture {
 
         vm.prank(stranger);
         vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, groupId, groupId));
-        groupAdmin.removeAdmins(groupId, groupId, _uints(secondAdminId));
+        groupAdmin.removeAdmins(groupId, groupId, _uints(adminId));
+    }
+
+    function testT129D_adminCannotAppointAdmins() public {
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+
+        vm.prank(adminOwner);
+        vm.expectRevert(abi.encodeWithSelector(IGroupAdminErrors.NotGroupOperator.selector, groupId, adminId));
+        groupAdmin.addAdmins(groupId, adminId, _uints(secondAdminId));
     }
 
     function testT129C_adminRequiresOwnerSnapshots() public {

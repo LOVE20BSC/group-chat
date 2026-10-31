@@ -2,7 +2,6 @@
 pragma solidity =0.8.37;
 
 import {IGroupAdmin} from "./interfaces/IGroupAdmin.sol";
-import {IGroupChatDelegate} from "./interfaces/IGroupChatDelegate.sol";
 import {IGroupMember} from "./interfaces/IGroupMember.sol";
 import {MemberOwner} from "@action/MemberOwner.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
@@ -13,8 +12,6 @@ contract GroupMember is IGroupMember {
 
     address public immutable GROUP_ADMIN_ADDRESS;
     address public immutable GROUP_ADDRESS;
-
-    address public immutable GROUP_DELEGATE_ADDRESS;
 
     struct MemberState {
         Uint256Set.Storage memberIds;
@@ -27,7 +24,6 @@ contract GroupMember is IGroupMember {
     constructor(address groupAdminAddress) {
         GROUP_ADMIN_ADDRESS = groupAdminAddress;
         GROUP_ADDRESS = IGroupAdmin(groupAdminAddress).GROUP_ADDRESS();
-        GROUP_DELEGATE_ADDRESS = IGroupAdmin(groupAdminAddress).GROUP_DELEGATE_ADDRESS();
     }
 
     function addMemberIds(uint256 groupId, uint256 operatorId, uint256[] calldata memberIdList)
@@ -93,28 +89,27 @@ contract GroupMember is IGroupMember {
         }
     }
 
-    modifier onlyOperator(
-        uint256 groupId,
-        uint256 operatorId
-    ) {
-        if (!_isOperator(groupId, operatorId)) {
+    modifier onlyOperator(uint256 groupId, uint256 operatorId) {
+        address groupOwner = MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId);
+        if (groupOwner == address(0)) {
+            revert GroupNotExist(groupId);
+        }
+        if (!_isOperator(groupId, operatorId, groupOwner)) {
             revert NotGroupOperator(groupId, operatorId);
         }
         _;
     }
 
-    function _isOperator(uint256 groupId, uint256 operatorId) private view returns (bool) {
-        uint256 resolvedOperatorId =
-            IGroupChatDelegate(GROUP_DELEGATE_ADDRESS).ownerOrDelegateId(groupId, msg.sender);
-        if (operatorId != 0 && resolvedOperatorId == operatorId) {
-            return true;
+    function _isOperator(uint256 groupId, uint256 operatorId, address groupOwner) private view returns (bool) {
+        if (operatorId == 0) {
+            return false;
         }
-        // Load-bearing: a nonexistent operatorId collapses into the unauthorized revert instead of
-        // reverting separately, so the caller cannot use the error to probe whether a member id exists.
-        if (operatorId != 0 && IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId)
-            && MemberOwner.ownerOrZero(GROUP_ADDRESS, operatorId) == msg.sender) {
-            return true;
+        if (operatorId == groupId) {
+            return msg.sender == groupOwner;
         }
-        return false;
+        if (MemberOwner.ownerOrZero(GROUP_ADDRESS, operatorId) != msg.sender) {
+            return false;
+        }
+        return IGroupAdmin(GROUP_ADMIN_ADDRESS).isAdminId(groupId, operatorId);
     }
 }
