@@ -224,11 +224,8 @@ contract GroupChat is IGroupChat {
         bool mentionAll,
         uint256 quotedMessageId
     ) internal {
-        _checkExistingGroup(groupId);
+        _checkActivated(groupId);
         ChatConfig storage config = _chatConfig[groupId];
-        if (!config.activated) {
-            revert ChatNotActivated(groupId);
-        }
         if (!config.postingAllowed) {
             revert PostingNotAllowed(groupId);
         }
