@@ -59,8 +59,6 @@ contract DeployGroupChat is Script {
         uint256 chainId;
         address beforePostPlugin;
         address afterPostPlugin;
-        uint256 maxContentLength;
-        uint256 maxMentionedSenderIds;
         uint256 actionRecentRounds;
         uint256 maxAdminIds;
         uint256 minSupportToOpposeMultiplier;
@@ -150,8 +148,6 @@ contract DeployGroupChat is Script {
 
     function _validateConfig(Dependencies memory deps, DeployConfig memory config) internal view {
         require(block.chainid == config.chainId, "Chain ID mismatch");
-        require(config.maxContentLength != 0, "GROUP_CHAT_MAX_CONTENT_LENGTH must be > 0");
-        require(config.maxMentionedSenderIds != 0, "GROUP_CHAT_MAX_MENTIONED_SENDER_IDS must be > 0");
         require(config.actionRecentRounds != 0, "GROUP_CHAT_ACTION_RECENT_ROUNDS must be > 0");
         require(config.maxAdminIds != 0, "GROUP_CHAT_MAX_ADMIN_IDS must be > 0");
         require(
@@ -173,14 +169,13 @@ contract DeployGroupChat is Script {
         }
     }
 
-    // 插件槽位是必填键：零地址=不挂载，键缺失即 revert。「没配」与「选了不挂载」不能共用同一种表示，
-    // 否则键名拼错会静默部署出一个没有插件的群。
+    // Plugin slots are mandatory keys: zero address = not mounted, a missing key reverts. "Not
+    // configured" and "chose not to mount" must not share one representation, otherwise a
+    // misspelled key would silently deploy a group without plugins.
     function _loadConfig() internal view returns (DeployConfig memory config) {
         config.chainId = vm.envUint("CHAIN_ID");
         config.beforePostPlugin = vm.envAddress("GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS");
         config.afterPostPlugin = vm.envAddress("GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS");
-        config.maxContentLength = vm.envUint("GROUP_CHAT_MAX_CONTENT_LENGTH");
-        config.maxMentionedSenderIds = vm.envUint("GROUP_CHAT_MAX_MENTIONED_SENDER_IDS");
         config.actionRecentRounds = vm.envUint("GROUP_CHAT_ACTION_RECENT_ROUNDS");
         config.maxAdminIds = vm.envUint("GROUP_CHAT_MAX_ADMIN_IDS");
         config.minSupportToOpposeMultiplier = vm.envUint("GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER");
@@ -191,9 +186,7 @@ contract DeployGroupChat is Script {
         internal
     {
         deployed.groupAdmin = address(new GroupAdmin(deps.groupNft, config.maxAdminIds));
-        deployed.groupChat = address(
-            new GroupChat(deployed.groupAdmin, deps.phase, config.maxContentLength, config.maxMentionedSenderIds)
-        );
+        deployed.groupChat = address(new GroupChat(deployed.groupAdmin, deps.phase));
         deployed.groupChatBanList = address(new GroupChatBanList(deployed.groupAdmin));
         deployed.adminBanSource = address(new AdminBanSource(deployed.groupChatBanList));
         deployed.govVotedBanSource = address(
@@ -261,14 +254,6 @@ contract DeployGroupChat is Script {
         );
         require(IGroupChat(deployed.groupChat).GROUP_ADDRESS() == deps.groupNft, "chat group mismatch");
         require(IGroupChat(deployed.groupChat).PHASE_ADDRESS() == deps.phase, "chat phase mismatch");
-        require(
-            IGroupChat(deployed.groupChat).MAX_CONTENT_LENGTH() == config.maxContentLength,
-            "chat content max mismatch"
-        );
-        require(
-            IGroupChat(deployed.groupChat).MAX_MENTIONED_SENDER_IDS() == config.maxMentionedSenderIds,
-            "chat mention max mismatch"
-        );
         require(
             IGroupChatBanList(deployed.groupChatBanList).GROUP_ADMIN_ADDRESS() == deployed.groupAdmin,
             "ban list admin mismatch"

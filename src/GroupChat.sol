@@ -13,8 +13,8 @@ import {IPhase} from "@core/interfaces/IPhase.sol";
 import {Pagination} from "@libs/Pagination.sol";
 
 contract GroupChat is IGroupChat {
-    uint256 public immutable MAX_CONTENT_LENGTH;
-    uint256 public immutable MAX_MENTIONED_SENDER_IDS;
+    uint256 public constant MAX_CONTENT_LENGTH = 4096;
+    uint256 public constant MAX_MENTIONED_SENDER_IDS = 32;
 
     address public immutable GROUP_ADMIN_ADDRESS;
     address public immutable GROUP_ADDRESS;
@@ -71,18 +71,11 @@ contract GroupChat is IGroupChat {
     uint256 internal _reentrancyStatus;
 
     // forge-lint: disable-next-item(missing-zero-check)
-    constructor(
-        address groupAdminAddress,
-        address phaseAddress,
-        uint256 maxContentLength,
-        uint256 maxMentionedSenderIds
-    ) {
+    constructor(address groupAdminAddress, address phaseAddress) {
         address groupAddress = IGroupAdmin(groupAdminAddress).GROUP_ADDRESS();
         GROUP_ADMIN_ADDRESS = groupAdminAddress;
         GROUP_ADDRESS = groupAddress;
         PHASE_ADDRESS = phaseAddress;
-        MAX_CONTENT_LENGTH = maxContentLength;
-        MAX_MENTIONED_SENDER_IDS = maxMentionedSenderIds;
     }
 
     modifier nonReentrant() {

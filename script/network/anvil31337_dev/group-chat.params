@@ -1,10 +1,6 @@
 # Rounds scanned by action managers (posting eligibility window).
 GROUP_CHAT_ACTION_RECENT_ROUNDS=3
 
-# Post body length and mention limits.
-GROUP_CHAT_MAX_CONTENT_LENGTH=4096
-GROUP_CHAT_MAX_MENTIONED_SENDER_IDS=32
-
 # Max admin NFTs per group.
 GROUP_CHAT_MAX_ADMIN_IDS=20
 

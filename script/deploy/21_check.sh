@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 步骤二：部署与初始化正确性校验。只读配置与链上状态，可重复运行。自包含——自行载入校验所需
-# 文件，不依赖调用方预载环境：network.params 提供 RPC 与链 ID，addresses.core.params /
-# addresses.action.params 提供期望的被依赖方绑定，group-chat.params 提供期望的构造参数，
-# addresses.group-chat.params 提供待校验的已部署地址。
-# 用法：script/deploy/21_check.sh <network>
+# Step 2: deployment and initialization check. Read-only over config and chain state.
+# Self-contained: loads its own check inputs instead of relying on a preloaded environment:
+# network.params provides RPC and chain ID, addresses.core.params / addresses.action.params the
+# expected dependency bindings, group-chat.params the expected constructor arguments and
+# addresses.group-chat.params the deployed addresses to verify.
+# Usage: script/deploy/21_check.sh <network>
 
 network="${1:?usage: script/deploy/21_check.sh <network>}"
 
@@ -13,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 NETWORK_DIR="$PROJECT_ROOT/script/network/$network"
 
-# 参数文件载入器：1e17 / 1_000_000 这类写法在载入时展开为十进制（见 params.sh）。
+# Parameter file loader: 1e17 / 1_000_000 style literals are expanded to decimal on load (params.sh).
 source "$SCRIPT_DIR/params.sh"
 
 if [ ! -d "$NETWORK_DIR" ]; then
@@ -28,10 +29,17 @@ for config in network.params addresses.core.params addresses.action.params group
     fi
 done
 
-# 参数只来自文件：清掉调用方环境里可能残留的同名变量，否则缺键会被继承值掩盖。
-unset GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH GROUP_CHAT_MAX_MENTIONED_SENDER_IDS \
-    GROUP_CHAT_MAX_ADMIN_IDS GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER GROUP_CHAT_BAN_THRESHOLD_RATIO \
-    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS
+# Parameters come from files only: clear every key the files define, so a value exported by the
+# caller cannot override a file value. The two plugin slots are the keys whose absence would change
+# behaviour silently (a misspelled or blanked key would deploy a group without plugins), so both are
+# asserted against the file itself, never against the variable - an inherited value could satisfy
+# that. An empty value is rejected too: "not mounted" must be spelled as the zero address.
+params_require_values "$NETWORK_DIR/group-chat.params" \
+    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS || exit 1
+
+params_unset_all "$NETWORK_DIR/network.params" "$NETWORK_DIR/addresses.core.params" \
+    "$NETWORK_DIR/addresses.action.params" "$NETWORK_DIR/group-chat.params" \
+    "$NETWORK_DIR/addresses.group-chat.params"
 
 params_load "$NETWORK_DIR/network.params"
 params_load "$NETWORK_DIR/addresses.core.params"
@@ -39,14 +47,8 @@ params_load "$NETWORK_DIR/addresses.action.params"
 params_load "$NETWORK_DIR/group-chat.params"
 params_load "$NETWORK_DIR/addresses.group-chat.params"
 
-# 插件槽位是必填键（零地址=未挂载）：缺键时不能按未挂载继续，也不能拿空串对账。
-if [ -z "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-}" ] || [ -z "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-}" ]; then
-    echo "Error: GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS / GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set in $NETWORK_DIR/group-chat.params (use 0x0000000000000000000000000000000000000000 for no plugin)" >&2
-    exit 1
-fi
-
-# 地址文件的键集合必须与期望合约集合一致：键名漏改会让后续变量静默为空，
-# 逐项 cast 调用要到很后面才以难以定位的形式失败，故在此显式断言。
+# The address file's key set must equal the expected contract set: a renamed key would leave later
+# variables silently empty and fail much later with an unhelpful message, so assert it here.
 address_file="$NETWORK_DIR/addresses.group-chat.params"
 expected_keys="ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS GROUP_ADMIN_ADDRESS \
 GROUP_CHAT_BAN_LIST_ADDRESS GROUP_CHAT_ADDRESS \
@@ -74,15 +76,15 @@ NC='\033[0m'
 
 failed_checks=0
 
-# 与部署脚本同口径：1 字节分隔符 + 4 位 hex + 4 字节 Test 前缀。
+# Same convention as the deploy script: 1 separator byte + 4 hex chars + 4-byte Test prefix.
 MANAGER_NAME_RESERVED_BYTES=9
 
 cast_call() {
     cast call "$1" "$2" --rpc-url "$RPC_URL"
 }
 
-# cast 对 uint 返回值会带科学计数法标注（形如 [1e18]），比对前先剥掉，
-# 否则 "1000000000000000000" 与 "1000000000000000000 [1e18]" 会被判为不一致。
+# cast annotates uint return values with scientific notation (like [1e18]); strip it before
+# comparing, otherwise "1000000000000000000" and "1000000000000000000 [1e18]" differ.
 strip_sci_notation() {
     echo "$1" | sed -E 's/\[[0-9.]+e[0-9]+\]//g' | tr -d ' '
 }
@@ -144,7 +146,8 @@ check_equal "GovVotedBanSource: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
 check_equal "GroupChatBanList: GROUP_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$GROUP_CHAT_BAN_LIST_ADDRESS" "GROUP_ADDRESS()(address)")" || ((failed_checks += 1))
 
-# 名称空间下限按各 Manager 的 TYPE_CODE() 派生，在下方 Manager 循环中校验。
+# The name-space floor is derived from each Manager's TYPE_CODE() and checked in the Manager loop
+# below.
 member_love20_address=$(cast_call "$MEMBER_NFT_ADDRESS" "LOVE20_TOKEN_ADDRESS()(address)")
 check_contract_code "MemberNFT: LOVE20_TOKEN_ADDRESS" "$member_love20_address" || ((failed_checks += 1))
 check_equal "MemberNFT: LOVE20_TOKEN_ADDRESS == core" "$LOVE20_TOKEN_ADDRESS" \
@@ -174,10 +177,18 @@ check_equal "GroupAdmin: MAX_ADMIN_IDS" "$GROUP_CHAT_MAX_ADMIN_IDS" \
     "$(cast_call "$GROUP_ADMIN_ADDRESS" "MAX_ADMIN_IDS()(uint256)")" || ((failed_checks += 1))
 echo ""
 
-check_equal "GroupChat: MAX_CONTENT_LENGTH" "$GROUP_CHAT_MAX_CONTENT_LENGTH" \
-    "$(cast_call "$GROUP_CHAT_ADDRESS" "MAX_CONTENT_LENGTH()(uint256)")" || ((failed_checks += 1))
-check_equal "GroupChat: MAX_MENTIONED_SENDER_IDS" "$GROUP_CHAT_MAX_MENTIONED_SENDER_IDS" \
-    "$(cast_call "$GROUP_CHAT_ADDRESS" "MAX_MENTIONED_SENDER_IDS()(uint256)")" || ((failed_checks += 1))
+# Both message limits are compile-time constants in GroupChat, so there is no configured value to
+# reconcile: assert they are non-zero (a zeroed or foreign build shows up here) and leave the exact
+# values to source verification.
+for field in MAX_CONTENT_LENGTH MAX_MENTIONED_SENDER_IDS; do
+    value=$(strip_sci_notation "$(cast_call "$GROUP_CHAT_ADDRESS" "$field()(uint256)")")
+    if [[ ! "$value" =~ ^[0-9]+$ ]] || [ "$value" -eq 0 ]; then
+        echo -e "${RED}✗${NC} GroupChat: $field > 0 (actual: ${value:-unavailable})"
+        ((failed_checks += 1))
+    else
+        echo -e "${GREEN}✓${NC} GroupChat: $field (actual: $value)"
+    fi
+done
 echo ""
 
 check_equal "GroupChatBanList: GROUP_ADMIN_ADDRESS" "$GROUP_ADMIN_ADDRESS" \
@@ -199,10 +210,9 @@ if [[ ! "$GROUP_CHAT_BAN_THRESHOLD_RATIO" =~ ^[0-9]+$ ]] \
 else
     echo -e "${GREEN}✓${NC} GovVotedBanSource: BAN_THRESHOLD_RATIO <= 1e18"
 fi
-for field in GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH \
-    GROUP_CHAT_MAX_MENTIONED_SENDER_IDS GROUP_CHAT_MAX_ADMIN_IDS \
+for field in GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_ADMIN_IDS \
     GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER; do
-    value="${!field}"
+    value="${!field:-}"
     if [[ ! "$value" =~ ^[0-9]+$ ]] || [ "$value" -eq 0 ]; then
         echo -e "${RED}✗${NC} $field must be positive (actual: $value)"
         ((failed_checks += 1))
@@ -225,8 +235,9 @@ echo ""
 echo "Verifying ActionTarget bindings..."
 check_contract_code "ActionTarget" "$ACTION_TARGET_ADDRESS" || ((failed_checks += 1))
 check_contract_code "GroupActionExecutor" "$GROUP_ACTION_EXECUTOR_ADDRESS" || ((failed_checks += 1))
-# ActionTarget 暴露 MEMBER_NFT_ADDRESS/PHASE_ADDRESS/SUBMIT_ADDRESS/VOTE_ADDRESS 四个地址；
-# 四个都应与 core 地址文件一致，并继续校验 Vote.STAKE_ADDRESS / Stake.LAUNCH_ADDRESS 的派生链。
+# ActionTarget exposes four addresses (MEMBER_NFT_ADDRESS/PHASE_ADDRESS/SUBMIT_ADDRESS/
+# VOTE_ADDRESS): all four must match the core address file, and the Vote.STAKE_ADDRESS /
+# Stake.LAUNCH_ADDRESS derivation chain is checked as well.
 check_equal "ActionTarget: MEMBER_NFT_ADDRESS" "$MEMBER_NFT_ADDRESS" \
     "$(cast_call "$ACTION_TARGET_ADDRESS" "MEMBER_NFT_ADDRESS()(address)")" || ((failed_checks += 1))
 check_equal "ActionTarget: PHASE_ADDRESS" "$PHASE_ADDRESS" \

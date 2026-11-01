@@ -7,16 +7,18 @@ script/
 ├── deploy/
 │   ├── one_click_deploy.sh      # 入口：纯编排（解析 keystore 密码、按序调用三个步骤、校验失败回滚地址文件）
 │   ├── 11_deploy.sh             # 步骤一：部署 12 个合约并写入 addresses.group-chat.params
-│   ├── 21_check.sh               # 步骤二：只读校验部署与参数绑定，可重复运行
-│   ├── 31_verify.sh              # 步骤三：开源验证，链未配 verifier 时跳过
+│   ├── 21_check.sh               # 步骤二：只读校验部署与参数绑定
+│   ├── 31_verify.sh              # 步骤三：开源验证，VERIFY_SKIP_CHAIN_IDS 列出的链跳过
 │   └── DeployGroupChat.s.sol     # Foundry 部署脚本（输出 KEY=VALUE 地址行，由 11_deploy.sh 落盘）
-└── network/<链名><链id>_<部署类型>/
-    ├── .account                  # KEYSTORE_ACCOUNT / ACCOUNT_ADDRESS / KEYSTORE_PASSWORD（可选），已 gitignore
-    ├── network.params            # CHAIN_ID / RPC_URL（接入浏览器的链另带 VERIFIER / VERIFIER_URL）
-    ├── group-chat.params         # 本库 12 个合约的构造参数
-    ├── addresses.group-chat.params  # 本库已部署地址，11_deploy.sh 写入
-    ├── addresses.core.params     # 被依赖方：MemberNFT、Phase（从 core 对应网络复制）
-    └── addresses.action.params   # 被依赖方：ActionTarget、GroupActionExecutor（从 action 对应网络复制）
+└── network/
+    ├── verifier.params            # 开源验证端点与跳过链（所有网络共用一份）
+    └── <链名><链id>_<部署类型>/
+        ├── .account                  # KEYSTORE_ACCOUNT / ACCOUNT_ADDRESS / KEYSTORE_PASSWORD（可选），已 gitignore
+        ├── network.params            # CHAIN_ID / RPC_URL；开源验证凭据 ETHERSCAN_API_KEY
+        ├── group-chat.params         # 本库 12 个合约的构造参数
+        ├── addresses.group-chat.params  # 本库已部署地址，11_deploy.sh 写入
+        ├── addresses.core.params     # 被依赖方：MemberNFT、Phase（从 core 对应网络复制）
+        └── addresses.action.params   # 被依赖方：ActionTarget、GroupActionExecutor（从 action 对应网络复制）
 ```
 
 ## 用法
@@ -52,9 +54,13 @@ MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).l
 
 `GROUP_CHAT_ACTION_RECENT_ROUNDS` 必须 >0，由 `DeployGroupChat.s.sol` 的 `_validateConfig` 广播前校验，`21_check.sh` 复核两个 action Manager 的 `RECENT_ROUNDS`。
 
-`GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS` / `GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS` 是必填键：零地址表示不挂载，省略键即失败（不按「未挂载」兜底），`21_check.sh` 与 `31_verify.sh` 同样要求两键存在。
+单条消息的正文与提及上限不是部署参数，而是 `GroupChat` 的协议常量 `MAX_CONTENT_LENGTH = 4096`（字节）与 `MAX_MENTIONED_SENDER_IDS = 32`：事件按条携带正文与逐条提及，单条消息的日志量随两者线性增长，规格的 gas 估算以这两个值为前提，故不允许按部署调整。`group-chat.params` 不再有对应键，`21_check.sh` 只复核两者非零，具体取值由开源验证比对源码。
 
-`group-chat.params` 里的长整数可写成 `<尾数>e<指数>`（`3e15` 即 0.3%）或带下划线的分组写法（`1_000_000`），由 `script/deploy/params.sh` 在载入时展开为十进制再导出；展开是纯词法的、没有键表，写错的写法会留给 `vm.envUint` 在广播前报错。
+`GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS` / `GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS` 是必填键：零地址表示不挂载，省略键或留空都失败（不按「未挂载」兜底）。两个步骤各自用 `params_require_values` 对 `group-chat.params` 断言（`11_deploy.sh` 与 `21_check.sh` 在这里、`31_verify.sh` 也要编码构造参数，所以在三处都断言）；键集合由 `deploy_scripts_test.py` 交叉核对，漏一处即失败。
+
+`31_verify.sh` 与 core / action / dex 三个仓同口径：端点取自 `verifier.params` 的 `ETHERSCAN_VERIFIER_URL`，API Key 取自 `network.params` 的 `ETHERSCAN_API_KEY`（空=验证失败，不会静默跳过）。验证默认开启，只有列在 `VERIFY_SKIP_CHAIN_IDS` 的链才打印 `Skip` 并返回成功（本地 anvil 即 `31337`）；`56`、`97` 不允许进跳过名单，部署回归测试会拒绝。
+
+`group-chat.params` 里的长整数可写成 `<整数>e<指数>`（`3e15` 即 0.3%）或带下划线的分组写法（`1_000_000`），由 `script/deploy/params.sh` 在载入时展开为十进制再导出；尾数必须是不带小数点的整数（`2.5e15` 不会被展开，写成 `25e14`）；展开是纯词法的、没有键表，写错的写法会留给 `vm.envUint` 在广播前报错。
 
 构造期静态校验已按 dev-standards §5.7 从合约移除，统一放在部署脚本：
 

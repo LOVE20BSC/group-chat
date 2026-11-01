@@ -10,8 +10,8 @@ contract GroupChatLifecycleTest is GroupChatFixture {
         assertEq(chat.GROUP_ADMIN_ADDRESS(), address(baseGroupAdmin));
         assertEq(chat.GROUP_ADDRESS(), address(groupNft));
         assertEq(chat.PHASE_ADDRESS(), address(phase));
-        assertEq(chat.MAX_CONTENT_LENGTH(), maxContentLength);
-        assertEq(chat.MAX_MENTIONED_SENDER_IDS(), maxMentionedSenderIds);
+        assertEq(chat.MAX_CONTENT_LENGTH(), 4096);
+        assertEq(chat.MAX_MENTIONED_SENDER_IDS(), 32);
 
         vm.expectRevert(abi.encodeWithSelector(IGroupChatErrors.RoundNotStarted.selector, 1, 0));
         chat.currentRound();

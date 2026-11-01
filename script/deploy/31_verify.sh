@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 步骤三：合约开源验证。自包含——自行载入 network.params、被依赖方地址、构造参数与上次部署
-# 写入的 addresses.group-chat.params，不依赖入口脚本在部署后刷新地址。
-# 构造参数经 cast abi-encode 显式编码，不依赖 broadcast 产物的自动识别。
-# 链未配置 verifier 时跳过并返回成功，不视为失败，使本地链也能一键跑通。
-# 用法：script/deploy/31_verify.sh <network>
+# Step 3: source verification. Self-contained: loads network.params, verifier.params, the dependency
+# addresses, the constructor arguments and the addresses.group-chat.params written by the last
+# deployment, without relying on the entrypoint to refresh addresses.
+# Constructor arguments are encoded explicitly with cast abi-encode instead of relying on
+# automatic detection from the broadcast artifact.
+# Chains listed in VERIFY_SKIP_CHAIN_IDS skip the step and return success, so one-click deployment
+# also works on local chains.
+# Usage: script/deploy/31_verify.sh <network>
 
 network="${1:?usage: script/deploy/31_verify.sh <network>}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 NETWORK_DIR="$PROJECT_ROOT/script/network/$network"
+VERIFIER_PARAMS="$PROJECT_ROOT/script/network/verifier.params"
 
-# 参数文件载入器：1e17 / 1_000_000 这类写法在载入时展开为十进制（见 params.sh）。
+# Parameter file loader: 1e17 / 1_000_000 style literals are expanded to decimal on load (params.sh).
 source "$SCRIPT_DIR/params.sh"
 
 if [ ! -d "$NETWORK_DIR" ]; then
@@ -27,33 +31,49 @@ for config in network.params addresses.core.params addresses.action.params group
         exit 1
     fi
 done
+if [ ! -f "$VERIFIER_PARAMS" ]; then
+    echo "Error: Missing required configuration: $VERIFIER_PARAMS"
+    exit 1
+fi
 
-# 参数只来自文件：清掉调用方环境里可能残留的同名变量，否则缺键会被继承值掩盖。
-unset GROUP_CHAT_ACTION_RECENT_ROUNDS GROUP_CHAT_MAX_CONTENT_LENGTH GROUP_CHAT_MAX_MENTIONED_SENDER_IDS \
-    GROUP_CHAT_MAX_ADMIN_IDS GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER GROUP_CHAT_BAN_THRESHOLD_RATIO \
-    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS
+# Parameters come from files only: clear every key the files define, so a value exported by the
+# caller cannot override a file value. The two plugin slots are the keys whose absence would change
+# behaviour silently (a misspelled or blanked key would deploy a group without plugins), so both are
+# asserted against the file itself, never against the variable - an inherited value could satisfy
+# that. An empty value is rejected too: "not mounted" must be spelled as the zero address.
+params_require_values "$NETWORK_DIR/group-chat.params" \
+    GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS || exit 1
+
+params_unset_all "$NETWORK_DIR/network.params" "$VERIFIER_PARAMS" \
+    "$NETWORK_DIR/addresses.core.params" "$NETWORK_DIR/addresses.action.params" \
+    "$NETWORK_DIR/group-chat.params" "$NETWORK_DIR/addresses.group-chat.params"
 
 params_load "$NETWORK_DIR/network.params"
+params_load "$VERIFIER_PARAMS"
 params_load "$NETWORK_DIR/addresses.core.params"
 params_load "$NETWORK_DIR/addresses.action.params"
 params_load "$NETWORK_DIR/group-chat.params"
 params_load "$NETWORK_DIR/addresses.group-chat.params"
 
-# 插件槽位是必填键（零地址=未挂载）：缺键时不能按零地址编码构造参数，否则实参与部署不一致。
-if [ -z "${GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS:-}" ] || [ -z "${GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS:-}" ]; then
-    echo "Error: GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS / GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS must be set in $NETWORK_DIR/group-chat.params (use 0x0000000000000000000000000000000000000000 for no plugin)" >&2
-    exit 1
-fi
-
 cd "$PROJECT_ROOT"
 
-# network.params 未提供 verifier 的链不适用例（本地 anvil、未接入浏览器的链），直接跳过。
-if [ -z "${VERIFIER:-}" ] || [ -z "${VERIFIER_URL:-}" ]; then
-    echo "Skip: source verification is not configured for chain $CHAIN_ID"
+# The opt-out list is mandatory as a key but may be empty: "verify every chain" is a legal answer.
+params_require_keys "$VERIFIER_PARAMS" VERIFY_SKIP_CHAIN_IDS || exit 1
+
+# Verification is attempted by default: only the chains listed here skip it, so a new production
+# chain fails loudly instead of passing unverified.
+skip_chains=",${VERIFY_SKIP_CHAIN_IDS:-},"
+if [ -n "${CHAIN_ID:-}" ] && [[ "$skip_chains" == *",$CHAIN_ID,"* ]]; then
+    echo "Skip: source verification is disabled for chain $CHAIN_ID in $VERIFIER_PARAMS"
     exit 0
 fi
 
-# 12 个合约地址缺项即失败：forge verify-contract 对空地址只会报难以定位的错误。
+# The endpoint is a mandatory key: an empty URL would be passed straight to forge.
+params_require_values "$VERIFIER_PARAMS" ETHERSCAN_VERIFIER_URL || exit 1
+: "${ETHERSCAN_API_KEY:?Set an Etherscan API key; source verification has not run.}"
+
+# Any missing address among the twelve fails the step: forge verify-contract only reports an
+# unhelpful error for an empty address.
 for field in GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
     GROUP_CHAT_BAN_LIST_ADDRESS ADMIN_BAN_SOURCE_ADDRESS GOV_VOTED_BAN_SOURCE_ADDRESS \
     GROUP_MEMBER_ADDRESS GROUP_MEMBER_SCOPE_ADDRESS GROUP_JOIN_SCOPE_SOURCE_ADDRESS \
@@ -65,12 +85,14 @@ for field in GROUP_ADMIN_ADDRESS GROUP_CHAT_ADDRESS \
     fi
 done
 
-# 插件槽位是必填键（零地址=未挂载）：缺键时不能按零地址编码构造参数，否则验证的实参与部署实参不一致。
+# Plugin slots are mandatory keys (zero address = not mounted): a missing key must not encode the
+# zero address, or the verified arguments would differ from the deployed ones.
 before_post_plugin="$GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS"
 after_post_plugin="$GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS"
 
-# 构造参数与 DeployGroupChat.s.sol 的部署实参一一对应；编码失败在命令替换下会静默中止，
-# 故逐个显式判别，保证失败有明确输出。
+# The constructor arguments match the deployment arguments of DeployGroupChat.s.sol one to one; a
+# failing encoding would silently abort inside a command substitution, so each call is checked
+# explicitly for a clear message.
 encode_args() {
     local description="$1"
     shift
@@ -82,8 +104,7 @@ encode_args() {
 
 encode_args "GroupAdmin" "constructor(address,uint256)" "$MEMBER_NFT_ADDRESS" "$GROUP_CHAT_MAX_ADMIN_IDS"
 ADMIN_ARGS="$ENCODED"
-encode_args "GroupChat" "constructor(address,address,uint256,uint256)" \
-    "$GROUP_ADMIN_ADDRESS" "$PHASE_ADDRESS" "$GROUP_CHAT_MAX_CONTENT_LENGTH" "$GROUP_CHAT_MAX_MENTIONED_SENDER_IDS"
+encode_args "GroupChat" "constructor(address,address)" "$GROUP_ADMIN_ADDRESS" "$PHASE_ADDRESS"
 CHAT_ARGS="$ENCODED"
 encode_args "GroupChatBanList" "constructor(address)" "$GROUP_ADMIN_ADDRESS"
 BANLIST_ARGS="$ENCODED"
@@ -116,15 +137,16 @@ encode_args "TokenActionMainManager" "constructor(address,address,address,addres
     "$ACTION_TARGET_ADDRESS" "$GROUP_CHAT_ACTION_RECENT_ROUNDS"
 ACTIONMAINMANAGER_ARGS="$ENCODED"
 
-# --watch 轮询验证结果：被拒时步骤失败，不把提交当成功。
-COMMON_ARGS=(--chain "$CHAIN_ID" --verifier "$VERIFIER" --verifier-url "$VERIFIER_URL" --watch)
+# --watch polls the verification result: a rejection fails the step instead of treating the
+# submission as success.
+COMMON_ARGS=(--chain "$CHAIN_ID" --verifier etherscan --verifier-url "$ETHERSCAN_VERIFIER_URL" --watch)
 verify_contract() {
     local address=$1 name=$2 path=$3 args=$4
     echo "Verifying $name at $address..."
     forge verify-contract "$address" "$path:$name" "${COMMON_ARGS[@]}" --constructor-args "$args"
 }
 
-# GroupChatBanList 是本库新加入部署流程的合约。
+# GroupChatBanList is the contract newly added to this repository's deployment flow.
 verify_contract "$GROUP_ADMIN_ADDRESS" GroupAdmin "src/GroupAdmin.sol" "$ADMIN_ARGS"
 verify_contract "$GROUP_CHAT_ADDRESS" GroupChat "src/GroupChat.sol" "$CHAT_ARGS"
 verify_contract "$GROUP_CHAT_BAN_LIST_ADDRESS" GroupChatBanList "src/GroupChatBanList.sol" "$BANLIST_ARGS"

@@ -51,19 +51,7 @@ contract DeployGroupChatTest is TestBase {
         assertTrue(deployed.tokenActionMainManager != address(0));
     }
 
-    function testT171_deployScriptRejectsZeroMaxContentLength() public {
-        MockLOVE20Group memberNFT = new MockLOVE20Group();
-        MockPhase phase = new MockPhase(block.number + 50, 100);
-        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
-        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
-        DeployGroupChat.DeployConfig memory config = _config();
-        config.maxContentLength = 0;
-
-        DeployGroupChatHarness harness = new DeployGroupChatHarness();
-        vm.expectRevert(abi.encodeWithSignature("Error(string)", "GROUP_CHAT_MAX_CONTENT_LENGTH must be > 0"));
-        harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
-    }
-
+    // T171 is intentionally unused: test IDs are stable labels, never reused or renumbered.
     function testT172_deployScriptValidatesDependencyBindings() public {
         MockLOVE20Group memberNFT = new MockLOVE20Group();
         MockPhase phase = new MockPhase(block.number + 50, 100);
@@ -231,8 +219,6 @@ contract DeployGroupChatTest is TestBase {
             chainId: block.chainid,
             beforePostPlugin: address(0),
             afterPostPlugin: address(0),
-            maxContentLength: 4096,
-            maxMentionedSenderIds: 32,
             actionRecentRounds: 3,
             maxAdminIds: 20,
             minSupportToOpposeMultiplier: 10,

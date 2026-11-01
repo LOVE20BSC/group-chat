@@ -109,7 +109,7 @@ contract AdminBanSourceTest is GroupChatFixture {
     }
 
     function testT121B_adminDoesNotBypassBanButOwnerSendingAsGroupDoes() public {
-        GroupChat localChat = new GroupChat(address(groupAdmin), address(phase), maxContentLength, maxMentionedSenderIds);
+        GroupChat localChat = new GroupChat(address(groupAdmin), address(phase));
 
         vm.prank(chatOwner);
         localChat.activateChat(groupId, address(0), address(banSource), address(0), address(0));
