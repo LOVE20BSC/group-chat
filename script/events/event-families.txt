@@ -10,6 +10,7 @@ BanSourceChanged gc.management
 BeforePostPluginChanged gc.management
 AfterPostPluginChanged gc.management
 SenderBanVoteCast gc.ban-vote
+SenderBanVoteCleared gc.ban-vote
 GovSenderBanChanged gc.ban-vote
 MessagePosted gc.message
 SenderMentioned gc.message

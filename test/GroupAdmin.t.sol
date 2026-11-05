@@ -72,6 +72,24 @@ contract GroupAdminTest is GroupChatFixture {
         groupAdmin.removeAdmins(groupId, groupId, _uints(adminId));
     }
 
+    function testT129B2_adminIdempotentWritesEmitNothing() public {
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+        assertTrue(groupAdmin.isAdminId(groupId, adminId));
+
+        vm.recordLogs();
+        vm.prank(chatOwner);
+        groupAdmin.addAdmins(groupId, groupId, _uints(adminId));
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        vm.recordLogs();
+        vm.prank(chatOwner);
+        groupAdmin.removeAdmins(groupId, groupId, _uints(secondAdminId));
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertTrue(groupAdmin.isAdminId(groupId, adminId));
+        assertTrue(!groupAdmin.isAdminId(groupId, secondAdminId));
+    }
+
     function testT129D_adminCannotAppointAdmins() public {
         vm.prank(chatOwner);
         groupAdmin.addAdmins(groupId, groupId, _uints(adminId));

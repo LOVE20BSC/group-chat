@@ -68,6 +68,7 @@ contract AdminBanSourceTest is GroupChatFixture {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
+        assertEq(logs[0].emitter, address(banList));
         assertEq(logs[0].topics[0], SENDER_BAN_CHANGED_SIG);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(senderId));
@@ -82,10 +83,29 @@ contract AdminBanSourceTest is GroupChatFixture {
         logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
+        assertEq(logs[0].emitter, address(banList));
         assertEq(logs[0].topics[0], SENDER_BAN_CHANGED_SIG);
         (operatorId, listed) = abi.decode(logs[0].data, (uint256, bool));
         assertEq(operatorId, adminId);
         assertTrue(!listed);
+    }
+
+    function testT120C_senderBanIdempotentWritesEmitNothing() public {
+        vm.prank(chatOwner);
+        banList.banBySenderIds(groupId, groupId, _uints(senderId));
+        assertTrue(banList.isSenderIdBanned(groupId, senderId));
+
+        vm.recordLogs();
+        vm.prank(chatOwner);
+        banList.banBySenderIds(groupId, groupId, _uints(senderId));
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        vm.recordLogs();
+        vm.prank(chatOwner);
+        banList.unbanBySenderIds(groupId, groupId, _uints(otherGroupId));
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertTrue(banList.isSenderIdBanned(groupId, senderId));
+        assertTrue(!banList.isSenderIdBanned(groupId, otherGroupId));
     }
 
     function testT121_adminRequiresExplicitAdminIdAndCanOnlyManageBanLists() public {

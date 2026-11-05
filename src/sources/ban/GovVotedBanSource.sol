@@ -208,6 +208,8 @@ contract GovVotedBanSource is IGovVotedBanSource {
             return false;
         }
 
+        bool prevSupportBan = vote.supportBan;
+        uint256 prevSettledWeight = vote.settledWeight;
         if (!voteExists) {
             state.senderIdTargets.add(targetSenderId);
             target.voters.add(voterId);
@@ -218,7 +220,9 @@ contract GovVotedBanSource is IGovVotedBanSource {
         _addWeight(target, supportBan, weight);
         vote.supportBan = supportBan;
         vote.settledWeight = weight;
-        _settleVote(state, groupId, targetSenderId, voterId, supportBan, weight, totalWeight);
+        _settleVote(
+            state, groupId, targetSenderId, voterId, supportBan, weight, prevSupportBan, prevSettledWeight, totalWeight
+        );
         return true;
     }
 
@@ -240,8 +244,12 @@ contract GovVotedBanSource is IGovVotedBanSource {
             return false;
         }
 
+        bool prevSupportBan = vote.supportBan;
+        uint256 prevSettledWeight = vote.settledWeight;
         _removeVote(state, target, targetSenderId, voterId);
-        _settleVote(state, groupId, targetSenderId, voterId, false, 0, totalWeight);
+        _settleVote(
+            state, groupId, targetSenderId, voterId, false, 0, prevSupportBan, prevSettledWeight, totalWeight
+        );
         return true;
     }
 
@@ -272,16 +280,22 @@ contract GovVotedBanSource is IGovVotedBanSource {
             return true;
         }
 
+        bool prevSupportBan = vote.supportBan;
+        uint256 prevSettledWeight = vote.settledWeight;
         _removeWeight(target, vote.supportBan, vote.settledWeight);
         if (weight == 0) {
             _removeVoteAfterWeightRemoved(state, target, targetSenderId, voterId);
-            _settleVote(state, groupId, targetSenderId, voterId, false, 0, totalWeight);
+            _settleVote(
+                state, groupId, targetSenderId, voterId, false, 0, prevSupportBan, prevSettledWeight, totalWeight
+            );
             return true;
         }
 
-        _addWeight(target, vote.supportBan, weight);
+        _addWeight(target, prevSupportBan, weight);
         vote.settledWeight = weight;
-        _settleVote(state, groupId, targetSenderId, voterId, vote.supportBan, weight, totalWeight);
+        _settleVote(
+            state, groupId, targetSenderId, voterId, prevSupportBan, weight, prevSupportBan, prevSettledWeight, totalWeight
+        );
         return true;
     }
 
@@ -292,18 +306,32 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 voterId,
         bool supportBan,
         uint256 settledWeight,
+        bool prevSupportBan,
+        uint256 prevSettledWeight,
         uint256 totalWeight
     ) internal {
         TargetState storage target = _targetState(state, targetSenderId);
-        emit SenderBanVoteCast({
-            groupId: groupId,
-            targetSenderId: targetSenderId,
-            voterId: voterId,
-            supportBan: supportBan,
-            settledWeight: settledWeight,
-            supportWeight: target.supportWeight,
-            opposeWeight: target.opposeWeight
-        });
+        if (settledWeight == 0) {
+            emit SenderBanVoteCleared({
+                groupId: groupId,
+                targetSenderId: targetSenderId,
+                voterId: voterId,
+                prevSupportBan: prevSupportBan,
+                prevSettledWeight: prevSettledWeight,
+                supportWeight: target.supportWeight,
+                opposeWeight: target.opposeWeight
+            });
+        } else {
+            emit SenderBanVoteCast({
+                groupId: groupId,
+                targetSenderId: targetSenderId,
+                voterId: voterId,
+                supportBan: supportBan,
+                settledWeight: settledWeight,
+                supportWeight: target.supportWeight,
+                opposeWeight: target.opposeWeight
+            });
+        }
         _syncBanList(state, groupId, targetSenderId, totalWeight);
     }
 

@@ -147,6 +147,26 @@ contract MockAfterPostFailPlugin {
     }
 }
 
+contract MockAfterPostShortErrorPlugin {
+    function afterPost(
+        uint256,
+        uint256,
+        address,
+        string calldata,
+        uint256[] calldata,
+        bool,
+        uint256,
+        uint256,
+        uint256,
+        uint256
+    ) external pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0)
+            revert(0x00, 2)
+        }
+    }
+}
+
 contract MockAfterPostCapturePlugin {
     uint256 public lastGroupId;
     uint256 public lastSenderId;

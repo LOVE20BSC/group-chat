@@ -73,6 +73,7 @@ contract GroupMemberScopeTest is GroupChatFixture {
 
         bytes32 memberStatusChangedSig = keccak256("MemberStatusChanged(uint256,uint256,uint256,address,bool)");
         assertEq(logs.length, 2);
+        assertEq(logs[0].emitter, address(member));
         assertEq(logs[0].topics[0], memberStatusChangedSig);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(senderId));
@@ -88,10 +89,31 @@ contract GroupMemberScopeTest is GroupChatFixture {
         logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
+        assertEq(logs[0].emitter, address(member));
         assertEq(logs[0].topics[0], memberStatusChangedSig);
         (operatorId, listed) = abi.decode(logs[0].data, (uint256, bool));
         assertEq(operatorId, adminId);
         assertTrue(!listed);
+    }
+
+    function testT133B3_memberIdIdempotentWritesEmitNothing() public {
+        _configureAdmin();
+
+        vm.prank(adminOwner);
+        member.addMemberIds(groupId, adminId, _uints(senderId));
+        assertTrue(member.isMemberId(groupId, senderId));
+
+        vm.recordLogs();
+        vm.prank(adminOwner);
+        member.addMemberIds(groupId, adminId, _uints(senderId));
+        assertEq(vm.getRecordedLogs().length, 0);
+
+        vm.recordLogs();
+        vm.prank(adminOwner);
+        member.removeMemberIds(groupId, adminId, _uints(otherGroupId));
+        assertEq(vm.getRecordedLogs().length, 0);
+        assertTrue(member.isMemberId(groupId, senderId));
+        assertTrue(!member.isMemberId(groupId, otherGroupId));
     }
 
     function testT133B2_ownerAndAdminCanManageMemberIds() public {

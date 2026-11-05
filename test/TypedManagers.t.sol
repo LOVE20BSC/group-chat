@@ -595,7 +595,13 @@ contract TypedManagersTest is GroupChatFixture {
         address token,
         uint256 activatedGroupId,
         address operator
-    ) internal pure {
+    ) internal view {
+        // Managed activation must publish `GroupChatActivated` immediately before the link event.
+        assertEq(logs.length, 2);
+        assertEq(logs[0].emitter, address(chat));
+        assertEq(logs[0].topics[0], GROUP_CHAT_ACTIVATED_SIG);
+        assertEq(logs[0].topics[1], bytes32(activatedGroupId));
+
         Vm.Log memory log = logs[logs.length - 1];
         assertEq(log.emitter, manager);
         assertEq(log.topics[0], TOKEN_GROUP_ACTIVATED_SIG);
@@ -612,7 +618,13 @@ contract TypedManagersTest is GroupChatFixture {
         uint256 actionId,
         uint256 activatedGroupId,
         address operator
-    ) internal pure {
+    ) internal view {
+        // Managed activation must publish `GroupChatActivated` immediately before the link event.
+        assertEq(logs.length, 2);
+        assertEq(logs[0].emitter, address(chat));
+        assertEq(logs[0].topics[0], GROUP_CHAT_ACTIVATED_SIG);
+        assertEq(logs[0].topics[1], bytes32(activatedGroupId));
+
         Vm.Log memory log = logs[logs.length - 1];
         assertEq(log.emitter, manager);
         assertEq(log.topics[0], TOKEN_ACTION_GROUP_ACTIVATED_SIG);

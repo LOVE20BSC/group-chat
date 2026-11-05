@@ -1,5 +1,6 @@
 GovVotedBanSource.GovSenderBanChanged(groupId:uint256 indexed,targetSenderId:uint256 indexed,listed:bool)
 GovVotedBanSource.SenderBanVoteCast(groupId:uint256 indexed,targetSenderId:uint256 indexed,voterId:uint256 indexed,supportBan:bool,settledWeight:uint256,supportWeight:uint256,opposeWeight:uint256)
+GovVotedBanSource.SenderBanVoteCleared(groupId:uint256 indexed,targetSenderId:uint256 indexed,voterId:uint256 indexed,prevSupportBan:bool,prevSettledWeight:uint256,supportWeight:uint256,opposeWeight:uint256)
 GroupAdmin.AdminChanged(groupId:uint256 indexed,adminId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool,groupOwnerSnapshot:address,adminOwnerSnapshot:address,prevListed:bool,prevGroupOwnerSnapshot:address,prevAdminOwnerSnapshot:address)
 GroupChat.AfterPostPluginChanged(groupId:uint256 indexed,pluginAddress:address indexed,operatorId:uint256 indexed,operator:address,prevPluginAddress:address)
 GroupChat.AfterPostPluginFailed(groupId:uint256 indexed,messageId:uint256 indexed,round:uint256,pluginAddress:address indexed,errorHash:bytes32,errorLength:uint256,errorSelector:bytes4)

@@ -132,6 +132,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 5);
+        assertEq(logs[0].emitter, address(chat));
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(uint256(3)));
@@ -154,6 +155,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(postedMentionedSenderCount, 4);
         assertEq(postedMentionedSenderCount, logs.length - 1);
         for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
+            assertEq(logs[i + 1].emitter, address(chat));
             assertEq(logs[i + 1].topics[0], SENDER_MENTIONED_SIG);
             assertEq(logs[i + 1].topics[1], bytes32(groupId));
             assertEq(uint256(logs[i + 1].topics[2]), 3);
@@ -217,6 +219,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         Vm.Log[] memory mentionAllLogs = vm.getRecordedLogs();
 
         assertEq(mentionAllLogs.length, 1);
+        assertEq(mentionAllLogs[0].emitter, address(chat));
         assertEq(mentionAllLogs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(mentionAllLogs[0].topics[1], bytes32(groupId));
         assertEq(mentionAllLogs[0].topics[2], bytes32(uint256(1)));
@@ -514,6 +517,7 @@ contract GroupChatMessagesTest is GroupChatFixture {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         assertEq(logs.length, 1);
+        assertEq(logs[0].emitter, address(chat));
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
         assertEq(logs[0].topics[1], bytes32(groupId));
         assertEq(logs[0].topics[2], bytes32(uint256(1)));
@@ -598,11 +602,8 @@ contract GroupChatMessagesTest is GroupChatFixture {
         _activateEmpty();
 
         uint256 maxMentionedSenderIds = chat.MAX_MENTIONED_SENDER_IDS();
-        uint256[] memory mentionedSenderIds = new uint256[](maxMentionedSenderIds + 1);
-        for (uint256 i = 0; i < maxMentionedSenderIds; i++) {
-            mentionedSenderIds[i] = senderId;
-        }
-        mentionedSenderIds[maxMentionedSenderIds] = otherGroupId;
+        // Distinct ids keep the length check ahead of the duplicate check from masking each other.
+        uint256[] memory mentionedSenderIds = _distinctSenderIds(maxMentionedSenderIds + 1);
 
         vm.roll(originBlocks);
         vm.prank(senderOwner);
@@ -612,5 +613,55 @@ contract GroupChatMessagesTest is GroupChatFixture {
             )
         );
         _postWithMentionedSenderIds(groupId, senderId, "too-many", mentionedSenderIds, false);
+    }
+
+    function testT086B_postAcceptsExactContentAndMentionLimits() public {
+        _activateEmpty();
+
+        uint256 maxContentLength = chat.MAX_CONTENT_LENGTH();
+        bytes memory maxContentBytes = new bytes(maxContentLength);
+        for (uint256 i = 0; i < maxContentLength; i++) {
+            maxContentBytes[i] = bytes1("a");
+        }
+        string memory maxContent = string(maxContentBytes);
+        uint256[] memory mentionedSenderIds = _distinctSenderIds(chat.MAX_MENTIONED_SENDER_IDS());
+
+        vm.roll(originBlocks);
+        vm.recordLogs();
+        vm.prank(senderOwner);
+        _postWithMentionedSenderIds(groupId, senderId, maxContent, mentionedSenderIds, false);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 1 + mentionedSenderIds.length);
+        assertEq(logs[0].emitter, address(chat));
+        assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
+        (, , , bool hasQuote, bool mentionAll, uint256 mentionedSenderCount, string memory content) =
+            _decodeMessagePostedData(logs[0].data);
+        assertEq(content, maxContent);
+        assertTrue(!hasQuote);
+        assertTrue(!mentionAll);
+        assertEq(mentionedSenderCount, mentionedSenderIds.length);
+        assertEq(mentionedSenderCount, logs.length - 1);
+        for (uint256 i = 0; i < mentionedSenderIds.length; i++) {
+            assertEq(logs[i + 1].topics[0], SENDER_MENTIONED_SIG);
+            assertEq(uint256(logs[i + 1].topics[2]), 1);
+            assertEq(uint256(logs[i + 1].topics[3]), mentionedSenderIds[i]);
+        }
+
+        IGroupChat.Message memory stored = chat.message(groupId, 1);
+        assertEq(stored.content, maxContent);
+        assertEq(stored.mentionedSenderIds.length, mentionedSenderIds.length);
+    }
+
+    function _distinctSenderIds(uint256 count) internal returns (uint256[] memory senderIds) {
+        senderIds = new uint256[](count);
+        uint256 cursor;
+        senderIds[cursor++] = groupId;
+        senderIds[cursor++] = senderId;
+        senderIds[cursor++] = otherGroupId;
+        senderIds[cursor++] = thirdMemberId;
+        while (cursor < count) {
+            senderIds[cursor++] = groupNft.mint(other);
+        }
     }
 }

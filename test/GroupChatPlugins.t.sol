@@ -7,6 +7,7 @@ import {
     MockAfterPostFailPlugin,
     MockAfterPostReenterPlugin,
     MockAfterPostSetPostingAllowedPlugin,
+    MockAfterPostShortErrorPlugin,
     MockBeforePostCapturePlugin,
     MockBeforePostRejectMentionAllPlugin,
     MockBeforePostRejectPlugin,
@@ -180,6 +181,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         Vm.Log[] memory scopeLogs1 = vm.getRecordedLogs();
         (address scopeOperator1, address prevScope1) = abi.decode(scopeLogs1[0].data, (address, address));
         assertEq(scopeLogs1.length, 1);
+        assertEq(scopeLogs1[0].emitter, address(chat));
         assertEq(scopeLogs1[0].topics[0], SCOPE_SOURCE_CHANGED_SIG);
         assertEq(scopeLogs1[0].topics[1], bytes32(groupId));
         assertEq(scopeLogs1[0].topics[2], bytes32(uint256(uint160(address(scope1)))));
@@ -234,6 +236,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         Vm.Log[] memory banLogs1 = vm.getRecordedLogs();
         (address banOperator1, address prevBan1) = abi.decode(banLogs1[0].data, (address, address));
         assertEq(banLogs1.length, 1);
+        assertEq(banLogs1[0].emitter, address(chat));
         assertEq(banLogs1[0].topics[0], BAN_SOURCE_CHANGED_SIG);
         assertEq(banLogs1[0].topics[1], bytes32(groupId));
         assertEq(banLogs1[0].topics[2], bytes32(uint256(uint160(address(ban1)))));
@@ -284,6 +287,7 @@ contract GroupChatPluginsTest is GroupChatFixture {
         Vm.Log[] memory activateLogs = vm.getRecordedLogs();
 
         assertEq(activateLogs.length, 1);
+        assertEq(activateLogs[0].emitter, address(chat));
         assertEq(activateLogs[0].topics[0], GROUP_CHAT_ACTIVATED_SIG);
         assertEq(activateLogs[0].topics[1], bytes32(groupId));
         assertEq(activateLogs[0].topics[2], bytes32(groupId));
@@ -339,11 +343,13 @@ contract GroupChatPluginsTest is GroupChatFixture {
         Vm.Log[] memory afterPluginLogs = vm.getRecordedLogs();
 
         assertEq(beforePluginLogs.length, 1);
+        assertEq(beforePluginLogs[0].emitter, address(chat));
         assertEq(beforePluginLogs[0].topics[0], BEFORE_POST_PLUGIN_CHANGED_SIG);
         assertEq(beforePluginLogs[0].topics[1], bytes32(groupId));
         assertEq(beforePluginLogs[0].topics[2], bytes32(uint256(0)));
         assertEq(beforePluginLogs[0].topics[3], bytes32(groupId));
         assertEq(afterPluginLogs.length, 1);
+        assertEq(afterPluginLogs[0].emitter, address(chat));
         assertEq(afterPluginLogs[0].topics[0], AFTER_POST_PLUGIN_CHANGED_SIG);
         assertEq(afterPluginLogs[0].topics[1], bytes32(groupId));
         assertEq(afterPluginLogs[0].topics[2], bytes32(uint256(0)));
@@ -407,16 +413,27 @@ contract GroupChatPluginsTest is GroupChatFixture {
         chat.activateChat(groupId, address(0), address(0), address(0), address(afterPlugin));
 
         vm.roll(originBlocks);
+        // A priming post keeps `messageId` (2) apart from `groupId` (1) and `round` (1).
+        vm.prank(senderOwner);
+        _post(groupId, senderId, "prime");
         vm.recordLogs();
         vm.prank(senderOwner);
         _post(groupId, senderId, "ok");
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(messagesTotal(chat, groupId), 1);
+        assertEq(messagesTotal(chat, groupId), 2);
         assertEq(logs.length, 2);
+        assertEq(logs[0].emitter, address(chat));
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
-        assertEq(logs[0].topics[2], bytes32(uint256(1)));
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(uint256(2)));
+        assertEq(logs[0].topics[3], bytes32(senderId));
+        assertEq(logs[1].emitter, address(chat));
         assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
+        assertEq(logs[1].topics[1], bytes32(groupId));
+        assertEq(logs[1].topics[2], bytes32(uint256(2)));
+        assertEq(logs[1].topics[3], bytes32(uint256(uint160(address(afterPlugin)))));
+        assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 1);
         (
             address sender,
             uint256 round,
@@ -433,7 +450,6 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertTrue(!mentionAll);
         assertEq(quotedMessageId, 0);
         assertEq(mentionedSenderCount, 0);
-        assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 1);
         (, bytes32 errorHash, uint256 errorLength, bytes4 errorSelector) =
             abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
         assertEq(errorHash, keccak256(abi.encodeWithSelector(MockAfterPostFailPlugin.AfterPostFailed.selector)));
@@ -483,10 +499,14 @@ contract GroupChatPluginsTest is GroupChatFixture {
 
         assertEq(messagesTotal(chat, groupId), 2);
         assertEq(logs.length, 2);
+        assertEq(logs[1].emitter, address(chat));
         assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
         assertEq(logs[1].topics[1], bytes32(groupId));
         assertEq(logs[1].topics[2], bytes32(uint256(2)));
-        (, , , bytes4 errorSelector) = abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
+        assertEq(logs[1].topics[3], bytes32(uint256(uint160(address(afterPlugin)))));
+        (uint256 round, , , bytes4 errorSelector) =
+            abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
+        assertEq(round, 1);
         assertEq(errorSelector, IGroupChatErrors.Reentrant.selector);
     }
 
@@ -505,8 +525,39 @@ contract GroupChatPluginsTest is GroupChatFixture {
         assertEq(messagesTotal(chat, groupId), 1);
         assertTrue(chat.isPostingAllowed(groupId));
         assertEq(logs.length, 2);
+        assertEq(logs[0].emitter, address(chat));
         assertEq(logs[0].topics[0], MESSAGE_POSTED_SIG);
+        assertEq(logs[0].topics[1], bytes32(groupId));
+        assertEq(logs[0].topics[2], bytes32(uint256(1)));
+        assertEq(logs[0].topics[3], bytes32(senderId));
+        assertEq(logs[1].emitter, address(chat));
         assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
+        assertEq(logs[1].topics[1], bytes32(groupId));
+        assertEq(logs[1].topics[2], bytes32(uint256(1)));
+        assertEq(logs[1].topics[3], bytes32(uint256(uint160(address(afterPlugin)))));
+        assertEq(_decodeFailAfterPostPluginRound(logs[1].data), 1);
+    }
+
+    function testT076B_shortRevertDataClearsErrorSelector() public {
+        MockAfterPostShortErrorPlugin afterPlugin = new MockAfterPostShortErrorPlugin();
+
+        vm.prank(chatOwner);
+        chat.activateChat(groupId, address(0), address(0), address(0), address(afterPlugin));
+
+        vm.roll(originBlocks);
+        vm.recordLogs();
+        vm.prank(senderOwner);
+        _post(groupId, senderId, "short");
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(logs.length, 2);
+        assertEq(logs[1].topics[0], AFTER_POST_PLUGIN_FAILED_SIG);
+        assertEq(logs[1].topics[3], bytes32(uint256(uint160(address(afterPlugin)))));
+        (, bytes32 errorHash, uint256 errorLength, bytes4 errorSelector) =
+            abi.decode(logs[1].data, (uint256, bytes32, uint256, bytes4));
+        assertEq(errorHash, keccak256(hex"0000"));
+        assertEq(errorLength, 2);
+        assertEq(errorSelector, bytes4(0));
     }
 
     function testT077_beforePostPluginReceivesMentionArgs() public {
