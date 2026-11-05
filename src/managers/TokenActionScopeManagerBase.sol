@@ -144,6 +144,9 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         if (actionId == 0 || actionId > proposalCount) {
             revert ActionNotExist(tokenAddress, actionId);
         }
+        if (IActionTarget(ACTION_TARGET_ADDRESS).executorByActionId(tokenAddress, actionId) == address(0)) {
+            revert ActionNotExist(tokenAddress, actionId);
+        }
     }
 
     function _hasRecentActionVote(address tokenAddress, uint256 actionId, uint256 memberId)

@@ -220,6 +220,20 @@ contract TypedManagersTest is GroupChatFixture {
         govManager.activate(token, 0);
     }
 
+    function testT113C_tokenActionManagerRejectsPlainProposal() public {
+        MockLOVE20Protocols protocol = new MockLOVE20Protocols();
+        address token = address(protocol);
+        protocol.setActionsCount(token, 3);
+        protocol.setPlainProposal(token, 2);
+
+        TokenActionMainManager manager =
+            new TokenActionMainManager(address(chat), address(0), address(0), address(0), address(protocol), 3);
+        vm.expectRevert(
+            abi.encodeWithSelector(ITokenActionScopeManagerBaseErrors.ActionNotExist.selector, token, uint256(2))
+        );
+        manager.activate(token, 2);
+    }
+
     function testT116_tokenMainManagersPageTokens() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         MockLOVE20Protocols secondProtocol = new MockLOVE20Protocols();

@@ -16,6 +16,7 @@ contract MockLOVE20Protocols {
     mapping(address => mapping(uint256 => mapping(uint256 => bool))) internal _joined;
     mapping(address => uint256) public proposalCounts;
     mapping(address => uint8) internal _love20TokenFlags;
+    mapping(address => mapping(uint256 => bool)) internal _plainProposal;
 
     constructor() {
         // The mock plays the phase as well, so the round the managers read is the one it reports.
@@ -53,6 +54,10 @@ contract MockLOVE20Protocols {
 
     function setActionsCount(address token, uint256 count) external {
         proposalCounts[token] = count;
+    }
+
+    function setPlainProposal(address token, uint256 proposalId) external {
+        _plainProposal[token][proposalId] = true;
     }
 
     function setActionVotes(address token, uint256 round, uint256 memberId, uint256 actionId, uint256 votes) external {
@@ -155,6 +160,13 @@ contract MockLOVE20Protocols {
     {
         totalCount = proposalCounts[tokenAddress];
         proposalIdList = new uint256[](0);
+    }
+
+    function executorByActionId(address tokenAddress, uint256 actionId) external view returns (address) {
+        if (_plainProposal[tokenAddress][actionId] || actionId == 0 || actionId > proposalCounts[tokenAddress]) {
+            return address(0);
+        }
+        return address(this);
     }
 
     function actionIdsByMemberId(address tokenAddress, uint256 memberId, uint256, uint256, bool)
