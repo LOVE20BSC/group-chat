@@ -81,11 +81,7 @@ abstract contract ManagerBase is IManagerBase {
             IERC20(love20).forceApprove(GROUP_ADDRESS, expectedMintCost);
         }
 
-        uint256 actualMintCost;
-        (groupId, actualMintCost) = memberNFT.mint(groupName);
-        if (actualMintCost != expectedMintCost) {
-            revert ManagerMintCostChanged(expectedMintCost, actualMintCost);
-        }
+        (groupId,) = memberNFT.mint(groupName);
     }
 
     function _activateManagedGroup(uint256 groupId) internal {
