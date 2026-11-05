@@ -2,7 +2,7 @@
 # Families and slot rules: matt-gov/docs/event-standards.md §6.1.
 AdminChanged gc.management
 MemberStatusChanged gc.management
-SenderBanChanged gc.management
+AdminSenderBanChanged gc.management
 GroupChatActivated gc.management
 PostingAllowedChanged gc.management
 ScopeSourceChanged gc.management

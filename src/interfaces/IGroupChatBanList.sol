@@ -12,7 +12,7 @@ interface IGroupChatBanListErrors {
 }
 
 interface IGroupChatBanListEvents {
-    event SenderBanChanged(
+    event AdminSenderBanChanged(
         uint256 indexed groupId,
         uint256 indexed targetSenderId,
         uint256 operatorId,

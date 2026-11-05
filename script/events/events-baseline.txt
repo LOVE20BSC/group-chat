@@ -11,7 +11,7 @@ GroupChat.MessagePosted(groupId:uint256 indexed,messageId:uint256 indexed,sender
 GroupChat.PostingAllowedChanged(groupId:uint256 indexed,operatorId:uint256 indexed,operator:address indexed,postingAllowed:bool)
 GroupChat.ScopeSourceChanged(groupId:uint256 indexed,sourceAddress:address indexed,operatorId:uint256 indexed,operator:address,prevSourceAddress:address)
 GroupChat.SenderMentioned(groupId:uint256 indexed,messageId:uint256 indexed,mentionedSenderId:uint256 indexed)
-GroupChatBanList.SenderBanChanged(groupId:uint256 indexed,targetSenderId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool)
+GroupChatBanList.AdminSenderBanChanged(groupId:uint256 indexed,targetSenderId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool)
 GroupMember.MemberStatusChanged(groupId:uint256 indexed,memberId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool)
 TokenActionGovManager.TokenActionGroupActivated(tokenAddress:address indexed,actionId:uint256 indexed,groupId:uint256 indexed,operator:address)
 TokenActionMainManager.TokenActionGroupActivated(tokenAddress:address indexed,actionId:uint256 indexed,groupId:uint256 indexed,operator:address)

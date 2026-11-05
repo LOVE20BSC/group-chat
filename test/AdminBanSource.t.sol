@@ -26,7 +26,7 @@ contract AdminBanSourceTest is GroupChatFixture {
     uint256 internal adminId;
     uint256 internal secondAdminId;
     bytes32 internal constant SENDER_BAN_CHANGED_SIG =
-        keccak256("SenderBanChanged(uint256,uint256,uint256,address,bool)");
+        keccak256("AdminSenderBanChanged(uint256,uint256,uint256,address,bool)");
 
     function setUp() public override {
         super.setUp();
