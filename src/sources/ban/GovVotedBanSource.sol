@@ -276,7 +276,7 @@ contract GovVotedBanSource is IGovVotedBanSource {
 
         uint256 weight = _voteWeightOrRevert(source, groupId, voterId);
         if (weight == vote.settledWeight) {
-            _syncBanList(state, groupId, targetSenderId, totalWeight);
+            _syncBanList(state, groupId, targetSenderId, totalWeight, target.supportWeight, target.opposeWeight);
             return true;
         }
 
@@ -311,6 +311,8 @@ contract GovVotedBanSource is IGovVotedBanSource {
         uint256 totalWeight
     ) internal {
         TargetState storage target = _targetState(state, targetSenderId);
+        uint256 supportWeight = target.supportWeight;
+        uint256 opposeWeight = target.opposeWeight;
         if (settledWeight == 0) {
             emit SenderBanVoteCleared({
                 groupId: groupId,
@@ -318,8 +320,8 @@ contract GovVotedBanSource is IGovVotedBanSource {
                 voterId: voterId,
                 prevSupportBan: prevSupportBan,
                 prevSettledWeight: prevSettledWeight,
-                supportWeight: target.supportWeight,
-                opposeWeight: target.opposeWeight
+                supportWeight: supportWeight,
+                opposeWeight: opposeWeight
             });
         } else {
             emit SenderBanVoteCast({
@@ -328,17 +330,22 @@ contract GovVotedBanSource is IGovVotedBanSource {
                 voterId: voterId,
                 supportBan: supportBan,
                 settledWeight: settledWeight,
-                supportWeight: target.supportWeight,
-                opposeWeight: target.opposeWeight
+                supportWeight: supportWeight,
+                opposeWeight: opposeWeight
             });
         }
-        _syncBanList(state, groupId, targetSenderId, totalWeight);
+        _syncBanList(state, groupId, targetSenderId, totalWeight, supportWeight, opposeWeight);
     }
 
-    function _syncBanList(ChatState storage state, uint256 groupId, uint256 targetSenderId, uint256 totalWeight)
-        internal
-    {
-        bool shouldList = _isTargetBanned(_targetState(state, targetSenderId), totalWeight);
+    function _syncBanList(
+        ChatState storage state,
+        uint256 groupId,
+        uint256 targetSenderId,
+        uint256 totalWeight,
+        uint256 supportWeight,
+        uint256 opposeWeight
+    ) internal {
+        bool shouldList = _isTargetBanned(supportWeight, opposeWeight, totalWeight);
         if (_isBanListed(state, targetSenderId) == shouldList) {
             return;
         }
@@ -347,7 +354,10 @@ contract GovVotedBanSource is IGovVotedBanSource {
         emit GovSenderBanChanged({
             groupId: groupId,
             targetSenderId: targetSenderId,
-            listed: shouldList
+            listed: shouldList,
+            totalVoteWeight: totalWeight,
+            supportWeight: supportWeight,
+            opposeWeight: opposeWeight
         });
     }
 
@@ -385,25 +395,29 @@ contract GovVotedBanSource is IGovVotedBanSource {
         }
     }
 
-    function _supportExceedsOpposeRatio(TargetState storage target) internal view returns (bool) {
-        if (target.opposeWeight == 0) {
-            return target.supportWeight > 0;
+    function _supportExceedsOpposeRatio(uint256 supportWeight, uint256 opposeWeight) internal view returns (bool) {
+        if (opposeWeight == 0) {
+            return supportWeight > 0;
         }
-        uint256 quotient = target.supportWeight / target.opposeWeight;
+        uint256 quotient = supportWeight / opposeWeight;
         if (quotient > MIN_SUPPORT_TO_OPPOSE_MULTIPLIER) {
             return true;
         }
-        return quotient == MIN_SUPPORT_TO_OPPOSE_MULTIPLIER && target.supportWeight % target.opposeWeight != 0;
+        return quotient == MIN_SUPPORT_TO_OPPOSE_MULTIPLIER && supportWeight % opposeWeight != 0;
     }
 
-    function _isTargetBanned(TargetState storage target, uint256 totalWeight) internal view returns (bool) {
+    function _isTargetBanned(uint256 supportWeight, uint256 opposeWeight, uint256 totalWeight)
+        internal
+        view
+        returns (bool)
+    {
         if (totalWeight == 0) {
             return false;
         }
-        if (!_supportExceedsOpposeRatio(target)) {
+        if (!_supportExceedsOpposeRatio(supportWeight, opposeWeight)) {
             return false;
         }
-        return target.supportWeight * PRECISION >= totalWeight * BAN_THRESHOLD_RATIO;
+        return supportWeight * PRECISION >= totalWeight * BAN_THRESHOLD_RATIO;
     }
 
     function _checkTargetSenderId(uint256 targetSenderId) internal pure {

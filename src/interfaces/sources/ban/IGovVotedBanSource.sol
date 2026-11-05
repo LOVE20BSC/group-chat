@@ -51,7 +51,10 @@ interface IGovVotedBanSourceEvents {
     event GovSenderBanChanged(
         uint256 indexed groupId,
         uint256 indexed targetSenderId,
-        bool listed
+        bool listed,
+        uint256 totalVoteWeight,
+        uint256 supportWeight,
+        uint256 opposeWeight
     );
 }
 
