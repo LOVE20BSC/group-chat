@@ -94,8 +94,7 @@ contract ManagerEdgeErrorsTest is TestBase {
 
     function testT161_managerChargesQuotedMintCost() public {
         MockLOVE20Token payment = new MockLOVE20Token();
-        MemberNFT memberNFT = new MemberNFT(100, 32, 1, 32);
-        memberNFT.init(address(payment));
+        MemberNFT memberNFT = new MemberNFT(100, 32, 1, 32, address(payment));
         MockManagerGroupChat groupChat = new MockManagerGroupChat(address(memberNFT));
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         MockManager manager =
