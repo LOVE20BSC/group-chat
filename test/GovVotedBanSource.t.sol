@@ -339,7 +339,7 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         banSource.voteByTargetSenderId(groupId, 0, senderId, true);
     }
 
-    function testT133_readerDegradesWhenSourceUnavailable() public {
+    function testT133_readersReturnSettledStateWhenSourceUnavailable() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
         vm.prank(senderOwner);
@@ -350,9 +350,17 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
         (bool banned, uint256 supportWeight, uint256 opposeWeight) =
             banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
-        assertTrue(!banned);
-        assertEq(supportWeight, 0);
+        assertTrue(banned);
+        assertEq(supportWeight, 7);
         assertEq(opposeWeight, 0);
+
+        uint256[] memory senderIds = new uint256[](1);
+        senderIds[0] = otherGroupId;
+        (bool[] memory bannedBatch, uint256[] memory supportWeightsBatch, uint256[] memory opposeWeightsBatch) =
+            banSource.voteStatusBySenderIds(managerGroupId, senderIds);
+        assertTrue(bannedBatch[0]);
+        assertEq(supportWeightsBatch[0], 7);
+        assertEq(opposeWeightsBatch[0], 0);
     }
 
     function testT133B_voteWithUnavailableSourceReverts() public {

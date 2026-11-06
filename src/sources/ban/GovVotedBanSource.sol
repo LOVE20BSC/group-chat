@@ -70,9 +70,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
     {
         supportWeights = new uint256[](senderIds.length);
         opposeWeights = new uint256[](senderIds.length);
-        if (!_sourceHasCode(groupId)) {
-            return (supportWeights, opposeWeights);
-        }
         ChatState storage state = _chatState[groupId];
         for (uint256 i = 0; i < senderIds.length; i++) {
             VoteState storage vote = state.senderIdTargetStates[senderIds[i]].votes[voterId];
@@ -85,10 +82,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
         view
         returns (bool banned, uint256 supportWeight, uint256 opposeWeight)
     {
-        if (!_sourceHasCode(groupId)) {
-            // forge-lint: disable-next-item(boolean-cst)
-            return (false, 0, 0);
-        }
         ChatState storage state = _chatState[groupId];
         TargetState storage target = state.senderIdTargetStates[senderId];
         return (state.senderIdBanList.contains(senderId), target.supportWeight, target.opposeWeight);
@@ -105,10 +98,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
             uint256 totalCount
         )
     {
-        if (!_sourceHasCode(groupId)) {
-            return (new uint256[](0), new uint256[](0), new uint256[](0), new uint256[](0), 0);
-        }
-
         ChatState storage state = _chatState[groupId];
         (senderIds, totalCount) = state.senderIdTargets.values(offset, limit, reverse);
         uint256 count = senderIds.length;
@@ -135,9 +124,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
             uint256 totalCount
         )
     {
-        if (!_sourceHasCode(groupId)) {
-            return (new uint256[](0), new uint256[](0), new uint256[](0), 0);
-        }
         return _voters(_chatState[groupId].senderIdTargetStates[senderId], offset, limit, reverse);
     }
 
@@ -369,10 +355,6 @@ contract GovVotedBanSource is IGovVotedBanSource {
         if (source.code.length == 0) {
             revert BanVoteWeightSourceUnavailable(groupId, source);
         }
-    }
-
-    function _sourceHasCode(uint256 groupId) internal view returns (bool) {
-        return MemberOwner.ownerOrZero(GROUP_ADDRESS, groupId).code.length != 0;
     }
 
     function _voteWeightOrRevert(address source, uint256 groupId, uint256 voterId)
