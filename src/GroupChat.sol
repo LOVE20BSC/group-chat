@@ -101,6 +101,17 @@ contract GroupChat is IGroupChat {
         _;
     }
 
+    modifier onlyGroupOwner(
+        uint256 groupId,
+        uint256 operatorId
+    ) {
+        address owner = _groupOwnerOrRevert(groupId);
+        if (operatorId != groupId || msg.sender != owner) {
+            revert NotGroupOperator(groupId, operatorId);
+        }
+        _;
+    }
+
     function activateChat(
         uint256 groupId,
         address scopeSourceAddress,
@@ -684,17 +695,6 @@ contract GroupChat is IGroupChat {
         return result;
     }
 
-    modifier onlyGroupOwner(
-        uint256 groupId,
-        uint256 operatorId
-    ) {
-        address owner = _groupOwnerOrRevert(groupId);
-        if (operatorId != groupId || msg.sender != owner) {
-            revert NotGroupOperator(groupId, operatorId);
-        }
-        _;
-    }
-
     function _checkActivated(uint256 groupId) internal view {
         _groupOwnerOrRevert(groupId);
         if (!_chatConfig[groupId].activated) {
@@ -921,15 +921,9 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    function _checkQuotedMessageId(uint256 groupId, uint256 quotedMessageId) internal view {
-        if (quotedMessageId == 0) {
-            return;
-        }
-        if (quotedMessageId > _messagesByGroupId[groupId].length) {
-            revert QuotedMessageNotFound(groupId, quotedMessageId);
-        }
-    }
-
+    // Reads the just-stored record instead of taking the fields as parameters: with 6 entry
+    // parameters plus the loop locals, passing all ten event fields pushes `_post` past the stack
+    // limit without `via_ir`, which this repo deliberately does not use.
     function _emitMessagePosted(
         uint256 groupId,
         uint256 messageIndex
@@ -947,5 +941,14 @@ contract GroupChat is IGroupChat {
             mentionedSenderCount: storedMessage.mentionedSenderIds.length,
             content: storedMessage.content
         });
+    }
+
+    function _checkQuotedMessageId(uint256 groupId, uint256 quotedMessageId) internal view {
+        if (quotedMessageId == 0) {
+            return;
+        }
+        if (quotedMessageId > _messagesByGroupId[groupId].length) {
+            revert QuotedMessageNotFound(groupId, quotedMessageId);
+        }
     }
 }
