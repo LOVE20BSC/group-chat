@@ -642,6 +642,29 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(opposeWeights[0], 0);
     }
 
+    function testT140_batchBannedMatchesSingleTargetReads() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 7);
+
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+
+        uint256[] memory targets = new uint256[](3);
+        targets[0] = otherGroupId; // banned by the settled vote
+        targets[1] = groupId; // never voted
+        targets[2] = THIRD_TARGET_SENDER_ID; // never voted
+
+        bool[] memory banned = banSource.isSenderIdBannedBatch(managerGroupId, targets);
+        assertEq(banned.length, targets.length);
+        assertTrue(banned[0]);
+        assertTrue(!banned[1]);
+        assertTrue(!banned[2]);
+        // 批量口径必须与单条口径逐项一致，否则前端一次批量查询会与单条结果冲突。
+        for (uint256 i = 0; i < targets.length; i++) {
+            assertEq(banned[i], banSource.isBanned(managerGroupId, targets[i]));
+        }
+    }
+
     function _assertGovSenderBanChanged(
         Vm.Log memory log,
         uint256 groupId_,
