@@ -3,7 +3,8 @@ pragma solidity =0.8.37;
 
 import {DeployGroupChat} from "../script/deploy/DeployGroupChat.s.sol";
 import {IManagerBase} from "../src/interfaces/managers/IManagerBase.sol";
-import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
+import {ITokenScopeManagerBase} from "../src/interfaces/managers/ITokenScopeManagerBase.sol";
+import {MockERC20Payment, MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {MockPhase} from "./mocks/MockPhase.sol";
 import {MockAfterPostCapturePlugin, MockBeforePostCapturePlugin} from "./mocks/MockPlugins.sol";
@@ -439,6 +440,43 @@ contract DeployGroupChatTest is TestBase {
             assertEq(IManagerBase(managers[i]).AFTER_POST_PLUGIN_ADDRESS(), address(afterPlugin));
             assertEq(IManagerBase(managers[i]).BAN_SOURCE_ADDRESS(), deployed.govVotedBanSource);
             assertEq(IManagerBase(managers[i]).GROUP_CHAT_ADDRESS(), deployed.groupChat);
+        }
+    }
+
+    // R15：部署脚本的「最长类型码 + 9」是硬编码常量，ManagerBase 侧另有一套常量。
+    // 这条用例把两端锁在一起：在脚本假设的下限 MAX_NAME_LENGTH 上激活托管群，payload 必须仍被保留
+    // （名字以 type_payload_ 开头且恰好填满）。若 ManagerBase 的保留字节变多（例如随机后缀 4→6），
+    // payload 会被丢弃，名字不再包含 symbol，用例即失败。
+    function testT192_managerNameBudgetMatchesDeployScriptFloor() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        uint256 scriptFloor = harness.longestTypeCodeBytesForTest() + harness.nameReservedBytesForTest();
+        memberNFT.setMaxGroupNameLength(scriptFloor);
+
+        DeployGroupChat.DeployedAddresses memory deployed =
+            harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), _config());
+
+        MockERC20Payment token = new MockERC20Payment();
+        token.setSymbol("AAA");
+        uint256 groupId = ITokenScopeManagerBase(deployed.tokenMainManager).activate(address(token));
+
+        string memory name = memberNFT.groupNameOf(groupId);
+        assertEq(bytes(name).length, scriptFloor);
+        _assertPrefix(name, "tm_AAA_");
+    }
+
+    function _assertPrefix(string memory haystack, string memory prefix) internal pure {
+        bytes memory subject = bytes(haystack);
+        bytes memory expected = bytes(prefix);
+        assertTrue(subject.length >= expected.length);
+        for (uint256 i = 0; i < expected.length; i++) {
+            assertEq(uint256(uint8(subject[i])), uint256(uint8(expected[i])));
         }
     }
 
