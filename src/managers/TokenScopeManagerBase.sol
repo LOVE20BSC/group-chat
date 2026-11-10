@@ -57,12 +57,8 @@ abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerB
         return _voteWeight(_tokenAddressByGroupId[groupId], voterId);
     }
 
-    function totalVoteWeight(uint256 groupId) external view returns (uint256) {
-        address tokenAddress = _tokenAddressByGroupId[groupId];
-        if (tokenAddress == address(0)) {
-            return 0;
-        }
-        return IStake(STAKE_ADDRESS).totalValidGovVotes(tokenAddress, currentPhase());
+    function _managedTokenAddress(uint256 groupId) internal view override returns (address) {
+        return _tokenAddressByGroupId[groupId];
     }
 
     function _voteWeight(address tokenAddress, uint256 voterId) internal view returns (uint256) {
@@ -76,10 +72,7 @@ abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerB
         _checkLOVE20Token(tokenAddress);
         _checkNotManaged(_groupIdByTokenAddress[tokenAddress]);
 
-        bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
-        (string memory stem, uint256 randomHexLength) =
-            _managedGroupNameStem(_tokenNamePayload(tokenAddress), requiresTestPrefix);
-        groupId = _mintManagedGroup(stem, randomHexLength, requiresTestPrefix);
+        groupId = _mintManagedGroupForPayload(_tokenNamePayload(tokenAddress));
         // forge-lint: disable-next-item(missing-events-access-control)
         _tokenAddressByGroupId[groupId] = tokenAddress;
         // forge-lint: disable-next-item(missing-events-access-control)

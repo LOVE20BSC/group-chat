@@ -5,7 +5,6 @@ import {TokenManagerBase} from "./TokenManagerBase.sol";
 import {ITokenActionScopeManagerBase} from "../interfaces/managers/ITokenActionScopeManagerBase.sol";
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {ISubmit} from "@core/interfaces/ISubmit.sol";
-import {IStake} from "@core/interfaces/IStake.sol";
 import {IVote} from "@core/interfaces/IVote.sol";
 import {Pagination} from "@libs/Pagination.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
@@ -105,26 +104,15 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
         return _currentActionVoteWeight(tokenAddress, action.actionId, voterId);
     }
 
-    function totalVoteWeight(uint256 groupId) external view returns (uint256) {
-        ManagedAction storage action = _managedActionByGroupId[groupId];
-        address tokenAddress = action.tokenAddress;
-        if (tokenAddress == address(0)) {
-            return 0;
-        }
-        return IStake(STAKE_ADDRESS).totalValidGovVotes(tokenAddress, currentPhase());
-    }
-
     function _activateManagedAction(address tokenAddress, uint256 actionId) internal returns (uint256 groupId) {
         _checkLOVE20Token(tokenAddress);
         _checkExistingAction(tokenAddress, actionId);
         _checkNotManaged(_groupIdByActionId[tokenAddress][actionId]);
 
-        bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
         string memory symbol = _tokenNamePayload(tokenAddress);
         string memory action = Strings.toString(actionId);
         string memory payload = bytes(symbol).length == 0 ? action : string(abi.encodePacked(symbol, "_", action));
-        (string memory stem, uint256 randomHexLength) = _managedGroupNameStem(payload, requiresTestPrefix);
-        groupId = _mintManagedGroup(stem, randomHexLength, requiresTestPrefix);
+        groupId = _mintManagedGroupForPayload(payload);
         // forge-lint: disable-next-item(missing-events-access-control)
         _managedActionByGroupId[groupId] = ManagedAction({tokenAddress: tokenAddress, actionId: actionId});
         // forge-lint: disable-next-item(missing-events-access-control)
@@ -137,6 +125,10 @@ abstract contract TokenActionScopeManagerBase is TokenManagerBase, ITokenActionS
             groupId: groupId,
             operator: msg.sender
         });
+    }
+
+    function _managedTokenAddress(uint256 groupId) internal view override returns (address) {
+        return _managedActionByGroupId[groupId].tokenAddress;
     }
 
     function _checkExistingAction(address tokenAddress, uint256 actionId) internal view {
