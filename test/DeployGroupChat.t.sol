@@ -6,6 +6,7 @@ import {IManagerBase} from "../src/interfaces/managers/IManagerBase.sol";
 import {MockLOVE20Group} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {MockPhase} from "./mocks/MockPhase.sol";
+import {MockAfterPostCapturePlugin, MockBeforePostCapturePlugin} from "./mocks/MockPlugins.sol";
 import {TestBase} from "./utils/TestBase.sol";
 
 contract DeployGroupChatHarness is DeployGroupChat {
@@ -404,6 +405,41 @@ contract DeployGroupChatTest is TestBase {
         DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
         vm.expectRevert(abi.encodeWithSignature("Error(string)", "Stake.PHASE_ADDRESS mismatch"));
         harness.validateDependenciesForTest(deps, core);
+    }
+
+    // 插件槽位从每网络的 group-chat.params 读入后，必须原样落到全部四个 Manager 的 immutable 上：
+    // 托管群只能通过 Manager 拿到槽位（编队里没有任何转发入口），这条链断在哪一环都是静默的。
+    // 现有用例只在插件为零地址时部署过，这里补非零槽位的接线。
+    function testT191_deployScriptWiresPluginSlotsIntoEveryManager() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        MockBeforePostCapturePlugin beforePlugin = new MockBeforePostCapturePlugin();
+        MockAfterPostCapturePlugin afterPlugin = new MockAfterPostCapturePlugin();
+
+        DeployGroupChat.DeployConfig memory config = _config();
+        config.beforePostPlugin = address(beforePlugin);
+        config.afterPostPlugin = address(afterPlugin);
+
+        DeployGroupChat.DeployedAddresses memory deployed =
+            new DeployGroupChatHarness().deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
+
+        address[4] memory managers = [
+            deployed.tokenMainManager,
+            deployed.tokenGovManager,
+            deployed.tokenActionGovManager,
+            deployed.tokenActionMainManager
+        ];
+        for (uint256 i = 0; i < managers.length; i++) {
+            assertEq(IManagerBase(managers[i]).BEFORE_POST_PLUGIN_ADDRESS(), address(beforePlugin));
+            assertEq(IManagerBase(managers[i]).AFTER_POST_PLUGIN_ADDRESS(), address(afterPlugin));
+            assertEq(IManagerBase(managers[i]).BAN_SOURCE_ADDRESS(), deployed.govVotedBanSource);
+            assertEq(IManagerBase(managers[i]).GROUP_CHAT_ADDRESS(), deployed.groupChat);
+        }
     }
 
     function _deps(
