@@ -4,6 +4,7 @@ pragma solidity =0.8.37;
 import {IGroupChat, IGroupChatErrors} from "../src/interfaces/IGroupChat.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IManagerBaseErrors} from "../src/interfaces/managers/IManagerBase.sol";
+import {TokenMainManager} from "../src/managers/TokenMainManager.sol";
 
 import {MockERC20Payment} from "./mocks/MockLOVE20Group.sol";
 import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
@@ -188,6 +189,70 @@ contract ManagerTest is GroupChatFixture {
         manager.activateMockManagedGroup();
 
         assertEq(groupNft.totalSupply(), supplyBefore);
+    }
+
+    function testT109_managerApprovalFalseReturnRollsBackMintAndActivation() public {
+        ApprovalFailureFixture memory fixture = _approvalFailureFixture();
+        fixture.token.setApproveMode(MockERC20Payment.ApproveMode.ReturnFalse);
+
+        // The zero-allowance retry answers false too, so SafeERC20 wraps the failure.
+        vm.expectRevert(abi.encodeWithSignature("SafeERC20FailedOperation(address)", address(fixture.token)));
+        fixture.manager.activate(address(fixture.blockedProtocol));
+
+        _assertApprovalFailureRolledBack(fixture);
+
+        fixture.token.setApproveMode(MockERC20Payment.ApproveMode.Normal);
+        uint256 activatedGroupId = fixture.manager.activate(address(fixture.blockedProtocol));
+
+        assertEq(activatedGroupId, fixture.managedGroupId + 1);
+        assertEq(fixture.manager.groupIdByTokenAddress(address(fixture.blockedProtocol)), activatedGroupId);
+        assertEq(tokensTotal(fixture.manager), 2);
+        assertTrue(chat.chatInfo(activatedGroupId).activated);
+    }
+
+    function testT109B_managerApprovalRevertRollsBackMintAndActivation() public {
+        ApprovalFailureFixture memory fixture = _approvalFailureFixture();
+        fixture.token.setApproveMode(MockERC20Payment.ApproveMode.Revert);
+
+        // forceApprove retries the zero allowance and bubbles the token's own revert.
+        vm.expectRevert(bytes("APPROVE"));
+        fixture.manager.activate(address(fixture.blockedProtocol));
+
+        _assertApprovalFailureRolledBack(fixture);
+    }
+
+    struct ApprovalFailureFixture {
+        MockLOVE20Protocols managedProtocol;
+        MockLOVE20Protocols blockedProtocol;
+        MockERC20Payment token;
+        TokenMainManager manager;
+        uint256 managedGroupId;
+    }
+
+    function _approvalFailureFixture() internal returns (ApprovalFailureFixture memory fixture) {
+        fixture.managedProtocol = new MockLOVE20Protocols();
+        fixture.blockedProtocol = new MockLOVE20Protocols();
+        fixture.token = new MockERC20Payment();
+        groupNft.setMintPayment(address(fixture.token), 10);
+        fixture.token.mint(address(this), 20);
+        fixture.manager =
+            new TokenMainManager(address(chat), address(0), address(0), address(0), address(fixture.managedProtocol));
+        fixture.token.approve(address(fixture.manager), 20);
+        fixture.managedGroupId = fixture.manager.activate(address(fixture.managedProtocol));
+    }
+
+    function _assertApprovalFailureRolledBack(ApprovalFailureFixture memory fixture) internal view {
+        assertEq(groupNft.totalSupply(), fixture.managedGroupId);
+        assertEq(fixture.manager.tokenAddressByGroupId(fixture.managedGroupId), address(fixture.managedProtocol));
+        assertEq(fixture.manager.groupIdByTokenAddress(address(fixture.managedProtocol)), fixture.managedGroupId);
+        assertEq(fixture.manager.groupIdByTokenAddress(address(fixture.blockedProtocol)), 0);
+        assertEq(tokensTotal(fixture.manager), 1);
+        assertTrue(chat.chatInfo(fixture.managedGroupId).activated);
+        assertEq(fixture.token.balanceOf(address(this)), 10);
+        assertEq(fixture.token.balanceOf(address(fixture.manager)), 0);
+        assertEq(fixture.token.balanceOf(address(groupNft)), 10);
+        assertEq(fixture.token.allowance(address(this), address(fixture.manager)), 10);
+        assertEq(fixture.token.allowance(address(fixture.manager), address(groupNft)), 0);
     }
 
     function _expectUnknownSelector(address target, bytes memory data) internal {

@@ -110,7 +110,14 @@ contract MockLOVE20Group {
 }
 
 contract MockERC20Payment {
+    enum ApproveMode {
+        Normal,
+        ReturnFalse,
+        Revert
+    }
+
     string public symbol = "LOVE20";
+    ApproveMode public approveMode;
     mapping(address => uint256) public balanceOf;
     mapping(address => mapping(address => uint256)) public allowance;
 
@@ -118,11 +125,21 @@ contract MockERC20Payment {
         symbol = symbol_;
     }
 
+    function setApproveMode(ApproveMode approveMode_) external {
+        approveMode = approveMode_;
+    }
+
     function mint(address to, uint256 amount) external {
         balanceOf[to] += amount;
     }
 
     function approve(address spender, uint256 amount) external returns (bool) {
+        if (approveMode == ApproveMode.ReturnFalse) {
+            return false;
+        }
+        if (approveMode == ApproveMode.Revert) {
+            revert("APPROVE");
+        }
         allowance[msg.sender][spender] = amount;
         return true;
     }
