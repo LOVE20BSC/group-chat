@@ -49,12 +49,49 @@ ACTION_ADDRESSES = {
     "GROUP_ACTION_EXECUTOR_ADDRESS": "0x" + "44" * 20,
 }
 
+GROUP_CHAT_PARAMS = {
+    "GROUP_CHAT_ACTION_RECENT_ROUNDS": "1",
+    "GROUP_CHAT_MAX_ADMIN_IDS": "1",
+    "GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER": "1",
+    "GROUP_CHAT_BAN_THRESHOLD_RATIO": "1",
+}
+
 MANAGER_TYPE_CODES = {
     "TOKEN_MAIN_MANAGER_ADDRESS": "tm",
     "TOKEN_GOV_MANAGER_ADDRESS": "tg",
     "TOKEN_ACTION_GOV_MANAGER_ADDRESS": "ag",
     "TOKEN_ACTION_MAIN_MANAGER_ADDRESS": "am",
 }
+
+
+def check_ok_call_values(data):
+    """21_check 通过路径所需的返回值：与地址文件、group-chat.params 逐项一致。
+
+    默认假 cast 对未列举的 getter 返回零值，只够验证失败回滚；这个映射补齐另一半，让
+    "21_check 通过" 也能被真正执行一次。
+    """
+    deployed = data["addresses"]
+    zero = "0x" + "00" * 20
+    return {
+        "GROUP_ADDRESS()(address)": data["core"]["MEMBER_NFT_ADDRESS"],
+        "GROUP_ADMIN_ADDRESS()(address)": deployed["GROUP_ADMIN_ADDRESS"],
+        "PHASE_ADDRESS()(address)": data["core"]["PHASE_ADDRESS"],
+        "GROUP_MEMBER_ADDRESS()(address)": deployed["GROUP_MEMBER_ADDRESS"],
+        "GROUP_ACTION_EXECUTOR_ADDRESS()(address)": ACTION_ADDRESSES["GROUP_ACTION_EXECUTOR_ADDRESS"],
+        "GROUP_BAN_LIST_ADDRESS()(address)": deployed["GROUP_CHAT_BAN_LIST_ADDRESS"],
+        "GROUP_CHAT_ADDRESS()(address)": deployed["GROUP_CHAT_ADDRESS"],
+        "BAN_SOURCE_ADDRESS()(address)": deployed["GOV_VOTED_BAN_SOURCE_ADDRESS"],
+        "BEFORE_POST_PLUGIN_ADDRESS()(address)": zero,
+        "AFTER_POST_PLUGIN_ADDRESS()(address)": zero,
+        "MAX_ADMIN_IDS()(uint256)": GROUP_CHAT_PARAMS["GROUP_CHAT_MAX_ADMIN_IDS"],
+        "RECENT_ROUNDS()(uint256)": GROUP_CHAT_PARAMS["GROUP_CHAT_ACTION_RECENT_ROUNDS"],
+        "MIN_SUPPORT_TO_OPPOSE_MULTIPLIER()(uint256)":
+            GROUP_CHAT_PARAMS["GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER"],
+        "BAN_THRESHOLD_RATIO()(uint256)": GROUP_CHAT_PARAMS["GROUP_CHAT_BAN_THRESHOLD_RATIO"],
+        "PRECISION()(uint256)": "1000000000000000000",
+        "currentRound()(uint256)": "1",
+        "currentPhase()(uint256)": "1",
+    }
 
 
 def fake_tool(tool, args):
@@ -84,6 +121,8 @@ def fake_tool(tool, args):
                 "MAX_CONTENT_LENGTH()(uint256)": "4096",
                 "MAX_MENTIONED_SENDER_IDS()(uint256)": "32",
             }
+            if os.environ.get("MOCK_CHECK_OK"):
+                call_values.update(check_ok_call_values(data))
             if signature == "TYPE_CODE()(string)":
                 print('"' + data["type_codes"][args[1]] + '"')
             elif signature in call_values:
@@ -296,12 +335,9 @@ def main():
         network.joinpath("addresses.action.params").write_text(
             "".join(f"{field}={value}\n" for field, value in ACTION_ADDRESSES.items()))
         network.joinpath("group-chat.params").write_text(
-            "GROUP_CHAT_ACTION_RECENT_ROUNDS=1\n"
-            "GROUP_CHAT_MAX_ADMIN_IDS=1\n"
-            "GROUP_CHAT_MIN_SUPPORT_TO_OPPOSE_MULTIPLIER=1\n"
-            "GROUP_CHAT_BAN_THRESHOLD_RATIO=1\n"
-            "GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS=0x" + "0" * 40 + "\n"
-            "GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS=0x" + "0" * 40 + "\n")
+            "".join(f"{field}={value}\n" for field, value in GROUP_CHAT_PARAMS.items())
+            + "GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS=0x" + "0" * 40 + "\n"
+            + "GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS=0x" + "0" * 40 + "\n")
         saved = network / "addresses.group-chat.params"
         broadcast = root / "broadcast/DeployGroupChat.s.sol/31337/run-latest.json"
         broadcast.parent.mkdir(parents=True)
@@ -483,6 +519,21 @@ def main():
             assert not saved.exists()
             assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
 
+        def assert_one_click_success():
+            # 21_check 的通过路径此前从未被执行过：假 cast 对未列举的 getter 一律返回零值，
+            # 13 个用例只能证明"失败会回滚"，不能证明"校验通过"这条安全网本身能通。
+            write_account()
+            saved.write_text("# previous deployment\n")
+            result, _ = run("one_click_deploy.sh", True, MOCK_CHECK_OK="1")
+            output = result.stdout + result.stderr
+            assert "✓ All parameter checks passed" in output, output
+            assert "✓ Deployment completed" in output, output
+            addresses = saved.read_text()
+            assert "# previous deployment" not in addresses, addresses
+            for field in ADDRESS_FIELDS:
+                assert f"{field}=" in addresses, (field, addresses)
+            assert not list(tmp_dir.iterdir()), list(tmp_dir.iterdir())
+
         def assert_plugin_keys_required():
             # 插件槽位缺键即失败：不能把「没配」当成「未挂载」，否则拼错键名会静默部署出无插件的群。
             saved.write_text("# previous deployment\n")
@@ -529,6 +580,7 @@ def main():
             ("11 一键入口：21 失败时打印新地址并恢复旧记录", assert_one_click_check_failure_recovery),
             ("12 一键入口：21 失败且无旧文件时删除新文件", assert_one_click_check_failure_without_old_file),
             ("13 插件槽位缺键即失败，不按未挂载兜底", assert_plugin_keys_required),
+            ("14 一键入口：21 校验通过时保留新地址并完成", assert_one_click_success),
         ]
         failed = 0
         for name, body in cases:
