@@ -36,7 +36,9 @@ contract MockLOVE20Group {
     function mint(string calldata groupName) external returns (uint256 tokenId, uint256 cost) {
         string memory normalizedGroupName = _canonicalizeGroupName(groupName);
         require(bytes(normalizedGroupName).length <= MAX_GROUP_NAME_LENGTH, "NAME_TOO_LONG");
-        require(_nameToTokenId[normalizedGroupName] == 0, "NAME_USED");
+        // 真实 MemberNFT 的唯一性判定大小写不敏感；替身必须同口径，否则只差大小写的撞名会漏检。
+        string memory nameKey = _nameKey(normalizedGroupName);
+        require(_nameToTokenId[nameKey] == 0, "NAME_USED");
 
         cost = mintCost;
         if (cost != 0) {
@@ -46,7 +48,7 @@ contract MockLOVE20Group {
         tokenId = _nextTokenId++;
         _owners[tokenId] = msg.sender;
         _groupNames[tokenId] = normalizedGroupName;
-        _nameToTokenId[normalizedGroupName] = tokenId;
+        _nameToTokenId[nameKey] = tokenId;
     }
 
     function calculateMintCost(string memory) external view returns (uint256) {
@@ -57,8 +59,18 @@ contract MockLOVE20Group {
         return MAX_GROUP_NAME_LENGTH;
     }
 
+    function _nameKey(string memory name) internal pure returns (string memory) {
+        bytes memory input = bytes(name);
+        bytes memory out = new bytes(input.length);
+        for (uint256 i = 0; i < input.length; i++) {
+            bytes1 char = input[i];
+            out[i] = (char >= 0x41 && char <= 0x5A) ? bytes1(uint8(char) + 32) : char;
+        }
+        return string(out);
+    }
+
     function isNameUsed(string calldata groupName) external view returns (bool) {
-        return _nameToTokenId[_canonicalizeGroupName(groupName)] != 0;
+        return _nameToTokenId[_nameKey(_canonicalizeGroupName(groupName))] != 0;
     }
 
     function isGroupNameUsed(string calldata groupName) external view returns (bool) {
