@@ -31,20 +31,38 @@ contract TestBase {
         require(value, "ASSERT_TRUE");
     }
 
+    // 失败信息带上左右值：分页/事件字段类用例动辄十余条断言，只有 "ASSERT_EQ_UINT" 无法定位。
     function assertEq(uint256 left, uint256 right) internal pure {
-        require(left == right, "ASSERT_EQ_UINT");
+        require(
+            left == right,
+            string.concat("ASSERT_EQ_UINT left=", vm.toString(left), " right=", vm.toString(right))
+        );
     }
 
     function assertEq(address left, address right) internal pure {
-        require(left == right, "ASSERT_EQ_ADDRESS");
+        require(
+            left == right,
+            string.concat(
+                "ASSERT_EQ_ADDRESS left=", vm.toString(uint256(uint160(left))), " right=",
+                vm.toString(uint256(uint160(right)))
+            )
+        );
     }
 
     function assertEq(bytes32 left, bytes32 right) internal pure {
-        require(left == right, "ASSERT_EQ_BYTES32");
+        require(
+            left == right,
+            string.concat(
+                "ASSERT_EQ_BYTES32 left=", vm.toString(uint256(left)), " right=", vm.toString(uint256(right))
+            )
+        );
     }
 
     function assertEq(bool left, bool right) internal pure {
-        require(left == right, "ASSERT_EQ_BOOL");
+        require(
+            left == right,
+            string.concat("ASSERT_EQ_BOOL left=", left ? "true" : "false", " right=", right ? "true" : "false")
+        );
     }
 
     function assertEq(bytes memory left, bytes memory right) internal pure {
