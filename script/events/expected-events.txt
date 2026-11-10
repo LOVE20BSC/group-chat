@@ -1,0 +1,21 @@
+# 规格登记的事件清单：来源 matt-gov/docs/specs/group-chat/07-events-errors.md「当前事件集」。
+# 校验器要求当前 ABI 与这里逐条相符（字段名、类型、indexed 位置），且 --update 也不允许缺项或改字段：
+# 删事件、去 indexed、改字段都必须先改这份清单，让改动成为一次显式决定。
+# 新增事件时：先在规格侧登记并归族，再更新本文件、event-families.txt 与 events-baseline.txt。
+AdminChanged(groupId:uint256 indexed,adminId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool,groupOwnerSnapshot:address,adminOwnerSnapshot:address,prevListed:bool,prevGroupOwnerSnapshot:address,prevAdminOwnerSnapshot:address)
+AdminSenderBanChanged(groupId:uint256 indexed,targetSenderId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool)
+AfterPostPluginChanged(groupId:uint256 indexed,pluginAddress:address indexed,operatorId:uint256 indexed,operator:address,prevPluginAddress:address)
+AfterPostPluginFailed(groupId:uint256 indexed,messageId:uint256 indexed,round:uint256,pluginAddress:address indexed,errorHash:bytes32,errorLength:uint256,errorSelector:bytes4)
+BanSourceChanged(groupId:uint256 indexed,sourceAddress:address indexed,operatorId:uint256 indexed,operator:address,prevSourceAddress:address)
+BeforePostPluginChanged(groupId:uint256 indexed,pluginAddress:address indexed,operatorId:uint256 indexed,operator:address,prevPluginAddress:address)
+GovSenderBanChanged(groupId:uint256 indexed,targetSenderId:uint256 indexed,listed:bool,totalVoteWeight:uint256,supportWeight:uint256,opposeWeight:uint256)
+GroupChatActivated(groupId:uint256 indexed,ownerId:uint256 indexed,owner:address indexed,postingAllowed:bool,scopeSource:address,banSource:address,beforePostPlugin:address,afterPostPlugin:address)
+MemberStatusChanged(groupId:uint256 indexed,memberId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool)
+MessagePosted(groupId:uint256 indexed,messageId:uint256 indexed,senderId:uint256 indexed,sender:address,round:uint256,quotedMessageId:uint256,hasQuote:bool,mentionAll:bool,mentionedSenderCount:uint256,content:string)
+PostingAllowedChanged(groupId:uint256 indexed,operatorId:uint256 indexed,operator:address indexed,postingAllowed:bool)
+ScopeSourceChanged(groupId:uint256 indexed,sourceAddress:address indexed,operatorId:uint256 indexed,operator:address,prevSourceAddress:address)
+SenderBanVoteCast(groupId:uint256 indexed,targetSenderId:uint256 indexed,voterId:uint256 indexed,supportBan:bool,settledWeight:uint256,supportWeight:uint256,opposeWeight:uint256)
+SenderBanVoteCleared(groupId:uint256 indexed,targetSenderId:uint256 indexed,voterId:uint256 indexed,prevSupportBan:bool,prevSettledWeight:uint256,supportWeight:uint256,opposeWeight:uint256)
+SenderMentioned(groupId:uint256 indexed,messageId:uint256 indexed,mentionedSenderId:uint256 indexed)
+TokenActionGroupActivated(tokenAddress:address indexed,actionId:uint256 indexed,groupId:uint256 indexed,operator:address)
+TokenGroupActivated(tokenAddress:address indexed,groupId:uint256 indexed,operator:address indexed)

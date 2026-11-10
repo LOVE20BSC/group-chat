@@ -166,6 +166,64 @@ def load_families():
     return mapping
 
 
+def load_expected():
+    """规格登记的事件清单（07-events-errors.md「当前事件集」）。
+
+    与 baseline 的区别：baseline 由 `--update` 从 ABI 重新生成，期望清单不会；因此删事件、
+    去掉 indexed 或改字段都无法靠重新生成 baseline 绕过。
+    """
+    path = EVENTS_DIR / "expected-events.txt"
+    if not path.exists():
+        sys.exit(f"missing expected event list: {path}")
+    expected = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        match = re.match(r"^(\w+)\((.*)\)$", line)
+        if not match:
+            sys.exit(f"unparseable expected event line: {line}")
+        name, body = match.group(1), match.group(2)
+        if name in expected:
+            sys.exit(f"duplicate expected event: {name}")
+        expected[name] = body
+    if not expected:
+        sys.exit("expected event list is empty")
+    return expected
+
+
+def check_expected(lines):
+    """当前 ABI 必须与规格登记清单逐条一致，且不得出现清单外的事件。"""
+    expected = load_expected()
+    actual = {}
+    for line in lines:
+        match = re.match(r"^\w+\.(\w+)\((.*)\)( anonymous)?$", line)
+        if not match:
+            continue
+        name, body = match.group(1), match.group(2)
+        if name in STANDARD_EVENTS:
+            continue
+        actual.setdefault(name, set()).add(body)
+
+    problems = []
+    for name, body in sorted(expected.items()):
+        if name not in actual:
+            problems.append(f"{name}: 规格登记但 ABI 中不存在")
+        elif body not in actual[name]:
+            problems.append(f"{name}: 字段与规格登记不符\n      期望 {body}\n      实际 " + " / ".join(sorted(actual[name])))
+    for name in sorted(set(actual) - set(expected)):
+        problems.append(f"{name}: ABI 中存在但未在规格清单登记")
+    if problems:
+        sys.exit("spec event manifest violations:\n  " + "\n  ".join(problems))
+
+    families = load_families()
+    if set(families) != set(expected):
+        only_fam = sorted(set(families) - set(expected))
+        only_exp = sorted(set(expected) - set(families))
+        sys.exit(f"expected-events.txt 与 event-families.txt 不一致: families 多 {only_fam}, 清单多 {only_exp}")
+    return len(expected)
+
+
 def check_families(events):
     mapping = load_families()
     protocol = [(name, params) for name, params in events if name not in STANDARD_EVENTS]
@@ -402,6 +460,7 @@ def main():
     check_emit_style()
     lines, event_params = load_events()
     check_emit_keys(event_params)
+    expected_count = check_expected(lines)
     baseline = EVENTS_DIR / "events-baseline.txt"
     parsed = parse_baseline(lines)
 
@@ -409,7 +468,10 @@ def main():
         count = check_families(parsed)
         baseline.write_text("\n".join(lines) + "\n")
         print(f"wrote {len(lines)} events to {baseline}")
-        print(f"event families OK: {count} protocol events; declaration style OK; emit style OK; emit keys OK")
+        print(
+        f"event families OK: {count} protocol events; spec manifest OK: {expected_count} events; "
+        "declaration style OK; emit style OK; emit keys OK"
+    )
         return
 
     if not baseline.exists():
@@ -428,7 +490,10 @@ def main():
         sys.exit(1)
 
     check_families(parsed)
-    print(f"event manifest OK: {len(lines)} events; families OK; declaration style OK; emit style OK; emit keys OK")
+    print(
+        f"event manifest OK: {len(lines)} events; families OK; spec manifest OK: {expected_count} events; "
+        "declaration style OK; emit style OK; emit keys OK"
+    )
 
 
 if __name__ == "__main__":
