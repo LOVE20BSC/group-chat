@@ -17,7 +17,7 @@ Group Chat 负责公开链上群聊业务（`GroupChat`、`GroupAdmin`、`GroupM
 
 ## 当前状态
 
-- 已交付 12 个部署合约（`GroupChat` / `GroupAdmin` / `GroupMember` / `GroupChatBanList` / 两个 ban 与 scope 源 / 四个 Manager）、13 个测试套件（175 个用例）、部署脚本与事件工具链；编译基线为 Solidity `0.8.37`、Foundry `1.8.1`、`evm_version = "osaka"`，不使用 `via_ir`。
+- 已交付 12 个部署合约（`GroupChat` / `GroupAdmin` / `GroupMember` / `GroupChatBanList` / 两个 ban 与 scope 源 / 四个 Manager）、14 个测试套件（176 个用例）、部署脚本与事件工具链；编译基线为 Solidity `0.8.37`、Foundry `1.8.1`、`evm_version = "osaka"`，不使用 `via_ir`。
 - 迁移范围见 [group-chat 规格](https://github.com/LOVE20BSC/matt-gov/blob/main/docs/specs/group-chat/README.md)，差异见 [CHANGES-group-chat.md](https://github.com/LOVE20BSC/matt-gov/blob/main/docs/specs/CHANGES-group-chat.md)。
 
 ## 构建与测试
@@ -27,7 +27,7 @@ git submodule update --init --recursive
 forge build --force --deny warnings   # 编译与告警门禁
 forge build --sizes                   # 24KB 上限
 forge lint                            # 静态检查
-forge test                            # 13 套件
+forge test                            # 14 套件
 python3 test/deploy_scripts_test.py   # 部署脚本回归（14 个用例）
 python3 script/events/check-events.py # 事件 ABI 与规格清单
 ```
