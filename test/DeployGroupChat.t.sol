@@ -200,6 +200,158 @@ contract DeployGroupChatTest is TestBase {
         assertTrue(redeployed.tokenActionGovManager != address(0));
     }
 
+    // The pre-broadcast validation is the only place these invariants can fail safely, because the
+    // constructors stopped re-checking them (dev-standards 5.7). Each one needs a negative case,
+    // otherwise weakening a check stays green until a real broadcast.
+
+    function testT182_deployScriptRejectsZeroMaxAdminIds() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        DeployGroupChat.DeployConfig memory config = _config();
+        config.maxAdminIds = 0;
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "GROUP_CHAT_MAX_ADMIN_IDS must be > 0"));
+        harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
+    }
+
+    function testT183_deployScriptRejectsNonContractAfterPostPlugin() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        DeployGroupChat.DeployConfig memory config = _config();
+        config.afterPostPlugin = address(0x1234);
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "afterPostPlugin must be a contract"));
+        harness.deployForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), config);
+    }
+
+    function testT184_deployScriptRejectsZeroOriginPhaseBlocks() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 0);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Phase.ORIGIN_PHASE_BLOCKS must be > 0"));
+        harness.validateDependenciesForTest(_deps(memberNFT, phase, actionTarget, groupActionExecutor), core);
+    }
+
+    function testT185_deployScriptRejectsNonContractDependencies() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        address noCode = address(0xDEAD);
+
+        DeployGroupChat.Dependencies memory deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+        deps.groupNft = noCode;
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "MemberNFT must be a deployed contract"));
+        harness.validateDependenciesForTest(deps, core);
+
+        deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+        deps.phase = noCode;
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Phase must be a deployed contract"));
+        harness.validateDependenciesForTest(deps, core);
+
+        deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+        deps.actionTarget = noCode;
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget must be a deployed contract"));
+        harness.validateDependenciesForTest(deps, core);
+
+        deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+        deps.groupActionExecutor = noCode;
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "GroupActionExecutor must be a deployed contract"));
+        harness.validateDependenciesForTest(deps, core);
+    }
+
+    function testT186_deployScriptRejectsActionTargetRootBindings() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.Dependencies memory deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+
+        actionTarget.setMemberNFTAddress(address(0x1234));
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.MEMBER_NFT_ADDRESS mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(0x1234));
+        core = _core(memberNFT, actionTarget);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.PHASE_ADDRESS mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+    }
+
+    function testT187_deployScriptRejectsRootTokenMismatch() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.Dependencies memory deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+
+        memberNFT.setMintPayment(address(0xDEAD), 0);
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        vm.expectRevert(
+            abi.encodeWithSignature("Error(string)", "MemberNFT.LOVE20_TOKEN_ADDRESS must be a contract")
+        );
+        harness.validateDependenciesForTest(deps, core);
+
+        memberNFT.setMintPayment(address(actionTarget), 0);
+        core = _core(memberNFT, actionTarget);
+        core.love20 = address(groupActionExecutor);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "MemberNFT root token mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+    }
+
+    function testT188_deployScriptRejectsDerivedAddressMismatch() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        MockLOVE20Protocols otherCore = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.Dependencies memory deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        core.vote = address(otherCore);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.VOTE_ADDRESS mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+
+        core = _core(memberNFT, actionTarget);
+        core.stake = address(otherCore);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Vote.STAKE_ADDRESS mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+
+        core = _core(memberNFT, actionTarget);
+        core.launch = address(otherCore);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Stake.LAUNCH_ADDRESS mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+    }
+
     function _deps(
         MockLOVE20Group memberNFT,
         MockPhase phase,
