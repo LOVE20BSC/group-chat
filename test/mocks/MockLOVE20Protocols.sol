@@ -6,6 +6,12 @@ contract MockLOVE20Protocols {
     uint256 internal _currentRound = 1;
     address public memberNFTAddress;
     address public phaseAddress;
+    // Roles the mock plays by default; settable so tests can express a role with no code or one
+    // pointing at a different contract.
+    address internal submitAddress;
+    address internal voteAddress;
+    address internal stakeAddress;
+    address internal launchAddress;
 
     mapping(address => uint256) public balances;
     mapping(address => mapping(address => uint256)) public allowance;
@@ -21,6 +27,10 @@ contract MockLOVE20Protocols {
     constructor() {
         // The mock plays the phase as well, so the round the managers read is the one it reports.
         phaseAddress = address(this);
+        submitAddress = address(this);
+        voteAddress = address(this);
+        stakeAddress = address(this);
+        launchAddress = address(this);
     }
 
     function currentPhase() external view returns (uint256) {
@@ -37,6 +47,22 @@ contract MockLOVE20Protocols {
 
     function setPhaseAddress(address phaseAddress_) external {
         phaseAddress = phaseAddress_;
+    }
+
+    function setSubmitAddress(address submitAddress_) external {
+        submitAddress = submitAddress_;
+    }
+
+    function setVoteAddress(address voteAddress_) external {
+        voteAddress = voteAddress_;
+    }
+
+    function setStakeAddress(address stakeAddress_) external {
+        stakeAddress = stakeAddress_;
+    }
+
+    function setLaunchAddress(address launchAddress_) external {
+        launchAddress = launchAddress_;
     }
 
     function setBalance(address account, uint256 balance) external {
@@ -95,11 +121,11 @@ contract MockLOVE20Protocols {
     }
 
     function STAKE_ADDRESS() external view returns (address) {
-        return address(this);
+        return stakeAddress;
     }
 
     function LAUNCH_ADDRESS() external view returns (address) {
-        return address(this);
+        return launchAddress;
     }
 
     function PHASE_ADDRESS() external view returns (address) {
@@ -111,11 +137,11 @@ contract MockLOVE20Protocols {
     }
 
     function VOTE_ADDRESS() external view returns (address) {
-        return address(this);
+        return voteAddress;
     }
 
     function SUBMIT_ADDRESS() external view returns (address) {
-        return address(this);
+        return submitAddress;
     }
 
     // The real `Stake` is round-keyed; this double answers only the round the phase reports (zero otherwise).

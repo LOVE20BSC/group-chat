@@ -352,6 +352,39 @@ contract DeployGroupChatTest is TestBase {
         harness.validateDependenciesForTest(deps, core);
     }
 
+    function testT189_deployScriptRejectsNonContractDerivedDependencies() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.Dependencies memory deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        address noCode = address(0xDEAD);
+
+        actionTarget.setSubmitAddress(noCode);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.SUBMIT_ADDRESS must be a contract"));
+        harness.validateDependenciesForTest(deps, core);
+
+        actionTarget.setSubmitAddress(address(actionTarget));
+        actionTarget.setVoteAddress(noCode);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "ActionTarget.VOTE_ADDRESS must be a contract"));
+        harness.validateDependenciesForTest(deps, core);
+
+        actionTarget.setVoteAddress(address(actionTarget));
+        actionTarget.setStakeAddress(noCode);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Vote.STAKE_ADDRESS must be a contract"));
+        harness.validateDependenciesForTest(deps, core);
+
+        actionTarget.setStakeAddress(address(actionTarget));
+        actionTarget.setLaunchAddress(noCode);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Stake.LAUNCH_ADDRESS must be a contract"));
+        harness.validateDependenciesForTest(deps, core);
+    }
+
     function _deps(
         MockLOVE20Group memberNFT,
         MockPhase phase,
