@@ -385,6 +385,27 @@ contract DeployGroupChatTest is TestBase {
         harness.validateDependenciesForTest(deps, core);
     }
 
+    function testT190_deployScriptRejectsStakePhaseMismatch() public {
+        MockLOVE20Group memberNFT = new MockLOVE20Group();
+        MockPhase phase = new MockPhase(block.number + 50, 100);
+        MockLOVE20Protocols actionTarget = new MockLOVE20Protocols();
+        MockLOVE20Protocols groupActionExecutor = new MockLOVE20Protocols();
+        MockLOVE20Protocols stakeDouble = new MockLOVE20Protocols();
+        actionTarget.setMemberNFTAddress(address(memberNFT));
+        actionTarget.setPhaseAddress(address(phase));
+
+        // ActionTarget.PHASE_ADDRESS stays consistent; only Stake disagrees with the address file,
+        // which is exactly the cross-network copy accident this check exists for.
+        stakeDouble.setPhaseAddress(address(0x1234));
+        actionTarget.setStakeAddress(address(stakeDouble));
+
+        DeployGroupChatHarness harness = new DeployGroupChatHarness();
+        DeployGroupChat.Dependencies memory deps = _deps(memberNFT, phase, actionTarget, groupActionExecutor);
+        DeployGroupChat.CoreAddresses memory core = _core(memberNFT, actionTarget);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", "Stake.PHASE_ADDRESS mismatch"));
+        harness.validateDependenciesForTest(deps, core);
+    }
+
     function _deps(
         MockLOVE20Group memberNFT,
         MockPhase phase,
