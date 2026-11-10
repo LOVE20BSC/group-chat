@@ -9,6 +9,9 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
+import {IPhase} from "@core/interfaces/IPhase.sol";
+import {IStake} from "@core/interfaces/IStake.sol";
+import {IVote} from "@core/interfaces/IVote.sol";
 
 abstract contract ManagerBase is IManagerBase {
     using SafeERC20 for IERC20;
@@ -19,6 +22,9 @@ abstract contract ManagerBase is IManagerBase {
     address public immutable BAN_SOURCE_ADDRESS;
     address public immutable BEFORE_POST_PLUGIN_ADDRESS;
     address public immutable AFTER_POST_PLUGIN_ADDRESS;
+    address public immutable STAKE_ADDRESS;
+    address public immutable LAUNCH_ADDRESS;
+    address public immutable PHASE_ADDRESS;
 
     bytes4 internal constant TEST_PREFIX = bytes4("Test");
     bytes16 internal constant HEX_SYMBOLS = "0123456789abcdef";
@@ -49,10 +55,17 @@ abstract contract ManagerBase is IManagerBase {
         AFTER_POST_PLUGIN_ADDRESS = afterPostPluginAddress;
         ACTION_TARGET_ADDRESS = actionTargetAddress;
         VOTE_ADDRESS = vote;
+        STAKE_ADDRESS = IVote(vote).STAKE_ADDRESS();
+        LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).LAUNCH_ADDRESS();
+        PHASE_ADDRESS = IStake(STAKE_ADDRESS).PHASE_ADDRESS();
     }
 
     function TYPE_CODE() external view returns (string memory) {
         return _typeCode();
+    }
+
+    function currentPhase() public view returns (uint256) {
+        return IPhase(PHASE_ADDRESS).currentPhase();
     }
 
     function onERC721Received(address operator, address from, uint256 tokenId, bytes calldata)

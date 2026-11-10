@@ -2,17 +2,10 @@
 pragma solidity =0.8.37;
 
 import {ManagerBase} from "./ManagerBase.sol";
-import {IPhase} from "@core/interfaces/IPhase.sol";
 import {ILaunch} from "@core/interfaces/ILaunch.sol";
-import {IStake} from "@core/interfaces/IStake.sol";
-import {IVote} from "@core/interfaces/IVote.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 abstract contract TokenManagerBase is ManagerBase {
-    address public immutable STAKE_ADDRESS;
-    address public immutable LAUNCH_ADDRESS;
-    address public immutable PHASE_ADDRESS;
-
     constructor(
         address groupChatAddress,
         address banSourceAddress,
@@ -25,20 +18,12 @@ abstract contract TokenManagerBase is ManagerBase {
         beforePostPluginAddress,
         afterPostPluginAddress,
         actionTargetAddress
-    ) {
-        STAKE_ADDRESS = IVote(VOTE_ADDRESS).STAKE_ADDRESS();
-        LAUNCH_ADDRESS = IStake(STAKE_ADDRESS).LAUNCH_ADDRESS();
-        PHASE_ADDRESS = IStake(STAKE_ADDRESS).PHASE_ADDRESS();
-    }
+    ) {}
 
     function _checkLOVE20Token(address tokenAddress) internal view {
         if (tokenAddress.code.length == 0 || !ILaunch(LAUNCH_ADDRESS).isLOVE20Token(tokenAddress)) {
             revert TokenNotLOVE20(tokenAddress);
         }
-    }
-
-    function currentPhase() public view returns (uint256) {
-        return IPhase(PHASE_ADDRESS).currentPhase();
     }
 
     function _tokenNamePayload(address tokenAddress) internal view returns (string memory) {

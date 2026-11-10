@@ -29,4 +29,12 @@ interface IManagerBase is IPostScopeSource, IBanVoteWeightSource, IERC721Receive
     function BEFORE_POST_PLUGIN_ADDRESS() external view returns (address);
 
     function AFTER_POST_PLUGIN_ADDRESS() external view returns (address);
+
+    function STAKE_ADDRESS() external view returns (address);
+
+    function LAUNCH_ADDRESS() external view returns (address);
+
+    function PHASE_ADDRESS() external view returns (address);
+
+    function currentPhase() external view returns (uint256);
 }
