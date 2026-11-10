@@ -291,6 +291,84 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
     }
 
+    // A voter flipping its own stance must move the settled weight between the two sides instead of
+    // adding a second entry, otherwise the 10x and 0.3% thresholds read a double-counted tally.
+    function testT131F_sameVoterFlipBetweenSupportAndOppose() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 7);
+
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+        assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
+
+        vm.recordLogs();
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, false);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        (bool banned, uint256 supportWeight, uint256 opposeWeight) =
+            banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
+        assertTrue(!banned);
+        assertEq(supportWeight, 0);
+        assertEq(opposeWeight, 7);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 1);
+
+        assertEq(logs.length, 2);
+        assertEq(logs[0].emitter, address(banSource));
+        assertEq(logs[0].topics[0], SENDER_BAN_VOTE_CAST_SIG);
+        assertEq(logs[0].topics[1], bytes32(managerGroupId));
+        assertEq(logs[0].topics[2], bytes32(otherGroupId));
+        assertEq(logs[0].topics[3], bytes32(senderId));
+        (bool castSupportBan, uint256 castSettledWeight, uint256 castSupportWeight, uint256 castOpposeWeight) =
+            abi.decode(logs[0].data, (bool, uint256, uint256, uint256));
+        assertTrue(!castSupportBan);
+        assertEq(castSettledWeight, 7);
+        assertEq(castSupportWeight, 0);
+        assertEq(castOpposeWeight, 7);
+        _assertGovSenderBanChanged(logs[1], managerGroupId, otherGroupId, false, 7, 0, 7);
+
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+        (banned, supportWeight, opposeWeight) = banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
+        assertTrue(banned);
+        assertEq(supportWeight, 7);
+        assertEq(opposeWeight, 0);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 1);
+    }
+
+    // A flip removes the weight stored with the old stance, not the weight the voter holds now:
+    // removing 9 after a raise from 7 would underflow or leave the opposite side inflated.
+    function testT131G_flipRemovesStoredWeightNotCurrentWeight() public {
+        uint256 managerGroupId = _activateTokenGovManager();
+        protocol.setGovVotes(token, senderId, 7);
+
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
+
+        protocol.setGovVotes(token, senderId, 9);
+
+        vm.recordLogs();
+        vm.prank(senderOwner);
+        banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, false);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        (bool banned, uint256 supportWeight, uint256 opposeWeight) =
+            banSource.voteStatusBySenderId(managerGroupId, otherGroupId);
+        assertTrue(!banned);
+        assertEq(supportWeight, 0);
+        assertEq(opposeWeight, 9);
+        assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 1);
+
+        assertEq(logs.length, 2);
+        (bool castSupportBan, uint256 castSettledWeight, uint256 castSupportWeight, uint256 castOpposeWeight) =
+            abi.decode(logs[0].data, (bool, uint256, uint256, uint256));
+        assertTrue(!castSupportBan);
+        assertEq(castSettledWeight, 9);
+        assertEq(castSupportWeight, 0);
+        assertEq(castOpposeWeight, 9);
+        _assertGovSenderBanChanged(logs[1], managerGroupId, otherGroupId, false, 9, 0, 9);
+    }
+
     function testT132_zeroWeightAndMissingVoteRevert() public {
         uint256 managerGroupId = _activateTokenGovManager();
 
