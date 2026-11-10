@@ -33,20 +33,8 @@ contract GroupChatMessagesTest is GroupChatFixture {
         assertEq(result[0].quotedMessageId, 0);
     }
 
-    function testT041_crossGroupPostWithoutPluginIsAllowedByDefault() public {
-        _activateEmpty();
-
-        vm.roll(originBlocks);
-        vm.prank(senderOwner);
-        _post(groupId, senderId, "cross-group");
-
-        IGroupChat.Message[] memory result = messagesOf(chat, groupId, 0, 1, false);
-        assertEq(result.length, 1);
-        assertEq(result[0].groupId, groupId);
-        assertEq(result[0].senderId, senderId);
-        assertTrue(groupId != senderId);
-    }
-
+    // T041 is intentionally unused: its cross-group-no-plugin case duplicates testT070 in
+    // GroupChatPlugins.t.sol, and its extra assertion was constant-true. IDs are stable labels.
     function testT042_post_revertsForNonSenderOwner() public {
         _activateEmpty();
 
