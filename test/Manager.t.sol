@@ -11,8 +11,6 @@ import {MockManager} from "./mocks/MockManagers.sol";
 import {MockBeforePostRejectPlugin, MockPostBanSource} from "./mocks/MockPlugins.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 
-// OZ 5.5 的 SafeERC20 对「token 自己 revert」原样冒泡，只有「调用成功但返回 false」才包成
-// SafeERC20FailedOperation；这个替身覆盖后者，两种失败路径都要各有一条断言。
 contract MockFalseReturnERC20 {
     string public symbol = "LOVE20";
 

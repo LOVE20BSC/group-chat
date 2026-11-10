@@ -138,8 +138,6 @@ contract DeployGroupChat is Script {
         require(vote.code.length != 0, "ActionTarget.VOTE_ADDRESS must be a contract");
         address stake = IVote(vote).STAKE_ADDRESS();
         require(stake.code.length != 0, "Vote.STAKE_ADDRESS must be a contract");
-        // The managers derive their phase from Stake while GroupChat takes it from the address
-        // file, so a mismatch would otherwise surface only after all 12 contracts are broadcast.
         require(IStake(stake).PHASE_ADDRESS() == deps.phase, "Stake.PHASE_ADDRESS mismatch");
         address launch = IStake(stake).LAUNCH_ADDRESS();
         require(launch.code.length != 0, "Stake.LAUNCH_ADDRESS must be a contract");

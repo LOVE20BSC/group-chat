@@ -31,7 +31,6 @@ contract TestBase {
         require(value, "ASSERT_TRUE");
     }
 
-    // 失败信息带上左右值：分页/事件字段类用例动辄十余条断言，只有 "ASSERT_EQ_UINT" 无法定位。
     function assertEq(uint256 left, uint256 right) internal pure {
         require(
             left == right,

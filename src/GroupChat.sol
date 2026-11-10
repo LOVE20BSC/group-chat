@@ -921,9 +921,6 @@ contract GroupChat is IGroupChat {
         }
     }
 
-    // Reads the just-stored record instead of taking the fields as parameters: with 6 entry
-    // parameters plus the loop locals, passing all ten event fields pushes `_post` past the stack
-    // limit without `via_ir`, which this repo deliberately does not use.
     function _emitMessagePosted(
         uint256 groupId,
         uint256 messageIndex

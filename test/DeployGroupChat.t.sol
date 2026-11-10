@@ -202,10 +202,6 @@ contract DeployGroupChatTest is TestBase {
         assertTrue(redeployed.tokenActionGovManager != address(0));
     }
 
-    // The pre-broadcast validation is the only place these invariants can fail safely, because the
-    // constructors stopped re-checking them (dev-standards 5.7). Each one needs a negative case,
-    // otherwise weakening a check stays green until a real broadcast.
-
     function testT182_deployScriptRejectsZeroMaxAdminIds() public {
         MockLOVE20Group memberNFT = new MockLOVE20Group();
         MockPhase phase = new MockPhase(block.number + 50, 100);
@@ -396,8 +392,6 @@ contract DeployGroupChatTest is TestBase {
         actionTarget.setMemberNFTAddress(address(memberNFT));
         actionTarget.setPhaseAddress(address(phase));
 
-        // ActionTarget.PHASE_ADDRESS stays consistent; only Stake disagrees with the address file,
-        // which is exactly the cross-network copy accident this check exists for.
         stakeDouble.setPhaseAddress(address(0x1234));
         actionTarget.setStakeAddress(address(stakeDouble));
 
@@ -408,9 +402,6 @@ contract DeployGroupChatTest is TestBase {
         harness.validateDependenciesForTest(deps, core);
     }
 
-    // 插件槽位从每网络的 group-chat.params 读入后，必须原样落到全部四个 Manager 的 immutable 上：
-    // 托管群只能通过 Manager 拿到槽位（编队里没有任何转发入口），这条链断在哪一环都是静默的。
-    // 现有用例只在插件为零地址时部署过，这里补非零槽位的接线。
     function testT191_deployScriptWiresPluginSlotsIntoEveryManager() public {
         MockLOVE20Group memberNFT = new MockLOVE20Group();
         MockPhase phase = new MockPhase(block.number + 50, 100);
@@ -443,10 +434,6 @@ contract DeployGroupChatTest is TestBase {
         }
     }
 
-    // R15：部署脚本的「最长类型码 + 9」是硬编码常量，ManagerBase 侧另有一套常量。
-    // 这条用例把两端锁在一起：在脚本假设的下限 MAX_NAME_LENGTH 上激活托管群，payload 必须仍被保留
-    // （名字以 type_payload_ 开头且恰好填满）。若 ManagerBase 的保留字节变多（例如随机后缀 4→6），
-    // payload 会被丢弃，名字不再包含 symbol，用例即失败。
     function testT192_managerNameBudgetMatchesDeployScriptFloor() public {
         MockLOVE20Group memberNFT = new MockLOVE20Group();
         MockPhase phase = new MockPhase(block.number + 50, 100);

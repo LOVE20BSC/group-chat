@@ -291,8 +291,6 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertTrue(banSource.isBanned(managerGroupId, otherGroupId));
     }
 
-    // A voter flipping its own stance must move the settled weight between the two sides instead of
-    // adding a second entry, otherwise the 10x and 0.3% thresholds read a double-counted tally.
     function testT131F_sameVoterFlipBetweenSupportAndOppose() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
@@ -336,8 +334,6 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         assertEq(votersBySenderIdTotal(banSource, managerGroupId, otherGroupId), 1);
     }
 
-    // A flip removes the weight stored with the old stance, not the weight the voter holds now:
-    // removing 9 after a raise from 7 would underflow or leave the opposite side inflated.
     function testT131G_flipRemovesStoredWeightNotCurrentWeight() public {
         uint256 managerGroupId = _activateTokenGovManager();
         protocol.setGovVotes(token, senderId, 7);
@@ -650,16 +646,15 @@ contract GovVotedBanSourceTest is GroupChatFixture {
         banSource.voteByTargetSenderId(managerGroupId, otherGroupId, senderId, true);
 
         uint256[] memory targets = new uint256[](3);
-        targets[0] = otherGroupId; // banned by the settled vote
-        targets[1] = groupId; // never voted
-        targets[2] = THIRD_TARGET_SENDER_ID; // never voted
+        targets[0] = otherGroupId;
+        targets[1] = groupId;
+        targets[2] = THIRD_TARGET_SENDER_ID;
 
         bool[] memory banned = banSource.isSenderIdBannedBatch(managerGroupId, targets);
         assertEq(banned.length, targets.length);
         assertTrue(banned[0]);
         assertTrue(!banned[1]);
         assertTrue(!banned[2]);
-        // 批量口径必须与单条口径逐项一致，否则前端一次批量查询会与单条结果冲突。
         for (uint256 i = 0; i < targets.length; i++) {
             assertEq(banned[i], banSource.isBanned(managerGroupId, targets[i]));
         }

@@ -440,9 +440,6 @@ contract AdminBanSourceTest is GroupChatFixture {
         assertTrue(!batchBanned[2]);
     }
 
-    // dev-standards §4.3(6) 要求"同一把键的第二条读取路径"必须带实测差额。3 个 id 实测：
-    // isSenderIdBannedBatch 9,993 gas / senderIdBanDetails 28,971 gas，省约 19k（≈每 id 两个
-    // BanOperatorState 冷 SLOAD + 两段数组分配）。差额是保留 batch 入口的理由，不只是省几个 gas。
     function testT141_batchReadIsCheaperThanDetailsForTheSameKey() public {
         _configureAdmin();
 

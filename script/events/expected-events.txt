@@ -1,7 +1,8 @@
-# 规格登记的事件清单：来源 matt-gov/docs/specs/group-chat/07-events-errors.md「当前事件集」。
-# 校验器要求当前 ABI 与这里逐条相符（字段名、类型、indexed 位置），且 --update 也不允许缺项或改字段：
-# 删事件、去 indexed、改字段都必须先改这份清单，让改动成为一次显式决定。
-# 新增事件时：先在规格侧登记并归族，再更新本文件、event-families.txt 与 events-baseline.txt。
+# Events registered by the spec: matt-gov/docs/specs/group-chat/07-events-errors.md.
+# The checker requires the ABI to match every line here (names, types, indexed positions), and
+# --update cannot drop or change an entry: such a change has to edit this file on purpose.
+# Adding an event means registering it in the spec first, then updating this file,
+# event-families.txt and events-baseline.txt.
 AdminChanged(groupId:uint256 indexed,adminId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool,groupOwnerSnapshot:address,adminOwnerSnapshot:address,prevListed:bool,prevGroupOwnerSnapshot:address,prevAdminOwnerSnapshot:address)
 AdminSenderBanChanged(groupId:uint256 indexed,targetSenderId:uint256 indexed,operatorId:uint256,operator:address indexed,listed:bool)
 AfterPostPluginChanged(groupId:uint256 indexed,pluginAddress:address indexed,operatorId:uint256 indexed,operator:address,prevPluginAddress:address)

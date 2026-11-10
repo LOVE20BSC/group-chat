@@ -21,7 +21,6 @@ abstract contract TokenManagerBase is ManagerBase {
         actionTargetAddress
     ) {}
 
-    // 两类 Manager 共用的权重分母：只依赖 STAKE 与 phase，token 地址由各自映射给出。
     function totalVoteWeight(uint256 groupId) external view returns (uint256) {
         address tokenAddress = _managedTokenAddress(groupId);
         if (tokenAddress == address(0)) {
@@ -30,7 +29,6 @@ abstract contract TokenManagerBase is ManagerBase {
         return IStake(STAKE_ADDRESS).totalValidGovVotes(tokenAddress, currentPhase());
     }
 
-    // 命名与铸造骨架：Test 前缀判定 → stem → 唯一名 → mint，两类 Manager 只差 payload。
     function _mintManagedGroupForPayload(string memory payload) internal returns (uint256 groupId) {
         bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
         (string memory stem, uint256 randomHexLength) = _managedGroupNameStem(payload, requiresTestPrefix);

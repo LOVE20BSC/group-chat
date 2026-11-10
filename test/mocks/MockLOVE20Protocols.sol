@@ -6,8 +6,6 @@ contract MockLOVE20Protocols {
     uint256 internal _currentRound = 1;
     address public memberNFTAddress;
     address public phaseAddress;
-    // Roles the mock plays by default; settable so tests can express a role with no code or one
-    // pointing at a different contract.
     address internal submitAddress;
     address internal voteAddress;
     address internal stakeAddress;

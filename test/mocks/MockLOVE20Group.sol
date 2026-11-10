@@ -36,7 +36,6 @@ contract MockLOVE20Group {
     function mint(string calldata groupName) external returns (uint256 tokenId, uint256 cost) {
         string memory normalizedGroupName = _canonicalizeGroupName(groupName);
         require(bytes(normalizedGroupName).length <= MAX_GROUP_NAME_LENGTH, "NAME_TOO_LONG");
-        // 真实 MemberNFT 的唯一性判定大小写不敏感；替身必须同口径，否则只差大小写的撞名会漏检。
         string memory nameKey = _nameKey(normalizedGroupName);
         require(_nameToTokenId[nameKey] == 0, "NAME_USED");
 

@@ -167,10 +167,10 @@ def load_families():
 
 
 def load_expected():
-    """规格登记的事件清单（07-events-errors.md「当前事件集」）。
+    """Events registered by the spec (`07-events-errors.md`, the current event set).
 
-    与 baseline 的区别：baseline 由 `--update` 从 ABI 重新生成，期望清单不会；因此删事件、
-    去掉 indexed 或改字段都无法靠重新生成 baseline 绕过。
+    Unlike the baseline, which `--update` regenerates from the ABI, this list is hand-maintained,
+    so dropping an event, an `indexed` marker or a field cannot be laundered through `--update`.
     """
     path = EVENTS_DIR / "expected-events.txt"
     if not path.exists():
@@ -193,7 +193,7 @@ def load_expected():
 
 
 def check_expected(lines):
-    """当前 ABI 必须与规格登记清单逐条一致，且不得出现清单外的事件。"""
+    """The current ABI must match the spec-registered list, with no unregistered events."""
     expected = load_expected()
     actual = {}
     for line in lines:

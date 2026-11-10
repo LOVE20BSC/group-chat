@@ -9,8 +9,6 @@ import {MockLOVE20Protocols} from "./mocks/MockLOVE20Protocols.sol";
 import {GroupChatFixture} from "./utils/GroupChatFixture.sol";
 import {Vm} from "./utils/TestBase.sol";
 
-// 随机动作面：cast / flip / refresh / clear 覆盖治理封禁的全部写路径。动作用 try/catch 包住，
-// 随机输入被拒（零权重、无记录、重复投票）时不中断整轮调用。
 contract BanVoteHandler {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -46,7 +44,6 @@ contract BanVoteHandler {
         try source.voteByTargetSenderId(groupId, targets[targetSeed % 3], voter, support) {} catch {}
     }
 
-    // 显式翻转立场：随机 cast 不一定在同一 (target, voter) 上连续两次，改票路径会落空。
     function flip(uint256 targetSeed, uint256 voterSeed, uint256 weight) external {
         uint256 target = targets[targetSeed % 3];
         uint256 voter = voters[voterSeed % 3];
@@ -105,7 +102,6 @@ contract GovernanceBanInvariantTest is GroupChatFixture, StdInvariant {
         );
     }
 
-    // 每个目标的 support/oppose 总量必须恒等于逐票 settledWeight 之和：增量结算的全部正确性压在这里。
     function invariant_totalsEqualTheSumOfSettledVotes() public view {
         uint256[] memory targetList = new uint256[](TARGET_COUNT);
         for (uint256 i = 0; i < TARGET_COUNT; i++) {
@@ -126,7 +122,6 @@ contract GovernanceBanInvariantTest is GroupChatFixture, StdInvariant {
         }
     }
 
-    // voter 集合里不得留下零权重的空票：清零必须删除该票并同步集合。
     function invariant_voterSetsCarryOnlyLiveVotes() public view {
         for (uint256 t = 0; t < TARGET_COUNT; t++) {
             (uint256[] memory voterIds, uint256[] memory supportWeights, uint256[] memory opposeWeights, uint256 total) =
