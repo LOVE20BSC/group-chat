@@ -6,7 +6,6 @@ import {IManagerBase} from "../interfaces/managers/IManagerBase.sol";
 import {IActionTarget} from "@action/interfaces/IActionTarget.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {IMemberNFT} from "@core/interfaces/IMemberNFT.sol";
 import {IPhase} from "@core/interfaces/IPhase.sol";
@@ -26,11 +25,9 @@ abstract contract ManagerBase is IManagerBase {
     address public immutable LAUNCH_ADDRESS;
     address public immutable PHASE_ADDRESS;
 
-    bytes4 internal constant TEST_PREFIX = bytes4("Test");
     bytes16 internal constant HEX_SYMBOLS = "0123456789abcdef";
     uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 4;
     uint256 internal constant GROUP_NAME_SEPARATOR_BYTES = 1;
-    uint256 internal constant GROUP_NAME_TEST_PREFIX_BYTES = 4;
 
     address internal immutable ACTION_TARGET_ADDRESS;
     address internal immutable VOTE_ADDRESS;
@@ -81,10 +78,9 @@ abstract contract ManagerBase is IManagerBase {
 
     function _mintManagedGroup(
         string memory groupNameStem,
-        uint256 randomHexLength,
-        bool requiresTestPrefix
+        uint256 randomHexLength
     ) internal returns (uint256 groupId) {
-        string memory groupName = _nextGroupName(groupNameStem, randomHexLength, requiresTestPrefix);
+        string memory groupName = _nextGroupName(groupNameStem, randomHexLength);
         IMemberNFT memberNFT = IMemberNFT(GROUP_ADDRESS);
 
         uint256 expectedMintCost = memberNFT.calculateMintCost(groupName);
@@ -111,34 +107,30 @@ abstract contract ManagerBase is IManagerBase {
 
     function _typeCode() internal view virtual returns (string memory);
 
-    function _managedGroupNameStem(string memory payload, bool requiresTestPrefix)
+    function _managedGroupNameStem(string memory payload)
         internal
         view
         returns (string memory stem, uint256 randomHexLength)
     {
         string memory typeCode = _typeCode();
         uint256 fixedBytes = bytes(typeCode).length + GROUP_NAME_SEPARATOR_BYTES * 2
-            + GROUP_NAME_RANDOM_HEX_LENGTH + (requiresTestPrefix ? GROUP_NAME_TEST_PREFIX_BYTES : 0);
+            + GROUP_NAME_RANDOM_HEX_LENGTH;
 
         if (bytes(payload).length != 0 && fixedBytes + bytes(payload).length <= MAX_NAME_LENGTH) {
             return (string(abi.encodePacked(typeCode, "_", payload)), GROUP_NAME_RANDOM_HEX_LENGTH);
         }
 
-        randomHexLength = MAX_NAME_LENGTH - bytes(typeCode).length - GROUP_NAME_SEPARATOR_BYTES
-            - (requiresTestPrefix ? GROUP_NAME_TEST_PREFIX_BYTES : 0);
+        randomHexLength = MAX_NAME_LENGTH - bytes(typeCode).length - GROUP_NAME_SEPARATOR_BYTES;
         return (typeCode, randomHexLength);
     }
 
     function _nextGroupName(
         string memory groupNameStem,
-        uint256 randomHexLength,
-        bool requiresTestPrefix
+        uint256 randomHexLength
     ) internal returns (string memory) {
         for (uint256 i = 0; i < 8; i++) {
             string memory randomHex = _randomHex(randomHexLength, _mintNonce);
-            string memory groupName = _canonicalizeGroupName(
-                string(abi.encodePacked(groupNameStem, "_", randomHex)), requiresTestPrefix
-            );
+            string memory groupName = string(abi.encodePacked(groupNameStem, "_", randomHex));
             unchecked {
                 _mintNonce++;
             }
@@ -147,28 +139,6 @@ abstract contract ManagerBase is IManagerBase {
             }
         }
         revert ManagerGroupNameUnavailable();
-    }
-
-    function _love20TokenRequiresTestPrefix() internal view returns (bool) {
-        address love20 = IMemberNFT(GROUP_ADDRESS).LOVE20_TOKEN_ADDRESS();
-        return bytes4(bytes(IERC20Metadata(love20).symbol())) == TEST_PREFIX;
-    }
-
-    function _canonicalizeGroupName(string memory groupName, bool requiresTestPrefix)
-        internal
-        pure
-        returns (string memory)
-    {
-        if (!requiresTestPrefix || _hasTestPrefix(groupName)) {
-            return groupName;
-        }
-        return string(abi.encodePacked("Test", groupName));
-    }
-
-    function _hasTestPrefix(string memory groupName) internal pure returns (bool) {
-        bytes memory nameBytes = bytes(groupName);
-        return nameBytes.length >= 4 && nameBytes[0] == "T" && nameBytes[1] == "e" && nameBytes[2] == "s"
-            && nameBytes[3] == "t";
     }
 
     function _randomHex(uint256 hexLength, uint256 nonce) internal view returns (string memory) {

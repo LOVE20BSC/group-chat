@@ -30,9 +30,8 @@ abstract contract TokenManagerBase is ManagerBase {
     }
 
     function _mintManagedGroupForPayload(string memory payload) internal returns (uint256 groupId) {
-        bool requiresTestPrefix = _love20TokenRequiresTestPrefix();
-        (string memory stem, uint256 randomHexLength) = _managedGroupNameStem(payload, requiresTestPrefix);
-        return _mintManagedGroup(stem, randomHexLength, requiresTestPrefix);
+        (string memory stem, uint256 randomHexLength) = _managedGroupNameStem(payload);
+        return _mintManagedGroup(stem, randomHexLength);
     }
 
     function _managedTokenAddress(uint256 groupId) internal view virtual returns (address);

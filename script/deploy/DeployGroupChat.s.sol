@@ -38,7 +38,6 @@ contract DeployGroupChat is Script {
     uint256 internal constant LONGEST_MANAGER_TYPE_CODE_BYTES = 2;
     uint256 internal constant GROUP_NAME_SEPARATOR_BYTES = 1;
     uint256 internal constant GROUP_NAME_RANDOM_HEX_LENGTH = 4;
-    uint256 internal constant GROUP_NAME_TEST_PREFIX_BYTES = 4;
 
     struct Dependencies {
         address groupNft;
@@ -157,7 +156,7 @@ contract DeployGroupChat is Script {
         );
         require(config.banThresholdRatio <= PRECISION, "GROUP_CHAT_BAN_THRESHOLD_RATIO must be <= 1e18");
         uint256 minNameLength = LONGEST_MANAGER_TYPE_CODE_BYTES + GROUP_NAME_SEPARATOR_BYTES
-            + GROUP_NAME_RANDOM_HEX_LENGTH + GROUP_NAME_TEST_PREFIX_BYTES;
+            + GROUP_NAME_RANDOM_HEX_LENGTH;
         require(
             IMemberNFT(deps.groupNft).MAX_NAME_LENGTH() >= minNameLength,
             string.concat("MemberNFT MAX_NAME_LENGTH must be >= ", vm.toString(minNameLength))

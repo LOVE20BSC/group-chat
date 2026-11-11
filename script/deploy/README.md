@@ -50,7 +50,7 @@ keystore 密码不继承调用方环境变量，非交互场景请写进 `.accou
 `DeployGroupChat.s.sol` 在 `startBroadcast()` 前校验代码与派生绑定，避免白广播本库合约；`11_deploy.sh`
 只做文件、链、账户与密码编排。
 
-MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).length + 9`（1 字节分隔符 + 4 位 hex + 4 字节 Test 前缀；当前四类 2 字节类型码即 11；默认 32 满足）。类型码由各 Manager 自己定义，不设集中清单；广播前 Manager 尚未部署，脚本按「当前最长类型码 2 字节」预检 `MAX_NAME_LENGTH ≥ 11`（该假设由 `testT181` 对四个已部署 Manager 的实际 `TYPE_CODE()` 反向锁定），`21_check.sh` 部署后按各 Manager 的 `TYPE_CODE()` 独立复核；合约不再检查。建议保持在 32–64，payload 丢弃时的随机串长度会随 MAX 线性增长。
+MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).length + 5`（1 字节分隔符 + 4 位 hex；当前四类 2 字节类型码即 7；默认 32 满足）。类型码由各 Manager 自己定义，不设集中清单；广播前 Manager 尚未部署，脚本按「当前最长类型码 2 字节」预检 `MAX_NAME_LENGTH ≥ 7`（该假设由 `testT181` 对四个已部署 Manager 的实际 `TYPE_CODE()` 反向锁定），`21_check.sh` 部署后按各 Manager 的 `TYPE_CODE()` 独立复核；合约不再检查。建议保持在 32–64，payload 丢弃时的随机串长度会随 MAX 线性增长。
 
 `GROUP_CHAT_ACTION_RECENT_ROUNDS` 必须 >0，由 `DeployGroupChat.s.sol` 的 `_validateConfig` 广播前校验，`21_check.sh` 复核两个 action Manager 的 `RECENT_ROUNDS`。
 

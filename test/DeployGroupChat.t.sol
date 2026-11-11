@@ -30,7 +30,7 @@ contract DeployGroupChatHarness is DeployGroupChat {
     }
 
     function nameReservedBytesForTest() external pure returns (uint256) {
-        return GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH + GROUP_NAME_TEST_PREFIX_BYTES;
+        return GROUP_NAME_SEPARATOR_BYTES + GROUP_NAME_RANDOM_HEX_LENGTH;
     }
 }
 
@@ -455,7 +455,12 @@ contract DeployGroupChatTest is TestBase {
 
         string memory name = memberNFT.groupNameOf(groupId);
         assertEq(bytes(name).length, scriptFloor);
-        _assertPrefix(name, "tm_AAA_");
+        _assertPrefix(name, "tm_");
+        bytes memory nameBytes = bytes(name);
+        for (uint256 i = 3; i < nameBytes.length; i++) {
+            bytes1 char = nameBytes[i];
+            assertTrue((char >= "0" && char <= "9") || (char >= "a" && char <= "f"));
+        }
     }
 
     function _assertPrefix(string memory haystack, string memory prefix) internal pure {

@@ -20,7 +20,7 @@ contract MockManager is ManagerBase {
     }
 
     function activateMockManagedGroup() external returns (uint256 groupId) {
-        groupId = _mintManagedGroup("mock_manager", GROUP_NAME_RANDOM_HEX_LENGTH, _love20TokenRequiresTestPrefix());
+        groupId = _mintManagedGroup("mock_manager", GROUP_NAME_RANDOM_HEX_LENGTH);
         _activateManagedGroup(groupId);
     }
 

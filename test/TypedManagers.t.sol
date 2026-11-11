@@ -288,7 +288,7 @@ contract TypedManagersTest is GroupChatFixture {
         manager.activate(token);
     }
 
-    function testT115_tokenMainManagerMintSurvivesTestPrefixNormalization() public {
+    function testT115_tokenMainManagerIgnoresFirstTokenSymbol() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         MockERC20Payment payment = new MockERC20Payment();
         payment.setSymbol("TestLOVE20");
@@ -302,7 +302,7 @@ contract TypedManagersTest is GroupChatFixture {
         groupId = manager.activate(address(protocol));
 
         assertEq(chat.chatInfo(groupId).owner, address(manager));
-        _assertStartsWith(groupNft.groupNameOf(groupId), "Testtm_TestLOVE20_");
+        _assertStartsWith(groupNft.groupNameOf(groupId), "tm_TestLOVE20_");
     }
 
     function testT117_tokenMainManagerKeepsChineseSymbol() public {
@@ -350,7 +350,7 @@ contract TypedManagersTest is GroupChatFixture {
         _assertHexFrom(name, 3);
     }
 
-    function testT120_testPrefixBudgetDropsAtTwentyOneBytes() public {
+    function testT120_firstTokenSymbolDoesNotChangeNameBudget() public {
         MockLOVE20Protocols protocol = new MockLOVE20Protocols();
         MockERC20Payment love20Payment = MockERC20Payment(groupNft.LOVE20_TOKEN_ADDRESS());
         love20Payment.setSymbol("TestLOVE20");
@@ -359,17 +359,17 @@ contract TypedManagersTest is GroupChatFixture {
             new TokenMainManager(address(chat), address(0), address(0), address(0), address(protocol));
 
         MockERC20Payment fits = new MockERC20Payment();
-        fits.setSymbol(_repeatAscii("A", 20));
+        fits.setSymbol(_repeatAscii("A", 24));
         string memory fitsName = groupNft.groupNameOf(manager.activate(address(fits)));
-        _assertStartsWith(fitsName, string(abi.encodePacked("Testtm_", _repeatAscii("A", 20), "_")));
+        _assertStartsWith(fitsName, string(abi.encodePacked("tm_", _repeatAscii("A", 24), "_")));
         assertEq(bytes(fitsName).length, 32);
 
         MockERC20Payment overflow = new MockERC20Payment();
-        overflow.setSymbol(_repeatAscii("A", 21));
+        overflow.setSymbol(_repeatAscii("A", 25));
         string memory overflowName = groupNft.groupNameOf(manager.activate(address(overflow)));
-        _assertStartsWith(overflowName, "Testtm_");
+        _assertStartsWith(overflowName, "tm_");
         assertEq(bytes(overflowName).length, 32);
-        _assertHexFrom(overflowName, 7);
+        _assertHexFrom(overflowName, 3);
     }
 
     function testT121_tokenMainManagerDropsSymbolWhenNoNameSafeChars() public {
@@ -465,19 +465,19 @@ contract TypedManagersTest is GroupChatFixture {
         love20Payment.setSymbol("TestLOVE20");
 
         MockERC20Payment testFits = new MockERC20Payment();
-        testFits.setSymbol(_repeatAscii("A", 13));
+        testFits.setSymbol(_repeatAscii("A", 17));
         protocol.setActionsCount(address(testFits), 123456);
         string memory testFitsName = groupNft.groupNameOf(manager.activate(address(testFits), 123456));
-        _assertStartsWith(testFitsName, string(abi.encodePacked("Testam_", _repeatAscii("A", 13), "_123456_")));
+        _assertStartsWith(testFitsName, string(abi.encodePacked("am_", _repeatAscii("A", 17), "_123456_")));
         assertEq(bytes(testFitsName).length, 32);
 
         MockERC20Payment testOverflow = new MockERC20Payment();
-        testOverflow.setSymbol(_repeatAscii("A", 14));
+        testOverflow.setSymbol(_repeatAscii("A", 18));
         protocol.setActionsCount(address(testOverflow), 123456);
         string memory testOverflowName = groupNft.groupNameOf(manager.activate(address(testOverflow), 123456));
         assertEq(bytes(testOverflowName).length, 32);
-        _assertStartsWith(testOverflowName, "Testam_");
-        _assertHexFrom(testOverflowName, 7);
+        _assertStartsWith(testOverflowName, "am_");
+        _assertHexFrom(testOverflowName, 3);
     }
 
     function testT126_actionManagerUsesActionOnlyWhenSymbolIsEmpty() public {
@@ -515,8 +515,8 @@ contract TypedManagersTest is GroupChatFixture {
         _assertHexFrom(overflowName, 3);
     }
 
-    function testT128_tokenManagerTestPrefixAtMinimumNameLength() public {
-        groupNft.setMaxGroupNameLength(11);
+    function testT128_tokenManagerIgnoresFirstTokenSymbolAtMinimumNameLength() public {
+        groupNft.setMaxGroupNameLength(7);
         MockERC20Payment love20Payment = MockERC20Payment(groupNft.LOVE20_TOKEN_ADDRESS());
         love20Payment.setSymbol("TestLOVE20");
 
@@ -527,9 +527,9 @@ contract TypedManagersTest is GroupChatFixture {
         token.setSymbol("A");
 
         string memory name = groupNft.groupNameOf(manager.activate(address(token)));
-        _assertStartsWith(name, "Testtm_");
-        assertEq(bytes(name).length, 11);
-        _assertHexFrom(name, 7);
+        _assertStartsWith(name, "tm_");
+        assertEq(bytes(name).length, 7);
+        _assertHexFrom(name, 3);
     }
 
     function testT180_managerTypeCodesAreNonEmptyAndDistinct() public {

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.37;
 
-import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 
 contract MockLOVE20Group {
-    bytes4 internal constant TEST_PREFIX = bytes4("Test");
-
     uint256 internal _nextTokenId = 1;
     address public LOVE20_TOKEN_ADDRESS;
     uint256 public mintCost;
@@ -34,19 +32,18 @@ contract MockLOVE20Group {
     }
 
     function mint(string calldata groupName) external returns (uint256 tokenId, uint256 cost) {
-        string memory normalizedGroupName = _canonicalizeGroupName(groupName);
-        require(bytes(normalizedGroupName).length <= MAX_GROUP_NAME_LENGTH, "NAME_TOO_LONG");
-        string memory nameKey = _nameKey(normalizedGroupName);
+        require(bytes(groupName).length <= MAX_GROUP_NAME_LENGTH, "NAME_TOO_LONG");
+        string memory nameKey = _nameKey(groupName);
         require(_nameToTokenId[nameKey] == 0, "NAME_USED");
 
         cost = mintCost;
         if (cost != 0) {
-            IERC20Metadata(LOVE20_TOKEN_ADDRESS).transferFrom(msg.sender, address(this), cost);
+            IERC20(LOVE20_TOKEN_ADDRESS).transferFrom(msg.sender, address(this), cost);
         }
 
         tokenId = _nextTokenId++;
         _owners[tokenId] = msg.sender;
-        _groupNames[tokenId] = normalizedGroupName;
+        _groupNames[tokenId] = groupName;
         _nameToTokenId[nameKey] = tokenId;
     }
 
@@ -69,11 +66,11 @@ contract MockLOVE20Group {
     }
 
     function isNameUsed(string calldata groupName) external view returns (bool) {
-        return _nameToTokenId[_nameKey(_canonicalizeGroupName(groupName))] != 0;
+        return _nameToTokenId[_nameKey(groupName)] != 0;
     }
 
     function isGroupNameUsed(string calldata groupName) external view returns (bool) {
-        return _nameToTokenId[_canonicalizeGroupName(groupName)] != 0;
+        return _nameToTokenId[_nameKey(groupName)] != 0;
     }
 
     function groupNameOf(uint256 tokenId) external view returns (string memory) {
@@ -92,20 +89,6 @@ contract MockLOVE20Group {
     function transferFrom(address from, address to, uint256 tokenId) external {
         require(_owners[tokenId] == from, "NOT_OWNER");
         _owners[tokenId] = to;
-    }
-
-    function _canonicalizeGroupName(string memory groupName) internal view returns (string memory) {
-        address love20 = LOVE20_TOKEN_ADDRESS;
-        if (bytes4(bytes(IERC20Metadata(love20).symbol())) != TEST_PREFIX || _hasTestPrefix(groupName)) {
-            return groupName;
-        }
-        return string(abi.encodePacked("Test", groupName));
-    }
-
-    function _hasTestPrefix(string memory groupName) internal pure returns (bool) {
-        bytes memory nameBytes = bytes(groupName);
-        return nameBytes.length >= 4 && nameBytes[0] == "T" && nameBytes[1] == "e" && nameBytes[2] == "s"
-            && nameBytes[3] == "t";
     }
 }
 

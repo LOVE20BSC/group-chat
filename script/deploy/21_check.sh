@@ -76,8 +76,8 @@ NC='\033[0m'
 
 failed_checks=0
 
-# Same convention as the deploy script: 1 separator byte + 4 hex chars + 4-byte Test prefix.
-MANAGER_NAME_RESERVED_BYTES=9
+# Same convention as the deploy script: 1 separator byte + 4 hex chars.
+MANAGER_NAME_RESERVED_BYTES=5
 
 cast_call() {
     cast call "$1" "$2" --rpc-url "$RPC_URL"
