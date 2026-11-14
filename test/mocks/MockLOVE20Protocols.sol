@@ -13,7 +13,7 @@ contract MockLOVE20Protocols {
 
     mapping(address => uint256) public balances;
     mapping(address => mapping(address => uint256)) public allowance;
-    mapping(address => mapping(uint256 => uint256)) public govVotes;
+    mapping(address => mapping(uint256 => uint256)) internal _govVotes;
     mapping(address => uint256) public govVoteTotals;
     mapping(address => mapping(uint256 => mapping(uint256 => mapping(uint256 => uint256)))) public actionVotes;
     mapping(address => mapping(uint256 => uint256[])) internal _actionIdsByMemberId;
@@ -68,8 +68,8 @@ contract MockLOVE20Protocols {
     }
 
     function setGovVotes(address token, uint256 memberId, uint256 votes) external {
-        govVoteTotals[token] = govVoteTotals[token] - govVotes[token][memberId] + votes;
-        govVotes[token][memberId] = votes;
+        govVoteTotals[token] = govVoteTotals[token] - _govVotes[token][memberId] + votes;
+        _govVotes[token][memberId] = votes;
     }
 
     function setLOVE20Token(address token, bool listed) external {
@@ -143,12 +143,12 @@ contract MockLOVE20Protocols {
     }
 
     // The real `Stake` is round-keyed; this double answers only the round the phase reports (zero otherwise).
-    function validGovVotes(address tokenAddress, uint256 round, uint256 memberId) external view returns (uint256) {
+    function govVotes(address tokenAddress, uint256 round, uint256 memberId) external view returns (uint256) {
         if (round != _currentRound) return 0;
-        return govVotes[tokenAddress][memberId];
+        return _govVotes[tokenAddress][memberId];
     }
 
-    function totalValidGovVotes(address tokenAddress, uint256 round) external view returns (uint256) {
+    function totalGovVotes(address tokenAddress, uint256 round) external view returns (uint256) {
         if (round != _currentRound) return 0;
         return govVoteTotals[tokenAddress];
     }

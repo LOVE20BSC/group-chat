@@ -26,7 +26,7 @@ abstract contract TokenManagerBase is ManagerBase {
         if (tokenAddress == address(0)) {
             return 0;
         }
-        return IStake(STAKE_ADDRESS).totalValidGovVotes(tokenAddress, currentPhase());
+        return IStake(STAKE_ADDRESS).totalGovVotes(tokenAddress, currentPhase());
     }
 
     function _mintManagedGroupForPayload(string memory payload) internal returns (uint256 groupId) {

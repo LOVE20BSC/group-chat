@@ -65,7 +65,7 @@ abstract contract TokenScopeManagerBase is TokenManagerBase, ITokenScopeManagerB
         if (tokenAddress == address(0)) {
             return 0;
         }
-        return IStake(STAKE_ADDRESS).validGovVotes(tokenAddress, currentPhase(), voterId);
+        return IStake(STAKE_ADDRESS).govVotes(tokenAddress, currentPhase(), voterId);
     }
 
     function _activateToken(address tokenAddress) internal returns (uint256 groupId) {
