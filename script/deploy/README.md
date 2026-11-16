@@ -13,8 +13,8 @@ script/
 └── network/
     ├── verifier.params            # 开源验证端点与跳过链（所有网络共用一份）
     └── <链名><链id>_<部署类型>/
-        ├── .account                  # KEYSTORE_ACCOUNT / ACCOUNT_ADDRESS / KEYSTORE_PASSWORD（可选），已 gitignore
-        ├── network.params            # CHAIN_ID / RPC_URL；开源验证凭据 ETHERSCAN_API_KEY
+        ├── .account                  # KEYSTORE_ACCOUNT / ACCOUNT_ADDRESS / KEYSTORE_PASSWORD（可选）/ ETHERSCAN_API_KEY，已 gitignore
+        ├── network.params            # CHAIN_ID / 公开 RPC_URL
         ├── group-chat.params         # 本库 12 个合约的构造参数
         ├── addresses.group-chat.params  # 本库已部署地址，11_deploy.sh 写入
         ├── addresses.core.params     # 被依赖方：MemberNFT、Phase（从 core 对应网络复制）
@@ -58,7 +58,7 @@ MemberNFT 的 `MAX_NAME_LENGTH` 必须 ≥ 各 Manager 的 `bytes(TYPE_CODE()).l
 
 `GROUP_CHAT_BEFORE_POST_PLUGIN_ADDRESS` / `GROUP_CHAT_AFTER_POST_PLUGIN_ADDRESS` 是必填键：零地址表示不挂载，省略键或留空都失败（不按「未挂载」兜底）。两个步骤各自用 `params_require_values` 对 `group-chat.params` 断言（`11_deploy.sh` 与 `21_check.sh` 在这里、`31_verify.sh` 也要编码构造参数，所以在三处都断言）；键集合由 `deploy_scripts_test.py` 交叉核对，漏一处即失败。
 
-`31_verify.sh` 与 core / action / dex 三个仓同口径：端点取自 `verifier.params` 的 `ETHERSCAN_VERIFIER_URL`，API Key 取自 `network.params` 的 `ETHERSCAN_API_KEY`（空=验证失败，不会静默跳过）。验证默认开启，只有列在 `VERIFY_SKIP_CHAIN_IDS` 的链才打印 `Skip` 并返回成功（本地 anvil 即 `31337`）；`56`、`97` 不允许进跳过名单，部署回归测试会拒绝。
+`31_verify.sh` 与 core / action / dex 三个仓同口径：端点取自 `verifier.params` 的 `ETHERSCAN_VERIFIER_URL`，API Key 取自 `.account` 的 `ETHERSCAN_API_KEY`（空=验证失败，不会静默跳过）。验证默认开启，只有列在 `VERIFY_SKIP_CHAIN_IDS` 的链才打印 `Skip` 并返回成功（本地 anvil 即 `31337`）；`56`、`97` 不允许进跳过名单，部署回归测试会拒绝。
 
 `group-chat.params` 里的长整数可写成 `<整数>e<指数>`（`3e15` 即 0.3%）或带下划线的分组写法（`1_000_000`），由 `script/deploy/params.sh` 在载入时展开为十进制再导出；尾数必须是不带小数点的整数（`2.5e15` 不会被展开，写成 `25e14`）；展开是纯词法的、没有键表，写错的写法会留给 `vm.envUint` 在广播前报错。
 
@@ -80,3 +80,5 @@ cp script/network/anvil31337_dev/{network.params,group-chat.params} script/netwo
 
 被依赖方地址从对应网络的 `core` / `action` 地址文件复制后填入本目录的
 `addresses.core.params` / `addresses.action.params`；留零时部署会在广播前明确报错。
+
+公开参数和地址会随仓库发布到 GitHub Pages。`network.params` 的 `RPC_URL` 只填公开节点；验证 API Key、密码和带凭据的私有 RPC 统一写入已忽略的 `.account`，其中 `RPC_URL` 可覆盖公开节点。部署步骤必需 `.account`；只读校验在它存在时读取；验证步骤仅在实际提交验证时要求其中的 `ETHERSCAN_API_KEY`，不接受环境变量补位。

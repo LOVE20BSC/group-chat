@@ -100,7 +100,6 @@ require_deployed_addresses() {
 }
 
 echo "=== Deploying GroupChat Contracts to $network ==="
-echo "  RPC_URL: $RPC_URL"
 echo "  CHAIN_ID: $CHAIN_ID"
 
 # A failure after broadcast must leave both the log and the artifact path behind for manual

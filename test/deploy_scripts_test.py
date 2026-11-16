@@ -103,6 +103,8 @@ def fake_tool(tool, args):
     elif tool == "cast":
         if args[0] == "chain-id":
             print(os.environ.get("RPC_CHAIN", data["chain_id"]))
+        elif args[0] == "abi-encode":
+            print("0x00")
         elif args[0] == "code":
             print("0x01")
         elif args[0] == "call":
@@ -142,6 +144,8 @@ def fake_tool(tool, args):
             os.close(fd)
             print(path)
     elif tool == "forge":
+        if args[0] == "verify-contract":
+            return 0
         if args[0] != "script":
             raise AssertionError(args)
         if "--password" in args:
@@ -566,6 +570,22 @@ def main():
             finally:
                 params.write_text(params_text)
 
+        def assert_private_verification_key():
+            network.parent.joinpath("verifier.params").write_text(
+                "ETHERSCAN_VERIFIER_URL=https://api.etherscan.io/v2/api\nVERIFY_SKIP_CHAIN_IDS=\n")
+            write_account("ETHERSCAN_API_KEY=test-key\n")
+            _, log = run("31_verify.sh")
+            assert any(call[:2] == ["forge", "verify-contract"] for call in log), log
+            write_account()
+            result, log = run("31_verify.sh", False, ETHERSCAN_API_KEY="inherited-key")
+            assert "ETHERSCAN_API_KEY" in result.stderr, result.stderr
+            assert not any(call[:2] == ["forge", "verify-contract"] for call in log), log
+            network.joinpath(".account").unlink()
+            network.parent.joinpath("verifier.params").write_text(
+                "ETHERSCAN_VERIFIER_URL=https://api.etherscan.io/v2/api\nVERIFY_SKIP_CHAIN_IDS=31337\n")
+            result, _ = run("31_verify.sh")
+            assert "Skip" in result.stdout, result.stdout
+
         cases = [
             ("01 成功：12 键写盘、密码临时文件 600 且清理", assert_success_writes_all),
             ("02 .account 密码直接使用，不弹窗", assert_account_password),
@@ -581,6 +601,7 @@ def main():
             ("12 一键入口：21 失败且无旧文件时删除新文件", assert_one_click_check_failure_without_old_file),
             ("13 插件槽位缺键即失败，不按未挂载兜底", assert_plugin_keys_required),
             ("14 一键入口：21 校验通过时保留新地址并完成", assert_one_click_success),
+            ("15 验证凭据只读 .account，本地跳过不需要凭据", assert_private_verification_key),
         ]
         failed = 0
         for name, body in cases:
